@@ -1,0 +1,30 @@
+# Local development only (the lab host runs one docker_container per AddOn through the website's `addons` Ansible role;
+# Compose is reserved for the workspace platform there, website ADR 0032). Hardened the same way the role runs it.
+services:
+  cloud-crawler:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+      args: { EDITION: lab }
+    image: hcw-addon-cloud-crawler:dev
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      PORT: "8080"
+      CC_ALLOW_NO_TURNSTILE: "1"   # local only: uploads without human verification, logged as a warning at startup
+      CC_FRAME_ANCESTORS: "'none'"
+      CC_SITE_ORIGINS: ""
+      CC_ALLOWED_ORIGINS: ""
+      CC_TRUST_PROXY: "0"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 256
+    cpus: 1
+    restart: unless-stopped
+    init: true

@@ -1,0 +1,47 @@
+# Actions are pinned to full commit SHAs (version in the trailing comment); Dependabot (github-actions ecosystem) proposes updates.
+# CodeQL and dependency review run from their own workflows (codeql.yml, dependency-review.yml, from the template);
+# this workflow carries the secret scan, the vulnerability audit of the runtime set and the base-image pin check.
+name: security
+on:
+  pull_request:
+  push: { branches: [main] }
+  schedule: [{ cron: "23 6 * * 1" }]
+permissions:
+  contents: read
+jobs:
+  secret-scan:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+  pip-audit:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with: { python-version: "3.14" }
+      - run: python -m pip install "uv==0.11.32"
+      - run: uv sync --frozen --all-packages
+      - name: Known vulnerabilities in the runtime set the image installs (exported from uv.lock as the build does)
+        run: |
+          set -euo pipefail
+          uv export --frozen --format requirements-txt --no-dev --no-emit-project --no-header -o "${RUNNER_TEMP}/requirements.lock.txt"
+          uv run pip-audit -r "${RUNNER_TEMP}/requirements.lock.txt" --strict
+  base-follows-website:
+    # The base is the website's current pin. Weekly and on main, not on pull requests, so a website bump is a signal
+    # to move versions.env and every FROM together, not a red mark on unrelated work.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: The base image is the website's current pin
+        run: |
+          set -euo pipefail
+          site="$(curl -fsSL https://raw.githubusercontent.com/saulpatinojr/HCW-HybridCloudWorks/main/lab-image/versions.env)"
+          want="$(printf '%s\n' "$site" | sed -n 's/^BASE_IMAGE=//p')@$(printf '%s\n' "$site" | sed -n 's/^BASE_DIGEST=//p')"
+          have="$(sed -n 's/^BASE_IMAGE=//p' infrastructure/docker/versions.env)@$(sed -n 's/^BASE_DIGEST=//p' infrastructure/docker/versions.env)"
+          case "$want" in *@sha256:*) ;; *) echo "::error::could not read the website's base pin"; exit 1 ;; esac
+          [ "$have" = "$want" ] || { echo "::error file=infrastructure/docker/versions.env::base ${have} differs from the website's ${want}: move versions.env and every FROM together"; exit 1; }
+          echo "base ${have} is the website's pin"

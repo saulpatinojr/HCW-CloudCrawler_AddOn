@@ -59,3 +59,10 @@ crash.log
 # Tooling caches
 .qlty/cache/
 .qlty/logs/
+
+# Coverage and runtime data (never committed)
+.coverage
+coverage.xml
+htmlcov/
+data/
+*.zip

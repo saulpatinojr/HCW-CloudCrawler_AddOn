@@ -37,13 +37,12 @@ Maintainers will acknowledge and triage reports as soon as practical. Timelines 
 
 ## Supported versions
 
-Replace this section with the repository's actual support policy.
-
 | Version or branch | Supported |
 | --- | --- |
-| [Current release or default branch] | [Yes/No] |
-| [Older release] | [Yes/No] |
+| `main` | Yes |
+| The latest tagged release | Yes |
+| Earlier tagged releases | No; upgrade to the latest release |
 
 ## Maintainer contact and response target
 
-Replace this section with a verified private contact, ownership group, and response target. Do not invent an email address or promise an SLA that the repository cannot meet.
+Report privately through GitHub private vulnerability reporting on this repository (Security tab, "Report a vulnerability"). The maintainer is the repository owner listed in `.github/CODEOWNERS`. Reports are acknowledged as soon as practical; this is a one-maintainer project and no response time is promised.
