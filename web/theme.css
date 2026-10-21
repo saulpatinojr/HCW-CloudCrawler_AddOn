@@ -1,0 +1,88 @@
+/*
+ * HCW theme tokens, copied verbatim from
+ * HCW-HybridCloudWorks/frontend/src/index.css (:root and .dark HSL blocks, --font-* families)
+ * on 2026-10-10 so the pane matches the site in both themes (AddOn Integration Standard, section 7).
+ * The pane fetches no fonts from the site: the family names are fallbacks that resolve only when the
+ * visitor's browser has them. Brand provider colours are copied for completeness and unused here.
+ * Theme selection: ?theme=dark|light on the frame URL (app.js sets the .dark class), else prefers-color-scheme.
+ */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222 20% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 20% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 20% 12%;
+  --primary: 222 20% 12%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 95%;
+  --secondary-foreground: 222 20% 12%;
+  --muted: 210 20% 96%;
+  --muted-foreground: 220 12% 38%;
+  --accent: 220 14% 95%;
+  --accent-foreground: 222 20% 12%;
+  --destructive: 0 72% 54%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 14% 95%;
+  --input: 220 14% 95%;
+  --ring: 222 20% 18%;
+  --radius: 0.5rem;
+  --azure-blue: 199 100% 47%;
+  --aws-orange: 36 100% 50%;
+  --gcp-red: 4 68% 53%;
+  --github-gray: 210 6% 12%;
+  --terraform-purple: 267 42% 50%;
+  --finops-green: 159 74% 38%;
+  --vmware-blue: 200 100% 43%;
+  --ansible-red: 0 100% 47%;
+  --docker-blue: 220 85% 52%;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Turret Road', ui-monospace, monospace;
+  --font-display: 'Goldman', 'Turret Road', 'IBM Plex Mono', monospace;
+}
+
+.dark {
+  --background: 240 9% 4%;
+  --foreground: 0 0% 100%;
+  --card: 240 6% 7%;
+  --card-foreground: 0 0% 100%;
+  --popover: 240 6% 7%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 222 20% 12%;
+  --secondary: 240 6% 14%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 240 6% 11%;
+  --muted-foreground: 215 16% 80%;
+  --accent: 240 6% 14%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 6% 15%;
+  --input: 240 6% 15%;
+  --ring: 240 6% 18%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.dark) {
+    --background: 240 9% 4%;
+    --foreground: 0 0% 100%;
+    --card: 240 6% 7%;
+    --card-foreground: 0 0% 100%;
+    --popover: 240 6% 7%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 222 20% 12%;
+    --secondary: 240 6% 14%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 240 6% 11%;
+    --muted-foreground: 215 16% 80%;
+    --accent: 240 6% 14%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 15%;
+    --input: 240 6% 15%;
+    --ring: 240 6% 18%;
+  }
+}

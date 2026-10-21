@@ -1,0 +1,14 @@
+# Lint and format settings for the application and the tests.
+target-version = "py314"
+line-length = 120
+extend-exclude = [".venv", "web", "docs", "samples"]
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "W"]
+ignore = ["B008"]  # FastAPI dependency defaults in signatures
+
+[lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[format]
+quote-style = "double"

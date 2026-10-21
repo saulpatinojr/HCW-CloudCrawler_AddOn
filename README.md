@@ -1,103 +1,136 @@
-# Repository template
+# HCW Cloud Crawler, AddOn (lab edition)
 
-A GitHub template repository. Create a repository from it, run one command,
-and the new repository has its governance files, review-app configuration,
-security workflows and labels in place.
+[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-## Create a repository from it
+The lab edition of Cloud Crawler, Hybrid Cloud Works' Azure architecture
+appliance. It is the only Cloud Crawler edition that hybridcloudworks.com
+integrates with: the site frames it as a sandboxed pane at
+`/tools/cloud-crawler` and, in the lab chat path, hands it evidence through
+the site's own API. It exists for demonstrations, labs, training and
+evaluation scenarios.
 
-1. On this repository's page choose **Use this template**, then **Create a
-   new repository**. Name it and create it.
-2. Clone the new repository and open a shell in its root folder.
-3. Run the initialize script once (next section).
-4. Work through `docs/TEMPLATE.md`, then delete that file.
+The AddOn **collects evidence but never fetches it**. A visitor uploads an
+Azure Resource Graph export, an azqr report or Terraform artifacts, or the
+site hands in results it obtained from Azure MCP Server on the visitor's
+behalf; the AddOn validates, hashes, redacts and normalises what it is given,
+runs deterministic drift detectors against the decision records in the
+session, and answers with evidence, drift findings, draft ADRs and review
+proposals. Everything lives in memory and expires after two hours.
 
-## Initialize the checkout
+The engine is not written here. It is
+[`cloud-crawler-core`](https://github.com/saulpatinojr/HCW-CloudCrawler_App),
+seeded and versioned in the upstream App repository and adopted here
+**unchanged** when the App releases (ADR 0001 in the App; the update
+workflow in `.github/workflows/core-update.yml` opens the bump pull request).
+This repository owns only the lab application, its edition boundary, its
+pane, its limits and its deployment on the website's lab host.
 
-PowerShell (Windows):
+## No cloud connectivity by design
 
-```powershell
-.\scripts\Initialize-Repo.ps1 -Stack node-typescript -Prune
-```
+This edition is technically unable to reach Azure. It is not a configuration
+choice; it is enforced and tested:
 
-Bash (Git Bash, macOS, Linux; needs Python 3):
+- no cloud SDK is installed, and the application refuses to start if `azure`,
+  `msal` or `boto3` can be imported;
+- it refuses to start under `IDENTITY_ENDPOINT`, `MSI_ENDPOINT`,
+  `AZURE_CLIENT_SECRET`, `AZURE_FEDERATED_TOKEN_FILE`, `AZURE_CLIENT_ID` or
+  `AZURE_TENANT_ID`;
+- no code and no pane references `management.azure.com`,
+  `login.microsoftonline.com` or `graph.microsoft.com`;
+- the pane has no sign-in and no password field; its only input is a file
+  picker;
+- its MCP tool list contains no tool that calls Azure, and the security suite
+  reads the list over the protocol to prove it;
+- `/api/health` reports `azureConnectivity: "disabled-by-design"`.
+
+The user's delegated Azure access, when there is one, stays in the website:
+the site forwards the visitor's token to Azure MCP Server per request and
+hands the **result** to this AddOn as evidence. No Azure credential, access
+token or refresh token is ever held here (website proposal section 11).
+
+## Status
+
+Skeleton. What exists today:
+
+- the lab application skeleton: configuration, the edition boundary and its
+  startup refusal, content-free logging, security headers, exact-origin CORS,
+  the upload and rate limits, and a flat `/api/health`;
+- the pane shell that posts `{type:'hcw-addon', id:'cloud-crawler', state}`
+  with the states `loading | ready | working | unavailable` to the website
+  origins only;
+- the security suite that proves the boundary, including inside the image;
+- the hardened Dockerfile and the publish, security and core-update workflows.
+
+Not yet: the engine (adopted at the App's first release), the MCP server
+surface, uploads of the new artifact formats, the trusted-caller session API
+for the site's chat path. The roadmap is section 22 of the website proposal
+*Azure Architecture MCP Appliance on Azure MCP Server 3.0*; nothing here is
+production.
+
+## Getting started
+
+Prerequisites: Python 3.14 (managed by `uv`), `uv` 0.11.
 
 ```bash
-bash scripts/initialize-repo.sh --prune node-typescript
+uv sync --all-packages
+uv run ruff check . && uv run ruff format --check .
+uv run pytest -q --cov=src
 ```
 
-Both scripts do the same work. Run one of them, from the repository root,
-before committing any code of your own. Running it a second time is safe:
-every step checks whether it has already been done.
+Run it locally. Uploads answer `503` until human verification is configured;
+the local-only switch below disables that requirement and must never be set
+on the lab host:
 
-### Parameters
-
-| PowerShell | Bash | Meaning |
-| --- | --- | --- |
-| `-Stack <list>` | words after the flags | Technology in the repository: `node-typescript`, `python`, `terraform-ansible`. Give several, or none for a docs-only repository. |
-| `-Prune` | `--prune` | Delete `overlays/` and `scripts/` when done. Recommended. |
-| `-Name <repo>` | `--name <repo>` | Repository name. Default: read from the `origin` remote. |
-| `-Owner @login` | `--owner @login` | Code owner, a user or `@org/team`. Default: the account in the `origin` remote. |
-| `-SkipGitHub` | `--skip-github` | Do not call `gh`. Labels and Discussions must then be set up by hand. |
-
-Full help: `Get-Help .\scripts\Initialize-Repo.ps1 -Detailed` or
-`bash scripts/initialize-repo.sh --help`.
-
-### What it does
-
-1. Replaces this README with the project README skeleton from
-   `docs/README.project.md`, titled with the repository name.
-2. Writes `* @<owner>` into `.github/CODEOWNERS`.
-3. Removes every `.github/dependabot.yml` block whose manifest is absent
-   (no `package.json`, no npm block), so Dependabot reports nothing missing.
-4. Points the issue chooser (`.github/ISSUE_TEMPLATE/config.yml`) and
-   `docs/TEMPLATE.md` at the new repository.
-5. Adds the stack's CodeQL languages to `.github/workflows/codeql.yml`.
-   Workflow files (`actions`) are always analysed.
-6. Appends the stack's Qlty plugins from `overlays/<stack>/qlty.toml.part`
-   to `.qlty/qlty.toml`.
-7. With `gh` signed in: creates the labels in `.github/labels.json` and
-   enables Discussions. Otherwise it says so and continues.
-8. With `-Prune`: deletes `overlays/` and `scripts/`.
-
-### What success looks like
-
-```text
-README.md: project README written for Demo_App
-CODEOWNERS: * @example-org
-dependabot.yml: kept npm, github-actions ; dropped pip, terraform, docker
-ISSUE_TEMPLATE/config.yml: links point at example-org/Demo_App
-codeql.yml: languages actions, javascript-typescript
-qlty.toml: appended node-typescript
-label: bug ... discussions: enabled on example-org/Demo_App
-pruned overlays/ and scripts/
+```bash
+CC_ALLOW_NO_TURNSTILE=1 uv run python -m cloud_crawler_lab
 ```
 
-The script stops at the first error and prints it. Fix the cause and run it
-again. Nothing it does needs input while it runs.
+Then open `http://127.0.0.1:8080/`. The image is
+`docker.io/hybridcloudworks/hcw-addon-cloud-crawler`, built from
+`infrastructure/docker/Dockerfile`; the website pins it by digest and the
+lab host runs it behind the site's reverse proxy at
+`https://cloud-crawler.lab.hybridcloudworks.com`.
 
-### Requirements
+## Integration with the website
 
-- Git, with the new repository's `origin` remote set (a normal clone has it).
-- PowerShell 5.1 or 7 for the `.ps1`; Bash and Python 3 for the `.sh`.
-- Optional: GitHub CLI signed in (`gh auth status`) for labels and Discussions.
+| Contract | Value |
+| --- | --- |
+| Catalogue id | `cloud-crawler` |
+| Site route | `/tools/cloud-crawler` |
+| Origin | `https://cloud-crawler.lab.hybridcloudworks.com` |
+| Health | `GET /api/health`, flat: `id`, `version`, `edition`, `capabilities`, `asOf`, `siteOrigins`, `azureConnectivity`, `limits` |
+| Pane message | `{type:'hcw-addon', id:'cloud-crawler', state}` posted to each origin in `siteOrigins` only; states `loading`, `ready`, `working`, `unavailable` |
+| Status proxy | the site's `GET /api/public/addons/cloud-crawler/status` reads six fields from health |
+| Limits | 5 MB upload, 5,000 rows, 200 items held, 120-minute expiry |
 
-## What the template contains
+The contract is the website's AddOn integration standard and ADR 0035; this
+repository follows it rather than defining it.
 
-- Governance: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`,
-  `.github/SECURITY.md`, `.github/CODEOWNERS`, `.github/PULL_REQUEST_TEMPLATE.md`.
-- Issues: `.github/ISSUE_TEMPLATE/` forms for bug, feature, ADR, FinOps
-  finding and infrastructure change; `.github/labels.json`;
-  `.github/release.yml` for generated release notes.
-- Writing templates in `.github/templates/` (blog, gist, task, workflow
-  document). GitHub does not load these; they are for copying.
-- Security: `.github/workflows/codeql.yml` with
-  `.github/codeql/codeql-config.yml`, `.github/workflows/dependency-review.yml`,
-  `.github/dependabot.yml`.
-- Review apps: `.coderabbit.yaml` (CodeRabbit), `.qlty/qlty.toml` plus
-  `overlays/` (Qlty), `.github/copilot-instructions.md`; lint configuration
-  `.yamllint.yaml` and `.markdownlint.yaml`.
-- Hygiene: `.editorconfig`, `.gitattributes`, `.gitignore`; `docs/adr/`
-  for decision records.
-- `docs/TEMPLATE.md`: the post-creation checklist for the steps no file can
-  carry (connecting the apps, repository settings).
+## Rules that do not bend
+
+- Never weaken the boundary above, the fail-closed human verification, the
+  owner-token isolation (hashed, constant-time, 404 for foreign ids), the
+  limits, the exact-origin CORS, the content-free log writer, or the "not
+  production" and "no cloud connectivity by design" labels. Every output
+  bundle carries `NOT-AN-AUDIT.md`.
+- No vendor names in anything a visitor can read: say "human verification"
+  and "expires after two hours".
+- No secrets, tokens, customer inventories or real tenant, subscription or
+  resource identifiers anywhere. Samples use subscription
+  `00000000-0000-0000-0000-000000000001` and `hcw-sample-*` names only.
+- The engine is adopted from the App unchanged. Detector and tool changes go
+  upstream first.
+
+## Repository standards
+
+This repository was created from the organisation's template repository. It
+carries `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`,
+`.github/SECURITY.md`, `.github/CODEOWNERS`, the pull request and issue
+templates, CodeQL, dependency review, Dependabot, CodeRabbit and Qlty
+configuration, and `docs/adr/`. Pull requests open ready for review and follow
+`.github/PULL_REQUEST_TEMPLATE.md`; `CHANGELOG.md` is updated in the same pull
+request as the change.
+
+## Contributing, security, license
+
+See `CONTRIBUTING.md`, `.github/SECURITY.md` and [LICENSE](LICENSE) (MIT).

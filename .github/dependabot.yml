@@ -6,26 +6,9 @@
 
 version: 2
 updates:
-  # Root JavaScript or TypeScript manifests.
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "javascript"
-    groups:
-      javascript-minor-patch:
-        update-types:
-          - "minor"
-          - "patch"
-
-  # Root Python manifests such as requirements.txt, pyproject.toml, or poetry.lock.
-  - package-ecosystem: "pip"
+  # uv, not pip: uv updates pyproject.toml and uv.lock together, and the image build exports uv.lock itself
+  # (infrastructure/docker/Dockerfile), so nothing else has to move.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -36,12 +19,14 @@ updates:
     labels:
       - "dependencies"
       - "python"
+    # Every locked package, not only direct dependencies.
+    allow: [{ dependency-type: all }]
     groups:
-      python-minor-patch:
-        update-types:
-          - "minor"
-          - "patch"
-
+      # Pre-emptive: no Azure SDK may ever enter this edition; a grouped PR makes an attempt visible at a glance.
+      azure-sdk: { patterns: ["azure-*", "msal*", "msrest*"] }
+      dev: { dependency-type: development }
+  # No docker entry. The base image follows the website's pin (infrastructure/docker/versions.env) and the uv image
+  # used to export follows UV_VERSION in ci.yml, which CI checks against the Dockerfile.
   # GitHub Actions under .github/workflows.
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -58,37 +43,6 @@ updates:
       github-actions:
         patterns:
           - "*"
-
-  # Root Terraform files. Keep this block for Terraform/OpenTofu IaC repos.
-  - package-ecosystem: "terraform"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 10
-    labels:
-      - "dependencies"
-      - "terraform"
-    groups:
-      terraform-minor-patch:
-        update-types:
-          - "minor"
-          - "patch"
-
-  # Root Dockerfiles or container metadata.
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "Etc/UTC"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "docker"
 
 # Optional additional directories. Copy and adapt only when the paths exist.
 #

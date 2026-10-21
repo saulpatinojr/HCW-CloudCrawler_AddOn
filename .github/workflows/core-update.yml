@@ -1,0 +1,97 @@
+# Actions are pinned to full commit SHAs (version in the trailing comment); Dependabot (github-actions ecosystem) proposes updates.
+# Upstream -> downstream flow (ADR 0001). INERT until HCW-CloudCrawler_App publishes a release whose GitHub Release
+# carries the cloud-crawler-core wheel. This repository then pins the release asset by URL in pyproject.toml, on one
+# line, as
+#   "cloud-crawler-core @ https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v<version>/cloud_crawler_core-<version>-py3-none-any.whl",  # CORE_REF v<version>
+# `uv lock` records the wheel's sha256 and the image build's `uv export --frozen` carries it, so the image's
+# `pip install --require-hashes` keeps verifying every third-party file (a git+https pin cannot be hash-checked and would
+# break that build). Until the CORE_REF line exists, the comparison below finds nothing and exits cleanly.
+# Pull requests opened with GITHUB_TOKEN do not trigger other workflows, so the compatibility check runs here.
+name: core-update
+on:
+  schedule: [{ cron: "41 */6 * * *" }]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Upstream release tag to adopt (default: latest release)"
+        required: false
+permissions:
+  contents: write
+  pull-requests: write
+env:
+  UPSTREAM: saulpatinojr/HCW-CloudCrawler_App
+jobs:
+  check-and-bump:
+    runs-on: ubuntu-26.04
+    steps:
+      # persist-credentials: false — create-pull-request sets its own Authorization header for the push; with the
+      # checkout's persisted header beside it, git sends two and GitHub answers 400.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      - id: refs
+        name: Compare the pinned CORE_REF with the latest upstream release
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}", REQUESTED: "${{ inputs.ref }}" }
+        run: |
+          set -euo pipefail
+          current="$(grep -oE "#[[:space:]]*CORE_REF[[:space:]]+v[0-9][0-9A-Za-z.+-]*" pyproject.toml | head -1 | awk '{print $NF}' || true)"
+          if [ -z "$current" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::no CORE_REF in pyproject.toml: the engine is not adopted yet; nothing to bump"
+            exit 0
+          fi
+          latest="${REQUESTED:-$(gh api "repos/${UPSTREAM}/releases/latest" --jq .tag_name 2>/dev/null || true)}"
+          if [ -z "$latest" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "::notice::upstream has no release yet"; exit 0; fi
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"; echo "current=$current" >> "$GITHUB_OUTPUT"
+          if [ "$latest" = "$current" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "already at $current"; else echo "changed=true" >> "$GITHUB_OUTPUT"; echo "$current -> $latest"; fi
+      - if: steps.refs.outputs.changed == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with: { python-version: "3.14" }
+      - if: steps.refs.outputs.changed == 'true'
+        run: python -m pip install "uv==0.11.32"
+      - if: steps.refs.outputs.changed == 'true'
+        name: Bump CORE_REF and re-lock
+        env: { LATEST: "${{ steps.refs.outputs.latest }}", CURRENT: "${{ steps.refs.outputs.current }}" }
+        run: |
+          set -euo pipefail
+          # One line carries the release tag, the wheel file name (version without the v) and the CORE_REF marker; all move together.
+          cur_ver="${CURRENT#v}"; new_ver="${LATEST#v}"
+          sed -i -E "s|releases/download/${CURRENT}/cloud_crawler_core-${cur_ver}-py3-none-any\.whl(\",?[[:space:]]*#[[:space:]]*CORE_REF[[:space:]]+)${CURRENT}|releases/download/${LATEST}/cloud_crawler_core-${new_ver}-py3-none-any.whl\1${LATEST}|" pyproject.toml
+          grep -q "CORE_REF ${LATEST}" pyproject.toml
+          uv lock --upgrade-package cloud-crawler-core
+          git --no-pager diff --stat
+      - if: steps.refs.outputs.changed == 'true'
+        id: compat
+        name: Compatibility check (lint, tests)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          uv sync --frozen --all-packages
+          uv run ruff check . && uv run pytest -q
+      - if: steps.refs.outputs.changed == 'true'
+        id: pr
+        name: Open the bump pull request (ready for review)
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          branch: core-update/${{ steps.refs.outputs.latest }}
+          title: "core: adopt upstream ${{ steps.refs.outputs.latest }} (${{ steps.compat.outcome == 'success' && 'compatible' || 'needs adaptation' }})"
+          commit-message: "core: bump cloud-crawler-core ${{ steps.refs.outputs.current }} -> ${{ steps.refs.outputs.latest }}"
+          labels: core-update,${{ steps.compat.outcome == 'success' && 'compatible' || 'needs-adaptation' }}
+          add-paths: |
+            pyproject.toml
+            uv.lock
+          body: |
+            Upstream `saulpatinojr/HCW-CloudCrawler_App` released **${{ steps.refs.outputs.latest }}** (this edition pinned `${{ steps.refs.outputs.current }}`).
+
+            Compatibility check in this workflow run (lint, unit, contract, security): **${{ steps.compat.outcome }}**.
+            Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            - compatible: merge (automatic if the repository variable `CORE_AUTOMERGE` is `true`).
+            - needs adaptation: fix this edition on this branch, then merge.
+
+            ADR 0001 (the engine is adopted from the App unchanged).
+      - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome == 'success' && vars.CORE_AUTOMERGE == 'true' && steps.pr.outputs.pull-request-number != ''
+        name: Auto-merge the compatible bump
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: gh pr merge --squash --auto "${{ steps.pr.outputs.pull-request-number }}"
+      - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome != 'success'
+        run: echo "::warning::Upstream ${{ steps.refs.outputs.latest }} is not compatible with this edition; see the pull request."

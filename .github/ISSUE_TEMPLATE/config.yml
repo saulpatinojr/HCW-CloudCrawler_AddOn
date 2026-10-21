@@ -1,4 +1,4 @@
-# Replace ORG/REPO before installing this file.
+# Replace saulpatinojr/hcw-cloudcrawler_addon before installing this file.
 # GitHub reads this file from .github/ISSUE_TEMPLATE/config.yml.
 
 # Structured forms are the default. Set this to true only when maintainers
@@ -6,9 +6,9 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and discussion
-    url: https://github.com/ORG/REPO/discussions
+    url: https://github.com/saulpatinojr/hcw-cloudcrawler_addon/discussions
     about: Use discussions for questions, ideas, and community help that are not actionable issues.
     # Optional repository documentation link:
     # - name: Documentation
-    #   url: https://github.com/ORG/REPO/wiki
+    #   url: https://github.com/saulpatinojr/hcw-cloudcrawler_addon/wiki
     #   about: Read architecture, operations, and user documentation.

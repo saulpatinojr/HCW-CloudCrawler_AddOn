@@ -1,0 +1,110 @@
+# Actions are pinned to full commit SHAs (version in the trailing comment); Dependabot (github-actions ecosystem) proposes updates.
+# Lab image: docker.io/hybridcloudworks/hcw-addon-cloud-crawler, published on v* tags by digest through the Docker OIDC
+# connection: no DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets, workload identity only.
+# Order: build locally -> edition-boundary check inside the image -> Trivy -> push with provenance + SBOM -> attest -> digest.
+# A failing scan or boundary check publishes nothing. The website pins the printed digest in lab-host group_vars.
+# Until the owner creates the OIDC connection and sets DOCKERHUB_ENABLED=true / DOCKERHUB_CONNECTION=<uuid>, the push is
+# skipped and the website row stays `coming`.
+name: publish-images
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  IMAGE: docker.io/hybridcloudworks/hcw-addon-cloud-crawler
+jobs:
+  build-scan-publish:
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - id: version
+        name: Version from the tag (or the pyproject on manual runs)
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then v="${GITHUB_REF#refs/tags/v}"; else v="$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml | head -1)-dev"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build (local only, for the boundary check and the scan)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: infrastructure/docker/Dockerfile
+          build-args: EDITION=lab
+          load: true
+          push: false
+          tags: ${{ env.IMAGE }}:scan
+      - name: Edition boundary inside the image (import azure must fail; health must answer; non-root)
+        run: |
+          set -euo pipefail
+          if docker run --rm "${IMAGE}:scan" python -c "import azure"; then echo "::error::azure is importable in the lab image"; exit 1; fi
+          if docker run --rm "${IMAGE}:scan" python -c "import msal"; then echo "::error::msal is importable in the lab image"; exit 1; fi
+          if docker run --rm "${IMAGE}:scan" python -m pip --version; then echo "::error::pip is present in the runtime image"; exit 1; fi
+          test "$(docker run --rm "${IMAGE}:scan" id -u)" = "10001"
+          if docker run --rm -e IDENTITY_ENDPOINT=http://169.254.169.254 "${IMAGE}:scan"; then echo "::error::the image started under an identity endpoint"; exit 1; fi
+          cid="$(docker run -d --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges -e CC_ALLOW_NO_TURNSTILE=1 "${IMAGE}:scan")"
+          for i in $(seq 1 30); do
+            if docker exec "$cid" python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3).status==200 else 1)"; then ok=1; break; fi
+            sleep 1
+          done
+          docker logs "$cid" | head -20; docker rm -f "$cid" >/dev/null
+          test "${ok:-0}" = 1
+      - name: Scan before publishing (HIGH/CRITICAL, fixed only)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with: { image-ref: "${{ env.IMAGE }}:scan", exit-code: "1", severity: "HIGH,CRITICAL", ignore-unfixed: true }
+      - name: Publishing is enabled (repository variables DOCKERHUB_ENABLED and DOCKERHUB_CONNECTION)
+        id: gate
+        env: { ENABLED: "${{ vars.DOCKERHUB_ENABLED }}", CONNECTION: "${{ vars.DOCKERHUB_CONNECTION }}" }
+        run: |
+          set -euo pipefail
+          if [ "$ENABLED" != "true" ]; then echo "push=false" >> "$GITHUB_OUTPUT"; echo "::notice::DOCKERHUB_ENABLED is not 'true'; built and scanned, not pushed"; exit 0; fi
+          if ! [[ "$CONNECTION" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then echo "::error::DOCKERHUB_CONNECTION is not a UUID"; exit 1; fi
+          echo "push=true" >> "$GITHUB_OUTPUT"
+      - if: steps.gate.outputs.push == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        env:
+          DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_CONNECTION }}
+          DOCKERHUB_OIDC_EXPIREIN: "900"
+        with: { registry: docker.io, username: hybridcloudworks }
+      - if: steps.gate.outputs.push == 'true'
+        id: build
+        name: Push with provenance and SBOM
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: infrastructure/docker/Dockerfile
+          build-args: EDITION=lab
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.IMAGE }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.title=hcw-addon-cloud-crawler
+            org.opencontainers.image.description=Hybrid Cloud Works Cloud Crawler, lab edition (no cloud connectivity by design)
+          provenance: true
+          sbom: true
+      - if: steps.gate.outputs.push == 'true'
+        name: Attest build provenance (SLSA)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - if: steps.gate.outputs.push == 'true'
+        name: Record the immutable digest for the website's group_vars
+        run: |
+          {
+            echo "## Published"
+            echo '```'
+            echo "${IMAGE}@${{ steps.build.outputs.digest }}"
+            echo '```'
+            echo "image_tag: ${{ steps.version.outputs.version }}"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

@@ -7,7 +7,7 @@
 # Until replaced, this file intentionally creates no review requests.
 
 # Required repository-wide ownership:
-# * @ORG/REPOSITORY-MAINTAINERS
+* @saulpatinojr
 
 # Protect governance and security configuration:
 # /.github/ @ORG/REPOSITORY-MAINTAINERS

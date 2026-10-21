@@ -1,0 +1,46 @@
+# Validation
+
+What was executed for this edition and what was not, per run. "Here" is the authoring container (no Docker daemon;
+PyPI reachable through a proxy). Dates are the run date.
+
+## Run 2026-10-21 (0.1.0 skeleton, initial)
+
+Toolchain: Python 3.14.6 (`uv python install 3.14`; `.python-version` 3.14.6), uv 0.11.32. Resolved pins: fastapi
+0.143.0, uvicorn 0.54.0, pydantic 2.14.1 (pydantic-core 2.50.1, starlette 1.9.0, anyio 4.15.1, h11 0.16.0, click
+8.5.0, idna 3.20, annotated-types 0.8.0, annotated-doc 0.0.5, opentelemetry-api 1.45.1, typing-extensions 4.16.0,
+typing-inspection 0.4.4); dev pytest 9.1.1, pytest-cov 7.1.0, ruff 0.17.0, httpx 0.28.1, pip-audit 2.10.1; build
+hatchling 1.32.4. `uv.lock` is committed; 14 third-party runtime packages, none Azure. There is no engine yet: the
+`cloud-crawler-core` wheel is adopted from `HCW-CloudCrawler_App` at its first release (ADR 0001).
+
+| Check | Executed here | Result |
+|---|---|---|
+| `uv sync --all-packages` | yes | 51 packages resolved and installed |
+| `uv run ruff check . && uv run ruff format --check .` | yes | clean (44 files) |
+| `uv run pytest -q --cov=src --cov-report=term-missing --cov-fail-under=85` | yes | 62 tests passed; coverage 95% (481 statements, 23 missed; gate 85). `__main__.py` is covered only by its subprocess tests, which coverage does not trace |
+| `uv run pytest tests/security tests/contract -q` | yes | 20 passed (edition boundary incl. fresh-process refusal and the no-outbound-import walk, no secrets and no real identifiers, content-free logs, health shape and pane protocol) |
+| Live server: `CC_ALLOW_NO_TURNSTILE=1 PORT=8099 CC_SITE_ORIGINS=https://hybridcloudworks.com uv run python -m cloud_crawler_lab`, then `GET /api/health`, `GET /`, `GET /api/nothing`, `POST /api/health` | yes | health 200 `ok:true id:cloud-crawler version:0.1.0 edition:lab capabilities:[health,pane] azureConnectivity:disabled-by-design`, headers `X-Addon-Id`, `X-Addon-Version`, CSP with `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Cache-Control: no-store`; index 200 `text/html`; 404 and 405 in the error envelope. Log lines: `startup`, `turnstile_disabled` (warning), `shutdown`; counts, flags and event names only |
+| `IDENTITY_ENDPOINT=http://169.254.169.254 uv run python -c "import cloud_crawler_lab.app"` | yes | exit 1 with `EditionBoundaryError: refusing to start: identity environment present (IDENTITY_ENDPOINT)`; `python -m cloud_crawler_lab` under `MSI_ENDPOINT` exits 3 with one scrubbed `startup_refused` line |
+| `uv export --frozen … \| uv run pip-audit -r … --strict` | yes | no known vulnerabilities (14 packages) |
+| `uv lock --check` | yes | lock current with `pyproject.toml` |
+| `versions.env` vs every `FROM` | locally by the same shell logic as `ci.yml` | both `FROM` lines equal `BASE_IMAGE@BASE_DIGEST` |
+| Docker image build (`infrastructure/docker/Dockerfile`) | **no**, CI only | no daemon here; `ci.yml` builds the image on every pull request and proves `import azure` fails, the container exits under `IDENTITY_ENDPOINT` and runs as uid 10001; `publish-images.yml` repeats that, runs the hardened health check, scans with Trivy, and pushes only when `DOCKERHUB_ENABLED` is `true` |
+| Trivy scan, SBOM, provenance, attestation | **no**, CI only | as above |
+| uv image digest in the Dockerfile vs `UV_VERSION` | **no**, CI only | `ci.yml` resolves the digest from the registry; the Dockerfile carries the digest the Cloud Assessor AddOn verified for 0.11.32 |
+| Human verification against the real siteverify endpoint | **no** | mocked in `tests/unit/test_security_modules.py`; no upload route exists yet, so the verifier is not wired to a request |
+| Lab-host deployment, reverse-proxy route, website pane, catalogue row | **no** | owner steps and a website pull request once a digest exists; the row does not exist yet |
+| CodeQL, gitleaks, dependency review, Qlty, CodeRabbit | **no**, CI only | `codeql.yml`, `dependency-review.yml` (template), `security.yml`; the review apps are connected by the owner (`docs/TEMPLATE.md` step 2 of the template, now removed) |
+
+## Limitations recorded
+
+- No engine, no uploads, no MCP server and no trusted-caller session API yet: the pane shell says so and the file
+  picker is disabled. They arrive with the App's first release and the following pull requests (website proposal,
+  section 22).
+- `security/redaction.py` duplicates the engine's module until adoption; the two must stay identical (ADR 0002).
+- `core-update.yml` is inert until `HCW-CloudCrawler_App` publishes a release and `pyproject.toml` carries a
+  `CORE_REF` line.
+- Human verification is configured but unused until an upload route exists; `/api/health` already reports
+  `turnstile.required` so the pane's wording is right from the first deployment.
+- The base-image digest and the uv-image digest are the Cloud Assessor AddOn's verified pins of 2026-10-16; CI
+  re-resolves the uv digest on every run and the weekly job compares the base with the website's.
+- The labels in `.github/labels.json` and the repository Discussions were not created (the initializer ran with
+  `--skip-github`, having no signed-in `gh` here); the owner runs the template's GitHub step once.

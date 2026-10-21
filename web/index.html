@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Cloud Crawler (lab edition)</title>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<main>
+  <header class="bar">
+    <div>
+      <h1>Cloud Crawler</h1>
+      <span class="badge">Lab edition · no cloud connectivity by design</span>
+      <span class="badge">Not production</span>
+    </div>
+    <div>
+      <span class="badge status" id="status" aria-live="polite">Checking…</span>
+    </div>
+  </header>
+
+  <p class="notice" id="notice">
+    This tool works only on evidence you give it: an export of your resource inventory, a review report, or results the site hands in on your behalf.
+    It never asks for credentials and never connects to your cloud. Everything is held in memory, is returned only to this browser session, and expires after two hours or when you delete it.
+  </p>
+
+  <section class="step" id="step-upload" aria-labelledby="h-upload">
+    <h2 id="h-upload">1. Upload evidence</h2>
+    <p class="small" id="engine-note">The evidence engine arrives with the first release of the upstream App. Until then this lab accepts no uploads; the file picker below is disabled.</p>
+    <label class="dropzone" id="dropzone" for="file">
+      Drop a .json file here, or choose a file
+      <input type="file" id="file" accept=".json,application/json" disabled>
+    </label>
+    <div class="row">
+      <div id="verification" aria-label="Human verification"></div>
+      <button type="button" id="run" disabled>Evaluate drift</button>
+      <span class="small" id="run-note"></span>
+    </div>
+  </section>
+
+  <section class="step" aria-labelledby="h-what">
+    <h2 id="h-what">What this lab will do</h2>
+    <ul class="small">
+      <li>Validate, hash and redact what you upload, and record where it came from.</li>
+      <li>Check the architecture decisions in your session against that evidence with deterministic detectors: supported, contradicted or unknown, never a guess.</li>
+      <li>Turn contradictions, retirement notices and cost ceilings into review proposals you can approve or reject.</li>
+      <li>Give you a bundle you can download, with a note that none of it is an audit.</li>
+    </ul>
+  </section>
+
+  <p class="small" id="unavailable" hidden>This tool isn't available right now.</p>
+  <footer class="small">Nothing here is production. This project is not affiliated with the authors of the frameworks it cites. Not an audit.</footer>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
