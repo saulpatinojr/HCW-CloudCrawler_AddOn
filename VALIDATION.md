@@ -37,7 +37,8 @@ hatchling 1.32.4. `uv.lock` is committed; 14 third-party runtime packages, none 
   section 22).
 - `security/redaction.py` duplicates the engine's module until adoption; the two must stay identical (ADR 0002).
 - `core-update.yml` is inert until `HCW-CloudCrawler_App` publishes a release and `pyproject.toml` carries a
-  `CORE_REF` line.
+  `CORE_REF` line. As of 2026-10-24 the App has no tag and no release, and the first `CORE_REF` line is added by
+  hand (steps in `docs/whats-new-upstream.md`).
 - Human verification is configured but unused until an upload route exists; `/api/health` already reports
   `turnstile.required` so the pane's wording is right from the first deployment.
 - The base-image digest and the uv-image digest are the Cloud Assessor AddOn's verified pins of 2026-10-16; CI

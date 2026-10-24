@@ -13,6 +13,18 @@ once, merge one before rebasing the next.
 
 ### Added
 
+- `docs/whats-new-upstream.md`: the memory file about the upstream App (`HCW-CloudCrawler_App`): its current state (no tag and no release yet), what
+  changed there and whether it reaches this repository, the steps of the first engine adoption (the first `CORE_REF` line is added by hand), the App's
+  decisions, and the open App tickets that matter here. `CLAUDE.md` points to it.
+- `CLAUDE.md`: the owner-communication section (plain language, numbered steps, answerable questions, exact values with descriptions, no secrets in chat,
+  links, honest status) that the App and its sibling repositories carry.
+
+### Changed
+
+- README: the engine move is ADR 0002 in the App (it said ADR 0001), and it says that the App has not released yet.
+- `VALIDATION.md` records that `core-update.yml` stays inert until the first `CORE_REF` line is added by hand.
+- `CLAUDE.md`: the App has now published its own ADRs (0001 to 0003), so the ADR rule says they are cited from `docs/whats-new-upstream.md`.
+
 - Repository created from the template and initialised for the Python stack
   (CodeOwners, Dependabot for GitHub Actions and uv, CodeQL for Python and
   Actions, Qlty with ruff and bandit); MIT license; `SECURITY.md` support

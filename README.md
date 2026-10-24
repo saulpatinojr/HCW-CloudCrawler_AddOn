@@ -20,8 +20,11 @@ proposals. Everything lives in memory and expires after two hours.
 The engine is not written here. It is
 [`cloud-crawler-core`](https://github.com/saulpatinojr/HCW-CloudCrawler_App),
 seeded and versioned in the upstream App repository and adopted here
-**unchanged** when the App releases (ADR 0001 in the App; the update
+**unchanged** when the App releases (ADR 0002 in the App and ADR 0001 here; the update
 workflow in `.github/workflows/core-update.yml` opens the bump pull request).
+The App has not released yet, so there is no engine here today; what has
+changed upstream, and what the first adoption involves, is in
+[`docs/whats-new-upstream.md`](docs/whats-new-upstream.md).
 This repository owns only the lab application, its edition boundary, its
 pane, its limits and its deployment on the website's lab host.
 
