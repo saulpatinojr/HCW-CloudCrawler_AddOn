@@ -11,8 +11,9 @@ same change set (the App's `CLAUDE.md` asks for this too), and refresh the table
 
 ## Current upstream state
 
-Written on 2026-10-24 against the App's `main` at commit `697cdc4` (merge of pull request 23), plus App pull request
-[24](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/24), which changes documents only.
+Written on 2026-10-24 against the App's `main` at commit `856b54b` (merge of pull request
+[24](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/24), documents only; the commit before it, `697cdc4`, is the
+last one that changed anything but documents).
 
 | Question | Answer | How it was checked |
 | --- | --- | --- |
@@ -26,7 +27,7 @@ Written on 2026-10-24 against the App's `main` at commit `697cdc4` (merge of pul
 
 ## What changed
 
-### 2026-10-24: documents and rules (App pull request 24, open when this was written)
+### 2026-10-24: documents and rules (App pull request 24, merged)
 
 - **Is there a user interface in the App?** No, by design. The App is an API plus an MCP server. The screens are in the
   website (sign-in, tenant and subscription pickers, chat, evidence and drift views, approvals) and in this
