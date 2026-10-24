@@ -12,6 +12,15 @@ once, merge one before rebasing the next.
 ## [Unreleased]
 
 ### Added
+- `docs/website-integration/` (`integration-guide.md`, `routes.md`): how the website shows this AddOn, written from this
+  repository's README, ADR 0003 and `.env.example` and from the website's real catalogue row. The other three AddOns have
+  such a guide; this one did not, and the website had no row for it at all until website pull request #1351 (merge commit
+  `e4e53807`, 2026-10-24) introduced Cloud Crawler as a `coming` row. The guide says what exists on each side today (the row,
+  the registry entry, the route and the explainer page; no `group_vars` row, no port, no setting, no frame-src entry, no
+  image), what flipping the row takes, and which questions are open (the pane's capabilities, website issue #1354; whether
+  the site passes its theme, #1353). The row in it is a copy of the website's, injected by a script that then compared
+  every one of its 14 fields with the website's file: 0 differ. It names its source commit because pasted rows in the
+  other AddOns' guides had drifted.
 
 - `.github/dependabot.yml` groups `pydantic` and `pydantic-core` so they arrive in one pull request. pydantic requires one exact `pydantic-core`, so a `pydantic-core` bump on its own cannot resolve; the same failure closed the App repository's Dependabot pull requests.
 

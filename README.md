@@ -107,7 +107,9 @@ lab host runs it behind the site's reverse proxy at
 | Limits | 5 MB upload, 5,000 rows, 200 items held, 120-minute expiry |
 
 The contract is the website's AddOn integration standard and ADR 0035; this
-repository follows it rather than defining it.
+repository follows it rather than defining it. What exists on each side today,
+and what flipping the website's row to `available` takes, is in
+[`docs/website-integration/`](docs/website-integration/integration-guide.md).
 
 ## Rules that do not bend
 
