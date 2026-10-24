@@ -44,7 +44,7 @@ jobs:
           echo "latest=$latest" >> "$GITHUB_OUTPUT"; echo "current=$current" >> "$GITHUB_OUTPUT"
           if [ "$latest" = "$current" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "already at $current"; else echo "changed=true" >> "$GITHUB_OUTPUT"; echo "$current -> $latest"; fi
       - if: steps.refs.outputs.changed == 'true'
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with: { python-version: "3.14" }
       - if: steps.refs.outputs.changed == 'true'
         run: python -m pip install "uv==0.11.32"
