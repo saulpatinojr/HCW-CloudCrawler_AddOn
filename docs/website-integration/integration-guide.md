@@ -67,7 +67,7 @@ tool isn't available right now."
 
 ## Pane protocol
 
-The pane posts, to each origin in its own `/api/health.siteOrigins` (env `CC_SITE_ORIGINS`, never `*`):
+The pane posts, to each origin listed in the `siteOrigins` field of the JSON that its own `GET /api/health` returns (that field comes from the env setting `CC_SITE_ORIGINS`; never `*`):
 
 ```json
 { "type": "hcw-addon", "id": "cloud-crawler", "state": "ready" }
