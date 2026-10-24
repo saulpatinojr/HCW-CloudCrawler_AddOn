@@ -13,6 +13,8 @@ once, merge one before rebasing the next.
 
 ### Added
 
+- `.github/dependabot.yml` groups `pydantic` and `pydantic-core` so they arrive in one pull request. pydantic requires one exact `pydantic-core`, so a `pydantic-core` bump on its own cannot resolve; the same failure closed the App repository's Dependabot pull requests.
+
 - `docs/whats-new-upstream.md`: the memory file about the upstream App (`HCW-CloudCrawler_App`): its current state (no tag and no release yet), what
   changed there and whether it reaches this repository, the steps of the first engine adoption (the first `CORE_REF` line is added by hand), the App's
   decisions, and the open App tickets that matter here. `CLAUDE.md` points to it.
