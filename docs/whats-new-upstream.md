@@ -11,9 +11,9 @@ same change set (the App's `CLAUDE.md` asks for this too), and refresh the table
 
 ## Current upstream state
 
-Written on 2026-10-24 against the App's `main` at commit `856b54b` (merge of pull request
-[24](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/24), documents only; the commit before it, `697cdc4`, is the
-last one that changed anything but documents).
+Written on 2026-10-24 against the App's `main` at commit `9bad3d1` (merge of pull request
+[34](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/34), Microsoft Entra sign-in in the App host). The last
+commit that changed the engine package is unchanged from before: nothing under `packages/` differs from commit `4ba5add`.
 
 | Question | Answer | How it was checked |
 | --- | --- | --- |
@@ -21,11 +21,32 @@ last one that changed anything but documents).
 | So what does `core-update.yml` do today? | **Nothing, by design.** It looks for a `# CORE_REF v<version>` line in `pyproject.toml`, finds none, and stops. Even after a release exists, it stays inert until that line is added by hand (see "First adoption"). | `.github/workflows/core-update.yml` in this repository |
 | Engine version in the App | `cloud-crawler-core` 0.1.0 (`packages/cloud-crawler-core/pyproject.toml`); the App edition is also 0.1.0 | Read from the App |
 | What this repository pins | **No engine yet.** `pyproject.toml` has no `cloud-crawler-core` line. A copy of the engine's redaction module lives in `src/cloud_crawler_lab/security/redaction.py` until adoption. | `pyproject.toml`, `security/redaction.py` header |
-| Has the engine's public surface changed since the release was prepared (2026-10-21)? | **No.** Nothing under `packages/`, `src/`, `tests/contract/`, `samples/` or `scripts/` changed after commit `4ba5add`. Only tests, workflows and documents did. | `git diff --stat 4ba5add 697cdc4 -- packages src tests/contract samples scripts` printed nothing |
+| Has the engine's public surface changed since the release was prepared (2026-10-21)? | **No.** Nothing under `packages/`, `samples/`, `scripts/` or `tests/contract/` differs from commit `4ba5add`. The App's own host (`src/`) and its tests did change (Entra sign-in, pull request 34; test and coverage changes, pull request 33), but the engine does not use them. | `git diff --stat 4ba5add origin/main -- packages samples scripts tests/contract` printed nothing on 2026-10-24 |
 | Compatible with this repository's pins? | Yes. Both require Python `>=3.14.6,<3.15`. The engine requires only `pydantic>=2.14,<3`; this repository pins `pydantic==2.14.1`. Both use `fastapi==0.143.3`. | App `VALIDATION.md` (wheel row) and both `pyproject.toml` files |
 | Azure MCP Server | Pinned to 3.0.0 in the App (ADR 0001). **This repository never calls it.** | App ADR 0001 and 0003 |
 
 ## What changed
+
+### 2026-10-24: Microsoft Entra sign-in in the App host (App pull request 34, merged; ADR 0004, App ticket 8)
+
+- The App's server can now require a Microsoft Entra access token on `/api` and `/mcp` (everything except `GET /api/health`).
+  It is **off by default** (`CC_AUTH_MODE=off`), so nothing changes until the App is configured. The tools meant for a
+  person (`adr_accept`, `review_decide`, `collection_run_azure`) take the actor from the token instead of from what the
+  caller types, and their `actorId` argument became **optional** in the App's tool schemas.
+- The engine (`cloud-crawler-core`) is unchanged: no new dependency, model, detector or evidence kind, so the next
+  `core-update` brings nothing from this.
+- Reaches this repository? **No code, no wheel, no action.** This repository keeps its own rules: no Azure credential, no
+  validation of Entra tokens, human verification on uploads, `callsAzure: false` on every tool. If this repository's
+  security suite ever compares the App's tool list with its own, `actorId` moving from required to optional is the only
+  schema difference.
+
+### 2026-10-24: App tests and coverage (App pull request 33, merged)
+
+- The App's secret-scan test now asks git which files exist (`git ls-files --cached --others --exclude-standard`) instead
+  of walking the folder, and the App's coverage figure now counts source files only (the CI gate went from 85 to 96
+  percent). A new test runs the App's `__main__` and the Azure MCP host with a stand-in client.
+- Reaches this repository? **No.** `tests/security/test_no_secrets.py` here already lists files with git, and this
+  repository's own coverage gate is separate. Action: none.
 
 ### 2026-10-24: documents and rules (App pull request 24, merged)
 
