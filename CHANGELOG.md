@@ -12,6 +12,8 @@ once, merge one before rebasing the next.
 ## [Unreleased]
 
 ### Added
+- `docs/whats-new-upstream.md`: two new entries (App pull requests 33 and 34) and a refreshed "Current upstream state". Neither reaches this repository's code: the App's Microsoft Entra sign-in is in its own host, and its engine is unchanged since commit `4ba5add`. Written because the App's `CLAUDE.md` asks that a tool-schema change (`actorId` now optional in three App tools) is recorded here in the same change set.
+
 - `docs/website-integration/` (`integration-guide.md`, `routes.md`): how the website shows this AddOn, written from this
   repository's README, ADR 0003 and `.env.example` and from the website's real catalogue row. The other three AddOns have
   such a guide; this one did not, and the website had no row for it at all until website pull request #1351 (merge commit
