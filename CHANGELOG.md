@@ -11,6 +11,8 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+- The lab image repository on Docker Hub is renamed from `hybridcloudworks/hcw-addon-cloud-crawler` to `hybridcloudworks/hcw-cloudcrawler` (owner naming convention, 2026-10-24). `publish-images.yml` (`IMAGE`, the image title label), the local `:dev` build tag, the README and the deployment and integration documents follow. The container name on the lab host (`hcw-addon-cloud-crawler`) is **not** changed: the website's host role owns it. Nothing is published by this change; the next `v*` tag pushes to the new name once the Docker OIDC connection allows it (`docs/deployment/lab-host.md`, step 2).
+
 ### Added
 - `docs/whats-new-upstream.md`: two new entries (App pull requests 33 and 34) and a refreshed "Current upstream state". Neither reaches this repository's code: the App's Microsoft Entra sign-in is in its own host, and its engine is unchanged since commit `4ba5add`. Written because the App's `CLAUDE.md` asks that a tool-schema change (`actorId` now optional in three App tools) is recorded here in the same change set.
 

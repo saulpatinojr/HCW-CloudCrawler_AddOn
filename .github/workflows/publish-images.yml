@@ -1,5 +1,5 @@
 # Actions are pinned to full commit SHAs (version in the trailing comment); Dependabot (github-actions ecosystem) proposes updates.
-# Lab image: docker.io/hybridcloudworks/hcw-addon-cloud-crawler, published on v* tags by digest through the Docker OIDC
+# Lab image: docker.io/hybridcloudworks/hcw-cloudcrawler, published on v* tags by digest through the Docker OIDC
 # connection: no DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets, workload identity only.
 # Order: build locally -> edition-boundary check inside the image -> Trivy -> push with provenance + SBOM -> attest -> digest.
 # A failing scan or boundary check publishes nothing. The website pins the printed digest in lab-host group_vars.
@@ -13,7 +13,7 @@ on:
 permissions:
   contents: read
 env:
-  IMAGE: docker.io/hybridcloudworks/hcw-addon-cloud-crawler
+  IMAGE: docker.io/hybridcloudworks/hcw-cloudcrawler
 jobs:
   build-scan-publish:
     runs-on: ubuntu-26.04
@@ -87,7 +87,7 @@ jobs:
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
-            org.opencontainers.image.title=hcw-addon-cloud-crawler
+            org.opencontainers.image.title=hcw-cloudcrawler
             org.opencontainers.image.description=Hybrid Cloud Works Cloud Crawler, lab edition (no cloud connectivity by design)
           provenance: true
           sbom: true

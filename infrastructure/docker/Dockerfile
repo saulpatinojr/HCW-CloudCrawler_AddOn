@@ -1,4 +1,4 @@
-# Cloud Crawler lab edition image: docker.io/hybridcloudworks/hcw-addon-cloud-crawler
+# Cloud Crawler lab edition image: docker.io/hybridcloudworks/hcw-cloudcrawler
 #
 # Two stages on one digest-pinned base (infrastructure/docker/versions.env; CI checks every FROM against it).
 #   build  exports the hash-pinned third-party set from uv.lock (`uv export --frozen`, with the uv CI uses, by
@@ -13,7 +13,7 @@
 # under an identity endpoint, and publish-images.yml asserts `python -c "import azure"` fails inside this image.
 # ARG EDITION must be "lab"; the appliance edition is defined upstream (HCW-CloudCrawler_App), never here.
 #
-# Build:  docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab -t hcw-addon-cloud-crawler:dev .
+# Build:  docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab -t hcw-cloudcrawler:dev .
 # Run:    docker compose up   (docker-compose.yml: hardened, loopback-only, CC_ALLOW_NO_TURNSTILE=1 for local use)
 
 FROM python:3.14.8-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS build
