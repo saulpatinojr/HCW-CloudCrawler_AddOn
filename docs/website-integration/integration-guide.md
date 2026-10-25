@@ -23,7 +23,7 @@ setting, the frame-src entry) does not exist on the website yet, and the website
 | Function App setting (status proxy) | `ADDON_CLOUD_CRAWLER_URL`. The registry (`functions/src/lib/addons/registry.js`) already names it; the website does not declare it in `infra/functionapp.tf` until the row is `available`, so the status route answers `{ configured: false }`. |
 | Lab-host vault key | `vault_addon_cloud_crawler_turnstile_secret` (ADR 0003 here) |
 | Lab-host loopback port | not assigned; ADR 0003 leaves it to the website ("the next free port is the website's call"; the Cloud Assessor uses 18083) |
-| Image | `docker.io/hybridcloudworks/hcw-addon-cloud-crawler`, published on `v*` tags by `publish-images.yml`; none published yet. The website will pin it by digest in `lab-host/ansible/group_vars/all.yml` `addons[]`. |
+| Image | `docker.io/hybridcloudworks/img-cc-lab-addon`, published on `v*` tags by `publish-images.yml`; none published yet. The website will pin it by digest in `lab-host/ansible/group_vars/all.yml` `addons[]`. |
 
 ## Catalogue row (`frontend/src/data/addons/catalogue.js`)
 

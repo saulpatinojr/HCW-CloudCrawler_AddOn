@@ -89,7 +89,7 @@ CC_ALLOW_NO_TURNSTILE=1 uv run python -m cloud_crawler_lab
 ```
 
 Then open `http://127.0.0.1:8080/`. The image is
-`docker.io/hybridcloudworks/hcw-addon-cloud-crawler`, built from
+`docker.io/hybridcloudworks/img-cc-lab-addon`, built from
 `infrastructure/docker/Dockerfile`; the website pins it by digest and the
 lab host runs it behind the site's reverse proxy at
 `https://cloud-crawler.lab.hybridcloudworks.com`.

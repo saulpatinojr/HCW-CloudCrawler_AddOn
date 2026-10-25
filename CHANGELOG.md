@@ -11,6 +11,9 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+- The lab image repository on Docker Hub is renamed from `hybridcloudworks/hcw-addon-cloud-crawler` to `hybridcloudworks/img-cc-lab-addon` (owner naming convention `img-<short name>-<job>-<type>`, 2026-10-25), and its tag is now the full release tag (`v0.1.0`, not `0.1.0`). `publish-images.yml` (`IMAGE`, the tag, the image title label), the local `:dev` build tag, the README and the deployment and integration documents follow. The container name on the lab host (`hcw-addon-cloud-crawler`) is **not** changed: the website's host role owns it. Nothing is published by this change; the next `v*` tag pushes to the new name once the Docker OIDC connection allows it (the header comment of `.github/workflows/publish-images.yml` lists the two repository variables).
+- Hardening: the last step of `publish-images.yml` printed the release version straight into a shell command (`echo "image_tag: ${{ steps.version.outputs.version }}"`). The version comes from the pushed tag's name, so a crafted tag name could inject a command. It now reaches the shell through the environment variable `IMAGE_TAG` and is printed as `"${IMAGE_TAG}"`. This was already present before the rename; only people with write access can push tags.
+
 ### Added
 - `docs/whats-new-upstream.md`: two new entries (App pull requests 33 and 34) and a refreshed "Current upstream state". Neither reaches this repository's code: the App's Microsoft Entra sign-in is in its own host, and its engine is unchanged since commit `4ba5add`. Written because the App's `CLAUDE.md` asks that a tool-schema change (`actorId` now optional in three App tools) is recorded here in the same change set.
 

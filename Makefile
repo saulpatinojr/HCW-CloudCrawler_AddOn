@@ -16,7 +16,7 @@ run:
 	CC_ALLOW_NO_TURNSTILE=1 PORT=8080 uv run python -m cloud_crawler_lab
 
 image:
-	docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab -t hcw-addon-cloud-crawler:dev .
+	docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab -t img-cc-lab-addon:dev .
 
 package:
 	git archive --format=zip --output=hcw-cloudcrawler-addon.zip HEAD
