@@ -1,0 +1,24 @@
+# Checks that the pasted catalogue row in docs/website-integration/integration-guide.md still matches the website
+# (saulpatinojr/HCW-HybridCloudWorks#1356; runbook: docs/runbooks/addon-guide-drift.md in that repository).
+# The reusable workflow is pinned to a full commit sha (the line's comment says which branch it came from);
+# Dependabot (github-actions ecosystem) proposes updates. It needs no secret.
+name: Integration guide against the website
+
+on:
+  schedule:
+    - cron: '35 6 * * 1'
+  pull_request:
+    paths:
+      - docs/website-integration/**
+      - .github/workflows/guide-drift.yml
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  guide:
+    uses: saulpatinojr/HCW-HybridCloudWorks/.github/workflows/addon-guide-check.yml@813fa7ba97e2ecf388cef5e8a451a5f6fb2ea5c2 # main
+    permissions:
+      contents: read
+    with:
+      addon-id: cloud-crawler
