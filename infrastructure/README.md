@@ -2,7 +2,7 @@
 
 | Path | What |
 |---|---|
-| `docker/Dockerfile` | The lab image (`docker.io/hybridcloudworks/hcw-cloudcrawler`): two stages on one digest-pinned base, hash-pinned dependencies, no pip at runtime, uid 10001, `HEALTHCHECK`, `CMD python -m cloud_crawler_lab`. `ARG EDITION=lab` is asserted in both stages. |
+| `docker/Dockerfile` | The lab image (`docker.io/hybridcloudworks/img-cc-lab-addon`): two stages on one digest-pinned base, hash-pinned dependencies, no pip at runtime, uid 10001, `HEALTHCHECK`, `CMD python -m cloud_crawler_lab`. `ARG EDITION=lab` is asserted in both stages. |
 | `docker/versions.env` | `BASE_IMAGE`, `BASE_DIGEST`, `BASE_PYTHON_VERSION`; CI fails when any `FROM` differs from `BASE_IMAGE@BASE_DIGEST`. |
 | `../docker-compose.yml` | Local development only, hardened like the lab host's `docker_container` (read-only root, tmpfs `/tmp`, `cap_drop ALL`, `no-new-privileges`, 512m, 256 pids, one CPU). |
 
