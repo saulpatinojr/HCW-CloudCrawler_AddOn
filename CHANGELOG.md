@@ -33,7 +33,7 @@ session API for the website's chat path are still later releases.
 - Parser safety: strict UTF-8 JSON only (NaN, Infinity and lone surrogates refused); a bracket count before parsing and a
   walk without recursion afterwards bound depth (64), objects and arrays (100,000), values (1 million) and one string
   (65,536 characters, and no more than 16 `eyJ` in it, because the engine's secret-shape pattern is quadratic on a string
-  of nothing else; the engine should fix its pattern upstream); the decision part of the request gets a size budget before
+  of nothing else; the engine should fix its pattern upstream, [App issue 53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53)); the decision part of the request gets a size budget before
   pydantic validates it (pydantic writes an error per bad entry: 250,000 measured 1.3 GB); a row may carry at most 100 tags
   and 100 zones; archives,
   YAML and every non-JSON content type are refused and never opened; the source has no way to write a file, run a program
@@ -84,7 +84,7 @@ session API for the website's chat path are still later releases.
 
 ### Not in this change
 - Reading Terraform. The engine (0.1.0) records a Terraform state or plan and its claims stay `unknown`; the response and
-  the pane say so. Reading it belongs upstream, in the engine.
+  the pane say so. Reading it belongs upstream, in the engine ([App issue 54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54)).
 - The MCP server surface, the trusted-caller session API, CSV uploads, and any change to the website's catalogue row.
 
 ## [0.1.0] - 2026-10-26

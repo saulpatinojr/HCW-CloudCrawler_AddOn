@@ -29,7 +29,7 @@ body is verified, bounded and kept matters more than the route's shape.
    files. The lab's own source cannot write a file, load YAML, open an archive or run a regular expression over
    uploaded text. The engine does run one: its secret-redaction pattern (`eyJ...` then a dot) is quadratic on a string
    that repeats `eyJ` with no dot, so the lab refuses a string with more than 16 of them until the engine's pattern is
-   fixed upstream (a possessive quantifier measured 0.0008 s on the string that took 1.2 s). The parts of the request
+   fixed upstream ([App issue 53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53); a possessive quantifier measured 0.0008 s on the string that took 1.2 s). The parts of the request
    that pydantic validates entry by entry (the decision) get a size budget first, because pydantic writes one error per
    bad entry (250,000 entries measured 1.3 GB).
 4. **The engine does the work, the lab decides what is kept.** `ingest`, `evaluate_decision` and `bundle` are the
@@ -58,7 +58,7 @@ body is verified, bounded and kept matters more than the route's shape.
 | Several routes (create a session, add a decision, add evidence, evaluate) | Mirrors the App's tool catalogue | One verification token per call, or a verified session with a new lifetime to secure; more state to isolate | One request is simpler to verify and to bound; the session API is the later release |
 | Multipart upload | The usual way to send a file | Needs a multipart parser from strangers (a new dependency and attack surface) for two JSON documents | Rejected for parser safety |
 | Keep every finding, as the engine's bundle does | Nothing is left out | 100,000 findings are tens of megabytes per result, times 200 | Rejected: a small upload must not become a large stored result |
-| Read Terraform in the lab | The row promises Terraform | Normalising Terraform is engine logic, and engine changes go upstream first | Recorded and reported as unread until the engine reads it |
+| Read Terraform in the lab | The row promises Terraform | Normalising Terraform is engine logic, and engine changes go upstream first ([App issue 54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54)) | Recorded and reported as unread until the engine reads it |
 | Write results to a temporary directory | Survives a restart | Disk writes on a public lab, and the container is read-only | Rejected: memory only, as the sibling lab does |
 
 ## Consequences
