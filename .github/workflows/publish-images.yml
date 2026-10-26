@@ -41,13 +41,14 @@ jobs:
           load: true
           push: false
           tags: ${{ env.IMAGE }}:scan
-      - name: Edition boundary inside the image (import azure must fail; health must answer; non-root)
+      - name: Edition boundary inside the image (import azure must fail; health must answer; non-root; licence label)
         run: |
           set -euo pipefail
           if docker run --rm "${IMAGE}:scan" python -c "import azure"; then echo "::error::azure is importable in the lab image"; exit 1; fi
           if docker run --rm "${IMAGE}:scan" python -c "import msal"; then echo "::error::msal is importable in the lab image"; exit 1; fi
           if docker run --rm "${IMAGE}:scan" python -m pip --version; then echo "::error::pip is present in the runtime image"; exit 1; fi
           test "$(docker run --rm "${IMAGE}:scan" id -u)" = "10001"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' "${IMAGE}:scan")" = "MIT" || { echo "::error::the image does not state its open-source licence (org.opencontainers.image.licenses=MIT)"; exit 1; }
           if docker run --rm -e IDENTITY_ENDPOINT=http://169.254.169.254 "${IMAGE}:scan"; then echo "::error::the image started under an identity endpoint"; exit 1; fi
           cid="$(docker run -d --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --pids-limit 256 --cpus 1 -e CC_ALLOW_NO_TURNSTILE=1 "${IMAGE}:scan")"
           for i in $(seq 1 30); do
@@ -91,6 +92,8 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:v${{ steps.version.outputs.version }}
             ${{ env.IMAGE }}:sha-${{ github.sha }}
+          # No org.opencontainers.image.licenses here: the Dockerfile sets it (so the scan image carries it too) and a
+          # value given here would override it in the registry without the check above noticing.
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
