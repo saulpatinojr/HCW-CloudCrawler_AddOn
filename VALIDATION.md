@@ -126,10 +126,11 @@ Same toolchain as the run above; the in-process runs used the repository's own e
   yet opened a real bump pull request here. To prove the credential without a release to adopt:
   `gh workflow run core-update.yml -R saulpatinojr/HCW-CloudCrawler_AddOn --ref main -f probe=true`.
   The App key lives only as the repository secret `HCW_MAIN_ADMIN_PRIVATE_KEY` and is never printed. To rotate it,
-  generate a new private key on the settings page of the App (https://github.com/settings/apps), replace the secret
-  on this repository's secrets page
-  (https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/settings/secrets/actions), then delete the old key on the
-  settings page of the App. Auto-merge of a
+  generate a new private key on the settings page of the App (https://github.com/settings/apps), replace the secret in every repository that holds the key (this one:
+  https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/settings/secrets/actions; the App is installed on the four
+  add-on repositories, so check the other three), then delete the old key on the settings page of the App.
+  The settings page can hold several keys, so a separate key per repository lets you revoke one without
+  touching the others. Auto-merge of a
   compatible bump needs the repository setting "Allow auto-merge" and the variable `CORE_AUTOMERGE=true`; on 2026-10-26 (UTC) neither was set here. "Allow auto-merge" has since been turned on,
   but `CORE_AUTOMERGE` is still not set, so a compatible bump waits for a person to merge it.
 - Human verification is wired to the upload route and tested with a stand-in verifier; it has not been exercised against a

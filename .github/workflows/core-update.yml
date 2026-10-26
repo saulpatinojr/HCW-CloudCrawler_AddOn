@@ -17,7 +17,8 @@
 # repository). Its client ID is the repository variable HCW_MAIN_ADMIN_CLIENT_ID (not a secret) and its private
 # key is the repository secret HCW_MAIN_ADMIN_PRIVATE_KEY. The key lives only as that secret and is never printed.
 # To rotate it: generate a new key on the App's settings page (https://github.com/settings/apps), replace the
-# secret, then delete the old key there. Only the token step is given the key. That step comes late (after uv and
+# secret in every repository that holds the key (the App is installed on the four add-on
+# repositories), then delete the old key there. Only the token step is given the key. That step comes late (after uv and
 # the tests have run), mints a token for this repository only with Contents and Pull requests write, and the
 # action revokes the token when the job ends.
 # GITHUB_TOKEN is read-only here.
@@ -98,8 +99,7 @@ jobs:
         with:
           client-id: ${{ vars.HCW_MAIN_ADMIN_CLIENT_ID }}
           private-key: ${{ secrets.HCW_MAIN_ADMIN_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
+          repositories: ${{ github.repository }}
           permission-contents: write
           permission-pull-requests: write
       - if: inputs.probe

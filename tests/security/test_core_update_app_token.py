@@ -10,7 +10,8 @@ import re
 from ..conftest import ROOT
 
 TEXT = (ROOT / ".github" / "workflows" / "core-update.yml").read_text(encoding="utf-8")
-STEPS = re.split(r"(?m)^ {6}- ", TEXT.split("\njobs:\n", 1)[1])[1:]  # the steps of the one job
+JOBS = TEXT.split("\njobs:\n", 1)[1]
+STEPS = re.split(r"(?m)^ {6}- ", JOBS)[1:]  # the steps of the one job
 APP_STEP_OUTPUT = r"\$\{\{\s*steps\.app-token\.outputs\.token\s*\}\}"
 
 
@@ -38,6 +39,13 @@ def test_every_step_that_runs_gh_pr_uses_the_app_token_after_it_was_minted():
         assert STEPS.index(app) < STEPS.index(step)
 
 
+def test_token_is_minted_late_after_the_compatibility_check():
+    app = _only("actions/create-github-app-token")
+    compat = [s for s in STEPS if re.search(r"(?m)^\s*id:\s*compat\s*$", s)]
+    assert len(compat) == 1, "expected exactly one compatibility step"
+    assert STEPS.index(compat[0]) < STEPS.index(app), "the App token must be minted after the tests have run"
+
+
 def test_token_action_is_pinned_to_a_full_commit_sha():
     app = _only("actions/create-github-app-token")
     assert re.search(r"(?m)^\s*uses:\s*actions/create-github-app-token@[0-9a-f]{40}(\s|$)", app)
@@ -52,16 +60,25 @@ def test_app_credential_is_the_hcw_main_admin_variable_and_secret():
     assert with_key == [app], "the private key must reach the token step and no other step"
 
 
+def test_workflow_reads_no_other_secrets():
+    names = set(re.findall(r"secrets\.([A-Za-z0-9_]+)", TEXT))
+    assert names == {"GITHUB_TOKEN", "HCW_MAIN_ADMIN_PRIVATE_KEY"}
+    for leak in ("toJSON(secrets", "secrets[", "secrets: inherit"):
+        assert leak not in TEXT, f"{leak} would hand more than the one key to a step"
+
+
 def test_app_token_is_limited_to_this_repository():
     app = _only("actions/create-github-app-token")
-    assert re.search(r"(?m)^\s*owner:\s*\$\{\{\s*github\.repository_owner\s*\}\}\s*$", app)
-    # One value, the current repository's name: not a list, not a wildcard, not another repository.
-    assert re.search(r"(?m)^\s*repositories:\s*\$\{\{\s*github\.event\.repository\.name\s*\}\}\s*$", app)
+    # With `owner` set and `repositories` empty the action mints a token for every repository of the installation.
+    # With no `owner`, an empty `repositories` falls back to the current repository, so this shape fails closed.
+    assert not re.search(r"(?m)^\s*owner:", app), "owner must not be set: an empty repositories would widen the token"
+    # One value, this repository's full name: not a list, not a wildcard, not another repository.
+    assert re.search(r"(?m)^\s*repositories:\s*\$\{\{\s*github\.repository\s*\}\}\s*$", app)
 
 
 def test_app_token_permissions_are_exactly_contents_and_pull_requests_write():
     app = _only("actions/create-github-app-token")
-    granted = dict(re.findall(r"(?m)^\s*permission-([a-z-]+):\s*(\w+)\s*$", app))
+    granted = dict(re.findall(r"(?m)^\s*permission-([a-z-]+):\s*([a-z]+)\b", app))
     assert granted == {"contents": "write", "pull-requests": "write"}
 
 
@@ -74,6 +91,12 @@ def test_old_app_credential_is_gone():
 def test_job_does_not_run_in_an_environment():
     # The credential is a repository variable and secret, so no environment is needed (or wanted) on the job.
     assert not re.search(r"(?m)^\s*environment:", TEXT)
+
+
+def test_one_job_and_an_empty_top_level_permissions_block():
+    assert re.search(r"(?m)^permissions: \{\}\s*$", TEXT), "top-level permissions must stay empty"
+    assert len(re.findall(r"(?m)^ {2}[A-Za-z0-9_-]+:\s*$", JOBS)) == 1, "expected exactly one job"
+    assert len(re.findall(r"(?m)^\s*permissions:\s*\{", TEXT)) == 1, "only the top level may use the inline form"
 
 
 def test_github_token_is_read_only():
@@ -96,4 +119,6 @@ def test_probe_step_only_reads_and_checks_the_token_covers_this_repository_only(
     assert re.search(r'gh api "repos/\$\{REPO\}"', probe[0])
     assert re.search(r"gh api installation/repositories", probe[0])
     assert re.search(r'test "\$\{covered\}" = "\$\{REPO\}"', probe[0]), "the probe must fail if the token covers more"
-    assert not re.search(r"\bgh pr\b|\bgit\b|--method|\s-X\s", probe[0]), "the probe must not write"
+    # `gh api` turns into a POST as soon as it is given a field, so fields and bodies are as forbidden as -X.
+    writes = r"\bgh pr\b|\bgit\b|--method|\s-X\s|\s-[fF]\s|--field|--raw-field|--input"
+    assert not re.search(writes, probe[0]), "the probe must not write"
