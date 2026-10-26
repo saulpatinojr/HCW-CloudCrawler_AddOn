@@ -93,6 +93,20 @@ dialog a sandboxed frame may not open (two-click button), a null claim parameter
 that was an unhandled error, a cancelled request that released its evaluation slot early, and the rate-limit key
 (X-Forwarded-For is now used only when it is an IP address; the lab host's Caddy ignores an incoming value by default).
 
+## Run 2026-10-26 (the upload route: an independent second check)
+
+A second implementation of the same issue, written in parallel and never pushed, was reviewed by an independent read-only
+security reviewer. Its findings were turned into hostile inputs and sent to this route, which was then mutation-checked.
+Same toolchain as the run above; the in-process runs used the repository's own environment, so no second one was built.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The review's hostile inputs sent to `POST /api/uploads` in process: 81 KB and 2 MB of `eyJ` in a tag, a 4 MB tag value read by 10 claims, an 8,500-entry scope list, 5,000 rows with 5 claims, 600,000 empty rows, NaN, nesting 3,000 deep | yes, local | the first seven are refused in under 0.1 s with `too_complex` (422) or `invalid_request` (400) and at most 16 MB; the 5,000-row upload is accepted in 2.5 s with a peak of 83 MB. The first draft of the parallel implementation took 2.1 s, 485 MB and 45 s on three of them |
+| Text from the export in `report.md` (a newline then `# heading`, an image link, `<script>`, `<img>`, a pipe, a backtick, in a location, an id, a decision title and a claim statement) | yes | **found a gap**: all five markers were present raw in `report.md`. Fixed (`markdown_text`); `tests/security/test_report_markdown.py` holds it and `report.json` still keeps the text |
+| Mutation checks: 26 deliberate breaks of the source (verification skipped, fail-closed removed, owner token not compared, expiry never applied, declared size not refused before verification, media type unchecked, rate limit off, row budget lifted, `eyJ` cap removed, NaN accepted, claims times resources uncapped, echoed values not shortened, findings uncapped, markdown not escaped, log code unmapped, exception text logged, evaluation slot never released, decisions stored as accepted, oversize result stored, no eviction at the item limit, non-ASCII digits accepted, an outbound import, an over-long owner token, any file name accepted, `NOT-AN-AUDIT.md` left out, read deadline removed), each followed by the whole suite | yes | 23 caught at first; **3 survived** (declared size before verification, the log-word mapping, the owner-token length cap); `tests/security/test_upload_gate_order.py` closes them and all 26 are now caught. Each file was restored after its run |
+| `uv run pytest` (the repository's tests plus the two new modules) with the 85 percent gate | yes | 302 passed, coverage 97.59% |
+| Real browser (headless Chromium over the DevTools protocol, no package installed, script not committed) against a local lab, with the local override and without it | yes, local | 22 of 22 checks with the override (the real file picker with a real file, the sample baseline decision, the claims table, 39 findings, review notes, the not-an-audit line, the filter, the draft record, the report, a two-click delete, a refused decision explained, no storage, no console error or policy violation) and 5 of 5 on the closed lab (the pane says uploads are not available until human verification is configured and keeps the button off) |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they

@@ -222,8 +222,79 @@ def _listing_paragraph(disclosure: dict[str, Any]) -> str:
     )
 
 
+# Characters Markdown or HTML would read, as entities, and every control character (a newline included) as a space.
+# A translation table, not a pattern: nothing in this module runs a regular expression over what a visitor sent.
+_MARKDOWN_TABLE: dict[int, str] = {
+    **dict.fromkeys([*range(0x20), 0x7F], " "),
+    **{
+        ord(c): e
+        for c, e in {
+            "|": "&#124;",
+            "<": "&lt;",
+            ">": "&gt;",
+            "`": "&#96;",
+            "[": "&#91;",
+            "]": "&#93;",
+            "\\": "&#92;",
+        }.items()
+    },
+}
+
+
+def markdown_text(value: str) -> str:
+    """Text that can sit in a Markdown table cell or heading without becoming Markdown or HTML. The report is
+    downloaded and opened elsewhere, and a resource name, a tag value or a decision title is whatever its author typed:
+    a newline then `# heading`, an image whose address is a tracking beacon, a `<script>`. Control characters (newlines
+    included) become spaces, so one finding stays one table row."""
+    return value.translate(_MARKDOWN_TABLE)
+
+
+def _markdown_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return markdown_text(value)
+    if isinstance(value, list):
+        return [_markdown_value(item) for item in value]
+    if isinstance(value, dict):
+        return {k: _markdown_value(v) for k, v in value.items()}
+    return value
+
+
+def _for_markdown(decision: DecisionRecord, kept: DriftResult) -> tuple[DecisionRecord, DriftResult]:
+    """Copies of the decision and the kept result with every free-text field made safe for the Markdown report. The JSON
+    report keeps the originals: JSON quotes what it carries."""
+    findings = [
+        f.model_copy(
+            update={
+                "resourceId": markdown_text(f.resourceId) if f.resourceId else None,
+                "observed": _markdown_value(f.observed),
+                "expected": _markdown_value(f.expected),
+                "unknownReason": markdown_text(f.unknownReason) if f.unknownReason else None,
+            }
+        )
+        for f in kept.findings
+    ]
+    proposals = [
+        p.model_copy(
+            update={
+                "title": markdown_text(p.title),
+                "rationale": markdown_text(p.rationale),
+                "impactedResourceIds": [markdown_text(i) for i in p.impactedResourceIds],
+                "recommendedActions": [
+                    a.model_copy(update={"action": markdown_text(a.action)}) for a in p.recommendedActions
+                ],
+            }
+        )
+        for p in kept.proposals
+    ]
+    return (
+        decision.model_copy(update={"title": markdown_text(decision.title)}),
+        kept.model_copy(update={"findings": findings, "proposals": proposals}),
+    )
+
+
 def _files(decision: DecisionRecord, kept: DriftResult, disclosure: dict[str, Any]) -> dict[str, bytes]:
     texts = bundle(decision, kept)
+    texts["report.md"] = bundle(*_for_markdown(decision, kept))["report.md"]
     report = json.loads(texts["report.json"])
     report["lab"] = {"edition": "lab", "callsAzure": False, "notAnAudit": NOT_AN_AUDIT_LINE, "listing": disclosure}
     texts["report.json"] = json.dumps(report, indent=2, sort_keys=True) + "\n"

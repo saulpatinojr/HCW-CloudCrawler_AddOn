@@ -96,5 +96,9 @@ booleans or null, never lists or objects.
 | 400 | `client_disconnected` | The connection closed before the body arrived. |
 | 429 / 503 | `rate_limited`, `overloaded`, `turnstile_not_configured` | Try later, or the lab is not set up for uploads. |
 
+`report.md` is meant to be opened elsewhere, so the text in it that came from your export or your decision (a resource
+name, a tag value, a title) has the characters Markdown and HTML read written as entities, and a line break inside such
+text becomes a space. `report.json` keeps the original text, quoted.
+
 Every result carries the note that it is not an audit: the `notice` of the creating answer, `notAnAudit` in the full
 result, the last line of `report.md`, `lab.notAnAudit` in `report.json`, and the file `NOT-AN-AUDIT.md`.

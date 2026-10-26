@@ -49,6 +49,13 @@ session API for the website's chat path are still later releases.
 - Results stay small: a result lists at most 1,000 findings (contradicted first, then unknown, then supported), counts the
   not-applicable ones, says what it left out, and shortens echoed values, so a 5 MB upload cannot become tens of megabytes
   held for two hours.
+- The Markdown report is safe to open elsewhere. `report.md` carries text its readers did not write: a resource name,
+  a tag value, a location, a claim's statement, the decision's title. Each of those is now written with the characters
+  Markdown and HTML read replaced by entities (`|`, `<`, `>`, a backtick, square brackets, a backslash) and every
+  control character, newlines included, replaced by a space, so a value cannot start a heading, draw an image whose
+  address is a tracking beacon, add a `<script>` or split a table row. The JSON report keeps the original text,
+  quoted. It is a translation table, not a pattern: nothing in the lab runs a regular expression over what a visitor
+  sent. Found by a second independent security review (`tests/security/test_report_markdown.py`).
 - Content-free logs and errors: log lines carry counts and fixed words only (a refusal by code and status, an unexpected
   failure by its exception class and never its message), and error bodies name field paths and positions, never a value the
   visitor sent. New log words (`upload_rejected`, `upload_failed`, `too_complex`, `too_many_findings`, `invalid_decision`,
@@ -69,6 +76,9 @@ session API for the website's chat path are still later releases.
 - Tests: the upload API, the bounded reader, the decision and evidence checks, the store, the pane's static contract, the
   hardening suite (content-free logs, no disk writes, hostile documents, memory bounds) and an acceptance test that holds the
   lab to the App's golden verdicts on the sample estate.
+- Gate-order tests found by mutation checks (`tests/security/test_upload_gate_order.py`): an upload that declares it
+  is too large does not spend the visitor's one-use verification; every refusal the application can raise is a word
+  the log knows; an owner token longer than the header allows is never looked up.
 - ADR 0004 (`docs/adr/0004-the-upload-route.md`) and `docs/api.md`.
 
 ### Changed
