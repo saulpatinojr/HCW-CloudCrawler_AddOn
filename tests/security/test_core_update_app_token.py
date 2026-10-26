@@ -127,6 +127,7 @@ def test_probe_step_only_reads_and_checks_the_token_covers_this_repository_only(
     assert re.search(r'gh api "repos/\$\{REPO\}"', probe[0])
     assert re.search(r"gh api installation/repositories", probe[0])
     assert re.search(r'test "\$\{covered\}" = "\$\{REPO\}"', probe[0]), "the probe must fail if the token covers more"
-    # `gh api` turns into a POST as soon as it is given a field, so fields and bodies are as forbidden as -X.
-    writes = r"\bgh pr\b|\bgit\b|--method|\s-X\s|\s-[fF]\s|--field|--raw-field|--input"
+    # `gh api` turns into a POST as soon as it is given a field, so fields and bodies are as forbidden as -X, with
+    # the value attached (-XPOST, -fname=value) or separate.
+    writes = r"\bgh pr\b|\bgit\b|--method|\s-[XfF]|--field|--raw-field|--input"
     assert not re.search(writes, probe[0]), "the probe must not write"
