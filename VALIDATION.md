@@ -45,6 +45,7 @@ pins) and `uv lock --check` passes with it. Windows host, so the container check
 | `uv run ruff check . && uv run ruff format --check .` | yes | clean (47 files) |
 | `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 70 passed; coverage 95% (includes the new `tests/security/test_engine_adoption.py`: the pin shape, the installed version, the sha256 in the lock, the engine's imports, the log-word guard) |
 | `docker build` of the lab image, then in disposable containers: `import cloud_crawler_core` works, `import azure` and `import msal` fail, the image refuses to start under `IDENTITY_ENDPOINT`, uid 10001, the read-only/cap-drop run answers `/api/health` 200 (`capabilities: [health, pane]`, `azureConnectivity: disabled-by-design`) | yes, local | all as listed; the task image was removed afterwards |
+| `uv export ... --no-emit-package cloud-crawler-core` then `pip-audit --strict` (what `security.yml` now runs) | yes | no known vulnerabilities in the 14 third-party packages; with the engine left in, `pip-audit --strict` fails ("not found on PyPI"), which is how CI showed it on the pull request |
 | Trivy scan, SBOM, provenance and attestation of the image, the push | **no**, CI only | `publish-images.yml` on a tag |
 | CodeQL, gitleaks, dependency review, CodeRabbit | **no**, CI only | run on the pull request |
 
