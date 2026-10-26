@@ -13,12 +13,17 @@
 # them, so this edition's own CI (ci, security) also runs on the bump pull request; the compatibility check
 # below still runs first, in this run, and decides the compatible / needs-adaptation label and whether
 # auto-merge is asked for.
-# The credential is the HCW Portfolio Admin App: its client ID is the variable APP_CLIENT_ID and its private key
-# the secret APP_PRIVATE_KEY of the admin-ops environment, which is why the job runs in that environment. Only
-# the token step is given the key. That step comes late (after uv and the tests have run), mints a token for this
-# repository only with Contents and Pull requests write, and the action revokes the token when the job ends.
+# The credential is the HCW Main Admin App (a GitHub App owned by the repository owner, installed on this
+# repository). Its client ID is the repository variable HCW_MAIN_ADMIN_CLIENT_ID (not a secret) and its private
+# key is the repository secret HCW_MAIN_ADMIN_PRIVATE_KEY. The key lives only as that secret and is never printed.
+# To rotate it: generate a new key on the App's settings page (https://github.com/settings/apps), replace the
+# secret in every repository that holds the key (the App is installed on the four add-on
+# repositories), then delete the old key there. Only the token step is given the key. That step comes late (after uv and
+# the tests have run), mints a token for this repository only with Contents and Pull requests write, and the
+# action revokes the token when the job ends.
 # GITHUB_TOKEN is read-only here.
-# A manual run with probe=true mints the token and makes one read-only API call and nothing else that writes,
+# A manual run with probe=true mints the token and makes two read-only API calls (the repository, and the list of
+# repositories the token covers, which must be this one only) and nothing else that writes,
 # to prove the credential on a day when there is no release to adopt:
 #   gh workflow run core-update.yml --ref main -f probe=true
 name: core-update
@@ -30,7 +35,7 @@ on:
         description: "Upstream release tag to adopt (default: latest release)"
         required: false
       probe:
-        description: "Only prove the GitHub App credential: mint the token and make one read-only call (default: false)"
+        description: "Only prove the GitHub App credential: mint the token and make read-only calls (default: false)"
         type: boolean
         default: false
 permissions: {}
@@ -43,7 +48,6 @@ jobs:
     # Everything that writes uses the App token.
     permissions:
       contents: read
-    environment: admin-ops
     steps:
       # persist-credentials: false — create-pull-request sets its own Authorization header for the push; with the
       # checkout's persisted header beside it, git sends two and GitHub answers 400.
@@ -93,21 +97,25 @@ jobs:
         name: GitHub App token (this repository only; Contents and Pull requests write)
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          client-id: ${{ vars.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          client-id: ${{ vars.HCW_MAIN_ADMIN_CLIENT_ID }}
+          private-key: ${{ secrets.HCW_MAIN_ADMIN_PRIVATE_KEY }}
+          repositories: ${{ github.repository }}
           permission-contents: write
           permission-pull-requests: write
       - if: inputs.probe
-        name: Probe - one read-only call as the GitHub App (manual run with probe=true)
+        name: Probe - read-only calls as the GitHub App (manual run with probe=true)
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          echo "Minted an installation token for the GitHub App ${APP_SLUG}, for ${REPO} only."
+          echo "Minted an installation token for the GitHub App ${APP_SLUG}."
           gh api "repos/${REPO}" --jq '"Read-only call as the App succeeded for " + .full_name'
-      - if: steps.refs.outputs.changed == 'true'
+          covered="$(gh api installation/repositories --jq '[.repositories[].full_name] | join(",")')"
+          echo "The token covers these repositories: ${covered}"
+          test "${covered}" = "${REPO}" || { echo "::error::The token must cover ${REPO} and nothing else"; exit 1; }
+      - if: steps.refs.outputs.changed == 'true' && !inputs.probe
         id: pr
         name: Open the bump pull request (ready for review)
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
@@ -130,7 +138,7 @@ jobs:
             - needs adaptation: fix this edition on this branch, then merge.
 
             ADR 0001 (the engine is adopted from the App unchanged).
-      - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome == 'success' && vars.CORE_AUTOMERGE == 'true' && steps.pr.outputs.pull-request-number != ''
+      - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome == 'success' && vars.CORE_AUTOMERGE == 'true' && steps.pr.outputs.pull-request-number != '' && !inputs.probe
         name: Auto-merge the compatible bump
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
