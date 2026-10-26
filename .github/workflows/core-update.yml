@@ -1,11 +1,11 @@
 # Actions are pinned to full commit SHAs (version in the trailing comment); Dependabot (github-actions ecosystem) proposes updates.
-# Upstream -> downstream flow (ADR 0001). INERT until HCW-CloudCrawler_App publishes a release whose GitHub Release
-# carries the cloud-crawler-core wheel. This repository then pins the release asset by URL in pyproject.toml, on one
-# line, as
+# Upstream -> downstream flow (ADR 0001). The first adoption (v0.1.0, 2026-10-26) added the CORE_REF line by hand, so
+# this workflow now compares it with the latest upstream release (it was inert until then). This repository pins the
+# release asset by URL in pyproject.toml, on one line, as
 #   "cloud-crawler-core @ https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v<version>/cloud_crawler_core-<version>-py3-none-any.whl",  # CORE_REF v<version>
 # `uv lock` records the wheel's sha256 and the image build's `uv export --frozen` carries it, so the image's
 # `pip install --require-hashes` keeps verifying every third-party file (a git+https pin cannot be hash-checked and would
-# break that build). Until the CORE_REF line exists, the comparison below finds nothing and exits cleanly.
+# break that build). If the CORE_REF line were ever removed, the comparison below finds nothing and exits cleanly.
 # Pull requests opened with GITHUB_TOKEN do not trigger other workflows, so the compatibility check runs here.
 name: core-update
 on:

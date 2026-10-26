@@ -30,15 +30,35 @@ hatchling 1.32.4. `uv.lock` is committed; 14 third-party runtime packages, none 
 | Lab-host deployment, reverse-proxy route, website pane, catalogue row | **no** | owner steps and a website pull request once a digest exists; the row does not exist yet |
 | CodeQL, gitleaks, dependency review, Qlty, CodeRabbit | **no**, CI only | `codeql.yml`, `dependency-review.yml` (template), `security.yml`; the review apps are connected by the owner (`docs/TEMPLATE.md` step 2 of the template, now removed) |
 
+## Run 2026-10-26 (engine `v0.1.0` adopted)
+
+Toolchain: Python 3.14.6, uv 0.12.0 locally for `uv sync` and `uv run`; `uv lock` was run with uv 0.11.32 (the version CI
+pins) and `uv lock --check` passes with it. Windows host, so the container checks used Docker Desktop (context
+`desktop-linux`, local).
+
+| Check | Executed here | Result |
+|---|---|---|
+| Release asset hash | yes | `sha256sum` of a fresh `gh release download` of `cloud_crawler_core-0.1.0-py3-none-any.whl` is `25a7abfcec50b0f85cb427145a1fd7fb57898bd09cfc3483edad8a042e5e7be3`, equal to GitHub's digest for the asset and to the hash in `uv.lock` |
+| `gh attestation verify <wheel> --repo saulpatinojr/HCW-CloudCrawler_App` | yes | exit 0; signed by `publish-core.yml` at `refs/tags/v0.1.0` (commit `8142b69`), SLSA provenance v1; the same file is also attested from three runs on `main` (rehearsals); a CycloneDX attestation exists against the wheel |
+| `uv lock`, `uv lock --check` (uv 0.11.32) | yes | adds `cloud-crawler-core` 0.1.0 with the sha256 above; current |
+| `uv sync --all-packages` | yes | needed `[tool.hatch.metadata] allow-direct-references = true` (hatchling refuses a URL dependency otherwise) |
+| `uv run ruff check . && uv run ruff format --check .` | yes | clean (47 files) |
+| `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 70 passed; coverage 95% (includes the new `tests/security/test_engine_adoption.py`: the pin shape, the installed version, the sha256 in the lock, the engine's imports, the log-word guard) |
+| `docker build` of the lab image, then in disposable containers: `import cloud_crawler_core` works, `import azure` and `import msal` fail, the image refuses to start under `IDENTITY_ENDPOINT`, uid 10001, the read-only/cap-drop run answers `/api/health` 200 (`capabilities: [health, pane]`, `azureConnectivity: disabled-by-design`) | yes, local | all as listed; the task image was removed afterwards |
+| `uv export ... --no-emit-package cloud-crawler-core` then `pip-audit --strict` (what `security.yml` now runs) | yes | no known vulnerabilities in the 14 third-party packages; with the engine left in, `pip-audit --strict` fails ("not found on PyPI"), which is how CI showed it on the pull request |
+| Trivy scan, SBOM, provenance and attestation of the image, the push | **no**, CI only | `publish-images.yml` on a tag |
+| CodeQL, gitleaks, dependency review, CodeRabbit | **no**, CI only | run on the pull request |
+
 ## Limitations recorded
 
-- No engine, no uploads, no MCP server and no trusted-caller session API yet: the pane shell says so and the file
-  picker is disabled. They arrive with the App's first release and the following pull requests (website proposal,
-  section 22).
-- `security/redaction.py` duplicates the engine's module until adoption; the two must stay identical (ADR 0002).
-- `core-update.yml` is inert until `HCW-CloudCrawler_App` publishes a release and `pyproject.toml` carries a
-  `CORE_REF` line. As of 2026-10-24 the App has no tag and no release, and the first `CORE_REF` line is added by
-  hand (steps in `docs/whats-new-upstream.md`).
+- No uploads, no MCP server and no trusted-caller session API yet: the pane shell says so and the file picker is
+  disabled. The engine is adopted (run 2026-10-26 below) but nothing calls its ingest or drift code yet; they arrive
+  with the following pull requests (website proposal, section 22).
+- `security/redaction.py` is a thin layer over the engine's module (the old copy had drifted; see
+  `docs/whats-new-upstream.md`), plus the ten words only the lab logs.
+- `core-update.yml` now has a `CORE_REF v0.1.0` line to compare with the App's latest release. It has not run against a
+  newer release (none exists), so the bump path itself is still unexercised; the scheduled run only reports "already at
+  v0.1.0".
 - Human verification is configured but unused until an upload route exists; `/api/health` already reports
   `turnstile.required` so the pane's wording is right from the first deployment.
 - The base-image digest and the uv-image digest are the Cloud Assessor AddOn's verified pins of 2026-10-16; CI

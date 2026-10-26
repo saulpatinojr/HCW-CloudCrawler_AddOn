@@ -27,7 +27,9 @@ jobs:
       - name: Known vulnerabilities in the runtime set the image installs (exported from uv.lock as the build does)
         run: |
           set -euo pipefail
-          uv export --frozen --format requirements-txt --no-dev --no-emit-project --no-header -o "${RUNNER_TEMP}/requirements.lock.txt"
+          # The engine (cloud-crawler-core) is first-party and is not on PyPI, so pip-audit --strict cannot look it up. It is
+          # left out of this list only; the image build still installs it, hash-checked, from the App release (ADR 0001).
+          uv export --frozen --format requirements-txt --no-dev --no-emit-project --no-emit-package cloud-crawler-core --no-header -o "${RUNNER_TEMP}/requirements.lock.txt"
           uv run pip-audit -r "${RUNNER_TEMP}/requirements.lock.txt" --strict
   base-follows-website:
     # The base is the website's current pin. Weekly and on main, not on pull requests, so a website bump is a signal

@@ -34,8 +34,8 @@ egress from the host, and force this application to handle Entra tokens, which t
 3. **The engine is adopted from the App unchanged.** `cloud-crawler-core` is written and versioned in
    `HCW-CloudCrawler_App` (pydantic only, no HTTP, no cloud SDK). This repository pins the wheel the App attaches to
    its GitHub Release, by URL, so `uv lock` records its sha256 and the image's `pip install --require-hashes`
-   verifies it; `core-update.yml` opens the bump pull request on each upstream release. Until the first release the
-   lab has no engine and accepts no uploads; the pane says so.
+   verifies it; `core-update.yml` opens the bump pull request on each upstream release. The engine is adopted
+   (`v0.1.0`, 2026-10-26); until the upload route is built the lab accepts no uploads, and the pane says so.
 4. **Honesty is in the data.** Findings are `supported | contradicted | unknown | not-applicable`; unknown lowers
    coverage, never score; what an upload cannot show stays unknown by design; every bundle ships `NOT-AN-AUDIT.md`.
 

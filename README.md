@@ -22,8 +22,9 @@ The engine is not written here. It is
 seeded and versioned in the upstream App repository and adopted here
 **unchanged** when the App releases (ADR 0002 in the App and ADR 0001 here; the update
 workflow in `.github/workflows/core-update.yml` opens the bump pull request).
-The App has not released yet, so there is no engine here today; what has
-changed upstream, and what the first adoption involves, is in
+The engine is adopted at the App's release `v0.1.0` (the wheel's URL is pinned in
+`pyproject.toml` and its sha256 is recorded in `uv.lock`); what has changed upstream, and what the
+first adoption involved, is in
 [`docs/whats-new-upstream.md`](docs/whats-new-upstream.md).
 This repository owns only the lab application, its edition boundary, its
 pane, its limits and its deployment on the website's lab host.
@@ -64,9 +65,10 @@ Skeleton. What exists today:
 - the security suite that proves the boundary, including inside the image;
 - the hardened Dockerfile and the publish, security and core-update workflows.
 
-Not yet: the engine (adopted at the App's first release), the MCP server
-surface, uploads of the new artifact formats, the trusted-caller session API
-for the site's chat path. The roadmap is section 22 of the website proposal
+The engine `cloud-crawler-core` 0.1.0 is a dependency and the log guard
+uses its rules. Not yet: the upload route (so the file picker is still
+disabled), the MCP server surface, the trusted-caller session API for the
+site's chat path. The roadmap is section 22 of the website proposal
 *Azure Architecture MCP Appliance on Azure MCP Server 3.0*; nothing here is
 production.
 
