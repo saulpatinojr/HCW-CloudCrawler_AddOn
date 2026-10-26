@@ -22,8 +22,8 @@ The engine is not written here. It is
 seeded and versioned in the upstream App repository and adopted here
 **unchanged** when the App releases (ADR 0002 in the App and ADR 0001 here; the update
 workflow in `.github/workflows/core-update.yml` opens the bump pull request).
-The engine is adopted at the App's release `v0.1.0` (the wheel is pinned by
-URL and hash in `pyproject.toml`); what has changed upstream, and what the
+The engine is adopted at the App's release `v0.1.0` (the wheel's URL is pinned in
+`pyproject.toml` and its sha256 is recorded in `uv.lock`); what has changed upstream, and what the
 first adoption involved, is in
 [`docs/whats-new-upstream.md`](docs/whats-new-upstream.md).
 This repository owns only the lab application, its edition boundary, its
