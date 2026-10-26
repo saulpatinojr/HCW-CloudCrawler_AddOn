@@ -10,9 +10,9 @@ the site's own API. It exists for demonstrations, labs, training and
 evaluation scenarios.
 
 The AddOn **collects evidence but never fetches it**. A visitor uploads an
-Azure Resource Graph export, an azqr report or Terraform artifacts, or the
-site hands in results it obtained from Azure MCP Server on the visitor's
-behalf; the AddOn validates, hashes, redacts and normalises what it is given,
+Azure Resource Graph export or a Terraform state or plan (this version of the
+engine reads only the export), or the site hands in results it obtained from
+Azure MCP Server on the visitor's behalf; the AddOn validates, hashes, redacts and normalises what it is given,
 runs deterministic drift detectors against the decision records in the
 session, and answers with evidence, drift findings, draft ADRs and review
 proposals. Everything lives in memory and expires after two hours.
@@ -55,8 +55,8 @@ token or refresh token is ever held here (website proposal section 11).
 ## Status
 
 Version 0.2.0 carries the upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)); 0.1.0 was
-the lab application skeleton with the engine adopted, and is the only version whose image is published so far. What exists
-in 0.2.0:
+the lab application skeleton with the engine adopted. Both images are published, and the website's lab host runs 0.2.0
+([issue 17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17)). What exists in 0.2.0:
 
 - the lab application: configuration, the edition boundary and its startup refusal, content-free logging, security
   headers, exact-origin CORS, the upload and rate limits, and a flat `/api/health`;
@@ -114,7 +114,7 @@ lab host runs it behind the site's reverse proxy at
 
 The contract is the website's AddOn integration standard and ADR 0035; this
 repository follows it rather than defining it. What exists on each side today,
-and what flipping the website's row to `available` takes, is in
+and how the website's row was flipped to `available`, is in
 [`docs/website-integration/`](docs/website-integration/integration-guide.md).
 
 ## Rules that do not bend
