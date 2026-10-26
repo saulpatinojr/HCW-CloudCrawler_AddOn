@@ -11,7 +11,7 @@ from ..conftest import ROOT
 
 TEXT = (ROOT / ".github" / "workflows" / "core-update.yml").read_text(encoding="utf-8")
 STEPS = re.split(r"(?m)^ {6}- ", TEXT.split("\njobs:\n", 1)[1])[1:]  # the steps of the one job
-APP_TOKEN = r"\$\{\{\s*steps\.app-token\.outputs\.token\s*\}\}"
+APP_STEP_OUTPUT = r"\$\{\{\s*steps\.app-token\.outputs\.token\s*\}\}"
 
 
 def _only(action: str) -> str:
@@ -25,7 +25,7 @@ def test_pull_request_is_opened_with_the_app_token_never_github_token():
     pr = _only("peter-evans/create-pull-request")
     assert re.search(r"(?m)^\s*id:\s*app-token\s*$", app)
     assert STEPS.index(app) < STEPS.index(pr), "the App token step must come before the pull request step"
-    assert re.search(rf"(?m)^\s*token:\s*{APP_TOKEN}\s*$", pr)
+    assert re.search(rf"(?m)^\s*token:\s*{APP_STEP_OUTPUT}\s*$", pr)
     assert "GITHUB_TOKEN" not in pr, "create-pull-request must not be given GITHUB_TOKEN"
 
 
@@ -34,7 +34,7 @@ def test_every_step_that_runs_gh_pr_uses_the_app_token_after_it_was_minted():
     gh_pr = [s for s in STEPS if re.search(r"\bgh pr\b", s)]
     assert gh_pr, "the auto-merge step is missing"
     for step in gh_pr:
-        assert re.search(rf"GH_TOKEN:\s*{APP_TOKEN}", step)
+        assert re.search(rf"GH_TOKEN:\s*{APP_STEP_OUTPUT}", step)
         assert STEPS.index(app) < STEPS.index(step)
 
 

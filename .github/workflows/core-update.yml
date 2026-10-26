@@ -7,17 +7,20 @@
 # `pip install --require-hashes` keeps verifying every third-party file (a git+https pin cannot be hash-checked and would
 # break that build). If the CORE_REF line were ever removed, the comparison below finds nothing and exits cleanly.
 #
-# The pull request is opened with a short-lived GitHub App token (actions/create-github-app-token), not with GITHUB_TOKEN.
-# A pull request opened with GITHUB_TOKEN starts no workflow, so the required checks of the "Protect main" ruleset never ran
-# on it and it could never merge. One opened with the App token does start them, so this edition's own CI (ci, security)
-# also runs on the bump pull request; the compatibility check below still runs first, in this run, and decides the
-# compatible / needs-adaptation label and whether auto-merge is asked for.
-# The credential is the HCW Portfolio Admin App: its client ID is the variable APP_CLIENT_ID and its private key the secret
-# APP_PRIVATE_KEY of the admin-ops environment, which is why the job runs in that environment. Only the token step is given
-# the key. That step comes late (after uv and the tests have run), mints a token for this repository only with Contents and
-# Pull requests write, and the action revokes the token when the job ends. GITHUB_TOKEN is read-only here.
-# A manual run with probe=true mints the token and makes one read-only API call and nothing else that writes, to prove the
-# credential on a day when there is no release to adopt:  gh workflow run core-update.yml --ref main -f probe=true
+# The pull request is opened with a short-lived GitHub App token (actions/create-github-app-token), not with
+# GITHUB_TOKEN. A pull request opened with GITHUB_TOKEN starts no workflow, so the required checks of the
+# "Protect main" ruleset never ran on it and it could never merge. One opened with the App token does start
+# them, so this edition's own CI (ci, security) also runs on the bump pull request; the compatibility check
+# below still runs first, in this run, and decides the compatible / needs-adaptation label and whether
+# auto-merge is asked for.
+# The credential is the HCW Portfolio Admin App: its client ID is the variable APP_CLIENT_ID and its private key
+# the secret APP_PRIVATE_KEY of the admin-ops environment, which is why the job runs in that environment. Only
+# the token step is given the key. That step comes late (after uv and the tests have run), mints a token for this
+# repository only with Contents and Pull requests write, and the action revokes the token when the job ends.
+# GITHUB_TOKEN is read-only here.
+# A manual run with probe=true mints the token and makes one read-only API call and nothing else that writes,
+# to prove the credential on a day when there is no release to adopt:
+#   gh workflow run core-update.yml --ref main -f probe=true
 name: core-update
 on:
   schedule: [{ cron: "41 */6 * * *" }]
@@ -36,8 +39,8 @@ env:
 jobs:
   check-and-bump:
     runs-on: ubuntu-26.04
-    # GITHUB_TOKEN may only read here (checkout, and the public releases API of the upstream repository). Everything that
-    # writes uses the App token.
+    # GITHUB_TOKEN may only read here (checkout, and the public releases API of the upstream repository).
+    # Everything that writes uses the App token.
     permissions:
       contents: read
     environment: admin-ops
@@ -132,8 +135,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
-        # The pull request is open and its checks run whatever happens here, so a refusal (for example the repository
-        # setting "Allow auto-merge" being off) is a warning to merge by hand, not a failed run.
+        # The pull request is open and its checks run whatever happens here, so a refusal (for example the
+        # repository setting "Allow auto-merge" being off) is a warning to merge by hand, not a failed run.
         run: |
           if ! gh pr merge --squash --auto "$PR_NUMBER"; then
             echo "::warning::Auto-merge was not turned on for pull request #${PR_NUMBER}; merge it by hand."
