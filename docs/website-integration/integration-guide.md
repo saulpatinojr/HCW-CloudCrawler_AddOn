@@ -4,12 +4,13 @@ How `hybridcloudworks.com` shows the Cloud Crawler lab edition, per the HCW AddO
 repository `docs/standards/addon-integration-standard.md`, ADR 0035). The site frames this AddOn in a sandboxed pane on
 one page; nothing from this repository is installed into the site bundle.
 
-**Where it stands, read on 2026-10-24.** The website has a catalogue row for this AddOn with `status: 'coming'`, added by
+**Where it stands, read on 2026-10-26.** The website has a catalogue row for this AddOn with `status: 'coming'`, added by
 website pull request #1351 (merge commit `e4e53807`): `/tools/cloud-crawler` shows an explainer and frames nothing. That
-is deliberate. This repository is a skeleton with no engine, no tag and no published image, and the App has not tagged a
-release (`docs/whats-new-upstream.md`). Everything below that needs an image (the lab-host row, the port, the Function App
-setting, the frame-src entry) does not exist on the website yet, and the website's page for this pair
-(`docs/architecture/app-to-addon/cloud-crawler.md`) lists what the flip to `available` takes.
+is deliberate. The App has released `v0.1.0` and this repository has adopted the engine from it, but the AddOn has no
+upload route yet (issue 16) and its first real image is not published (issue 17, tag `v0.1.0`; only the test image
+`v0.1.0-rc.1` exists). Everything below that needs an image (the lab-host row, the port, the Function App setting, the
+frame-src entry) does not exist on the website yet. The checklist for the pull request that flips the row is on issue 17,
+and the website's page for this pair (`docs/architecture/app-to-addon/cloud-crawler.md`) lists what the flip takes.
 
 ## Identity
 
@@ -18,12 +19,12 @@ setting, the frame-src entry) does not exist on the website yet, and the website
 | AddOn id | `cloud-crawler` |
 | Site route | `/tools/cloud-crawler` (`frontend/src/pages/tools/AddOnPanePage.jsx` with `addonId="cloud-crawler"`; `CloudCrawlerPage.jsx` wrapper) |
 | Origin | `https://cloud-crawler.lab.hybridcloudworks.com` (exactly `'https://' + id + '.lab.hybridcloudworks.com'`) |
-| Frame `src` | `https://cloud-crawler.lab.hybridcloudworks.com/` exactly: the site builds `origin + panePath` and adds no query string (`addonPaneUrl` in the catalogue; `AddOnPanePage.jsx` has no theme handling). Whether the site should pass its theme is website issue #1353. |
+| Frame `src` | `https://cloud-crawler.lab.hybridcloudworks.com/` plus `?theme=dark` or `?theme=light`: the site builds `origin + panePath` and, since website issue #1353 (pull request #1359), adds the visitor's theme (`addonFrameUrl` in the catalogue). The pane reads the parameter (`web/app.js`) and otherwise follows `prefers-color-scheme`. |
 | Health path | `/api/health` |
 | Function App setting (status proxy) | `ADDON_CLOUD_CRAWLER_URL`. The registry (`functions/src/lib/addons/registry.js`) already names it; the website does not declare it in `infra/functionapp.tf` until the row is `available`, so the status route answers `{ configured: false }`. |
 | Lab-host vault key | `vault_addon_cloud_crawler_turnstile_secret` (ADR 0003 here) |
 | Lab-host loopback port | not assigned; ADR 0003 leaves it to the website ("the next free port is the website's call"; the Cloud Assessor uses 18083) |
-| Image | `docker.io/hybridcloudworks/img-cc-lab-addon`, published on `v*` tags by `publish-images.yml`; none published yet. The website will pin it by digest in `lab-host/ansible/group_vars/all.yml` `addons[]`. |
+| Image | `docker.io/hybridcloudworks/img-cc-lab-addon`, published on `v*` tags by `publish-images.yml`; only the test image `v0.1.0-rc.1` exists, the first real one is the tag `v0.1.0` (issue 17). The website will pin it by digest in `lab-host/ansible/group_vars/all.yml` `addons[]`. |
 
 ## Catalogue row (`frontend/src/data/addons/catalogue.js`)
 
@@ -80,10 +81,11 @@ the unavailable sentence if nothing arrives.
 
 ## Sandbox and capabilities
 
-Base sandbox `allow-scripts allow-same-origin allow-forms`. The website's row lists `navigate` and `downloads`. Those are
-the same two capabilities the other add-ons' rows carry and were copied, not decided for this AddOn; whether any AddOn
-should hold `navigate`, and what each should be granted, is website issue #1354. Fill in what this AddOn really needs
-before its row is flipped. Never `allow-top-navigation`.
+Base sandbox `allow-scripts allow-same-origin allow-forms`. The website's row lists `navigate` and `downloads`. Those were
+copied from the first add-on, not decided for this one. Website issue #1354 settled the rule on 2026-10-24 (pull request
+#1359): a pane is granted what it uses, and the two assessment panes hold `downloads` and `clipboard-write`. This pane
+uses neither today: it has no download or copy control and never posts a `navigate` message. The list is decided when the
+row is flipped, from what the pane does then. Never `allow-top-navigation`.
 
 ## Content security policy, both sides
 
