@@ -69,7 +69,8 @@ pins) and `uv lock --check` passes with it. Windows host, so the container check
   v0.1.0".
 - Human verification is configured but unused until an upload route exists; `/api/health` already reports
   `turnstile.required` so the pane's wording is right from the first deployment.
-- The base-image digest and the uv-image digest are the Cloud Assessor AddOn's verified pins of 2026-10-16; CI
+- The base-image digest is the website's current pin (moved on 2026-10-26; before that, the Cloud Assessor AddOn's pin of
+  2026-10-16), and the uv-image digest is the Cloud Assessor AddOn's verified pin of 2026-10-16; CI
   re-resolves the uv digest on every run and the weekly job compares the base with the website's.
 - The labels in `.github/labels.json` and the repository Discussions were not created (the initializer ran with
   `--skip-github`, having no signed-in `gh` here); the owner runs the template's GitHub step once.
