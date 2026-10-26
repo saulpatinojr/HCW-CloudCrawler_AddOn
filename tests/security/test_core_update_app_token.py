@@ -113,6 +113,14 @@ def test_every_action_is_pinned_to_a_full_commit_sha():
         assert re.search(r"@[0-9a-f]{40}$", use), f"{use} is not pinned to a commit SHA"
 
 
+def test_a_probe_run_never_reaches_a_step_that_writes():
+    # A manual run with probe=true must stay read-only even when a newer release exists (changed == 'true').
+    writers = [s for s in STEPS if "peter-evans/create-pull-request@" in s or re.search(r"\bgh pr\b", s)]
+    assert len(writers) == 2, "expected the pull request step and the auto-merge step"
+    for step in writers:
+        assert re.search(r"(?m)^\s*(?:- )?if:.*!inputs\.probe", step), "a step that writes must be skipped on a probe"
+
+
 def test_probe_step_only_reads_and_checks_the_token_covers_this_repository_only():
     probe = [s for s in STEPS if re.search(r"(?m)^\s*if:\s*inputs\.probe\s*$", s)]
     assert len(probe) == 1, "expected exactly one probe step"

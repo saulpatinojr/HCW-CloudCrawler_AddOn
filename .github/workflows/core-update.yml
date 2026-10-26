@@ -115,7 +115,7 @@ jobs:
           covered="$(gh api installation/repositories --jq '[.repositories[].full_name] | join(",")')"
           echo "The token covers these repositories: ${covered}"
           test "${covered}" = "${REPO}" || { echo "::error::The token must cover ${REPO} and nothing else"; exit 1; }
-      - if: steps.refs.outputs.changed == 'true'
+      - if: steps.refs.outputs.changed == 'true' && !inputs.probe
         id: pr
         name: Open the bump pull request (ready for review)
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
@@ -138,7 +138,7 @@ jobs:
             - needs adaptation: fix this edition on this branch, then merge.
 
             ADR 0001 (the engine is adopted from the App unchanged).
-      - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome == 'success' && vars.CORE_AUTOMERGE == 'true' && steps.pr.outputs.pull-request-number != ''
+      - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome == 'success' && vars.CORE_AUTOMERGE == 'true' && steps.pr.outputs.pull-request-number != '' && !inputs.probe
         name: Auto-merge the compatible bump
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
