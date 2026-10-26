@@ -6,8 +6,9 @@
 #          pip --require-hashes --no-deps (nothing resolves beyond the lock), then places the lab application
 #          beside them as a source tree, so no build backend enters the image. When the engine is adopted from the
 #          App it arrives through uv.lock as a hash-verified wheel, not as a copied tree.
-#   lab    the runtime: apt upgrade, /install copied in, pip/ensurepip/setuptools removed, uid 10001, read-only
-#          friendly (writes nothing), HEALTHCHECK on /api/health through urllib, CMD python -m cloud_crawler_lab.
+#   lab    the runtime: apt upgrade, /install copied in, the pane (web) and the fictional samples copied in, pip/
+#          ensurepip/setuptools removed, uid 10001, read-only friendly (uploads live in memory and nothing is
+#          written to disk), HEALTHCHECK on /api/health through urllib, CMD python -m cloud_crawler_lab.
 #
 # The lab edition is technically unable to reach Azure: no cloud SDK is installed, the process refuses to start
 # under an identity endpoint, and publish-images.yml asserts `python -c "import azure"` fails inside this image.
@@ -44,19 +45,22 @@ RUN test "$EDITION" = "lab"
 # built image lacks it or LICENSE stops being the MIT License.
 LABEL org.opencontainers.image.licenses="MIT"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8080 \
-    CC_STATIC_DIR=/app/web CC_FRAME_ANCESTORS="'none'"
+    CC_STATIC_DIR=/app/web CC_SAMPLES_DIR=/app/samples CC_FRAME_ANCESTORS="'none'"
 RUN apt-get update \
  && apt-get upgrade -y --no-install-recommends \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
- && python -m pip uninstall -y pip setuptools wheel >/dev/null 2>&1 || true \
+ && { python -m pip uninstall -y pip setuptools wheel >/dev/null 2>&1 || true; } \
  && rm -rf /usr/local/lib/python3.14/ensurepip /usr/local/lib/python3.14/site-packages/pip* \
            /usr/local/lib/python3.14/site-packages/setuptools* /usr/local/lib/python3.14/site-packages/wheel* \
            /usr/local/bin/pip* /usr/local/bin/wheel /root/.cache \
  && groupadd --gid 10001 app && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin app
 COPY --from=build /install /usr/local
-COPY --chown=10001:10001 web /app/web
 WORKDIR /app
+COPY web /app/web
+# The sample files stay root-owned and read-only to the app (it only reads them), and only the *.json files go in: the
+# lab serves four fixed names, and tests/unit/test_pane.py holds the folder to exactly those.
+COPY samples/*.json /app/samples/
 USER 10001:10001
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

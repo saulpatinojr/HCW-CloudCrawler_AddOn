@@ -28,6 +28,18 @@ LAB_ONLY_WORDS: frozenset[str] = frozenset(
         "unsupported_media_type",
         "arg-json",
         "arg-csv",
+        # the upload route (issue 16): event names, refusal codes and the reasons a result is closed
+        "upload_rejected",
+        "upload_failed",
+        "too_complex",
+        "client_disconnected",
+        "too_many_findings",
+        "invalid_decision",
+        "result_too_large",
+        "request_timeout",
+        "deleted",
+        "expired",
+        "evicted",
     }
 )
 

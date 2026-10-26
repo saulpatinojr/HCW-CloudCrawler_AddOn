@@ -20,7 +20,7 @@ header.bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
 .notice { margin: 12px 0; padding: 10px 12px; border-left: 3px solid hsl(var(--finops-green)); background: hsl(var(--muted)); color: hsl(var(--foreground)); border-radius: 0 var(--radius) var(--radius) 0; }
 section.step { margin: 20px 0; padding: 16px; border: 1px solid hsl(var(--border)); border-radius: var(--radius); background: hsl(var(--card)); color: hsl(var(--card-foreground)); }
 section[hidden] { display: none; }
-.dropzone { border: 2px dashed hsl(var(--ring) / 0.4); border-radius: var(--radius); padding: 24px; text-align: center; cursor: pointer; background: hsl(var(--muted)); }
+.dropzone { display: block; margin-top: 10px; border: 2px dashed hsl(var(--ring) / 0.4); border-radius: var(--radius); padding: 24px; text-align: center; cursor: pointer; background: hsl(var(--muted)); }
 .dropzone.active { border-color: hsl(var(--finops-green)); }
 .dropzone input { display: none; }
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
@@ -51,10 +51,35 @@ tr.finding:hover, tr.finding.selected { background: hsl(var(--accent)); }
 .detail dd { margin: 0; word-break: break-word; }
 pre.report { white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; padding: 10px; background: hsl(var(--muted)); border-radius: var(--radius); font-size: 0.8rem; user-select: all; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+h3 { font-size: 0.95rem; margin: 16px 0 6px; }
+.row label { display: inline-flex; flex-direction: column; gap: 2px; font-size: 0.85rem; color: hsl(var(--muted-foreground)); min-width: 0; max-width: 100%; }
+.row select { font: inherit; padding: 6px 8px; border-radius: var(--radius); border: 1px solid hsl(var(--border)); background: hsl(var(--background)); color: hsl(var(--foreground)); width: 100%; max-width: 100%; text-overflow: ellipsis; }
+a.button { display: inline-block; text-decoration: none; }
+a.button.secondary { background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)); }
+.filebutton { display: inline-block; margin-top: 10px; padding: 8px 14px; border: 1px dashed hsl(var(--ring) / 0.5); border-radius: var(--radius); cursor: pointer; background: hsl(var(--muted)); }
+.filebutton[hidden] { display: none; }
+.filebutton input { display: none; }
+.filebutton:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+button.small-button { padding: 2px 8px; font-size: 0.8rem; }
+td.num, th.num { text-align: right; }
+td.wrap { word-break: break-all; }
+.state-contradicted { color: hsl(var(--destructive)); }
+.state-supported { color: hsl(var(--finops-green)); }
+.state-unknown, .state-not-applicable { color: hsl(var(--muted-foreground)); }
+.proposals { margin: 8px 0 0; padding-left: 18px; }
+.proposals li { margin-bottom: 12px; }
+.proposals li, .warnings li, .small { overflow-wrap: anywhere; }
+.proposals .badge { margin-left: 8px; }
+details > summary { cursor: pointer; padding: 4px 0; }
+dl.record { display: grid; grid-template-columns: 140px 1fr; gap: 4px 12px; margin: 8px 0 0; }
+dl.record dt { color: hsl(var(--muted-foreground)); }
+dl.record dd { margin: 0; word-break: break-word; }
+dl.record dd ul { margin: 0; padding-left: 18px; }
+.notice details { margin-top: 6px; }
 @media (prefers-reduced-motion: no-preference) {
   button, .dropzone { transition: background-color 120ms ease, border-color 120ms ease; }
 }
 @media (max-width: 640px) {
-  .detail dl { grid-template-columns: 1fr; }
+  .detail dl, dl.record { grid-template-columns: 1fr; }
   th { position: static; }
 }

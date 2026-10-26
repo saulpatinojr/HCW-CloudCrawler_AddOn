@@ -11,7 +11,86 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+The upload route: the lab can now read what a visitor uploads and check it with the engine (issue
+[16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)). It is the content of the next release, `0.2.0`;
+this change does not move the version number, the release pull request does. The MCP server and the trusted-caller
+session API for the website's chat path are still later releases.
+
+### Added
+- `POST /api/uploads`: a visitor sends one JSON request that holds the **evidence** (what is built: up to five Resource
+  Graph exports, Terraform states or plans) and a **decision** (what they decided: claims about what should be true, in the
+  App's `adr_create` shape). The lab runs the engine's own `ingest` and drift code and answers with the findings, review
+  notes (the engine's review proposals), the decision kept as a draft decision record, and a report bundle that always
+  includes `NOT-AN-AUDIT.md`. Reads and deletes use the owner token the answer shows once: `GET /api/uploads/{id}`,
+  `GET /api/uploads/{id}/files/{report.md|report.json|NOT-AN-AUDIT.md}` and `DELETE /api/uploads/{id}`.
+  `GET /api/samples/{name}` serves four fictional samples. The whole contract is in `docs/api.md` and ADR 0004.
+- The order of checks keeps the existing promises: the client's rate limit, the content type and declared size, then
+  **human verification before a byte of the body is read**, then the body under the 5 MB limit and a 30 second deadline,
+  then parsing. With no secret the route answers `503` (fail closed); the local-only `CC_ALLOW_NO_TURNSTILE=1` still works
+  only when no secret is set. Verification runs off the event loop, and so does the engine work, so `/api/health` keeps
+  answering during a big upload. The rate limit's client is the peer address, or behind the lab host's proxy the first
+  `X-Forwarded-For` entry when it is an IP address (an IPv6 client counts as its /64).
+- Parser safety: strict UTF-8 JSON only (NaN, Infinity and lone surrogates refused); a bracket count before parsing and a
+  walk without recursion afterwards bound depth (64), objects and arrays (100,000), values (1 million) and one string
+  (65,536 characters, and no more than 16 `eyJ` in it, because the engine's secret-shape pattern is quadratic on a string
+  of nothing else; the engine should fix its pattern upstream, [App issue 53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53)); the decision part of the request gets a size budget before
+  pydantic validates it (pydantic writes an error per bad entry: 250,000 measured 1.3 GB); a row may carry at most 100 tags
+  and 100 zones; archives,
+  YAML and every non-JSON content type are refused and never opened; the source has no way to write a file, run a program
+  or load code (a test reads it to prove that).
+- Limits: 5,000 rows across all files (the engine counts Resource Graph rows, the lab counts Terraform entries), 20 claims,
+  and **claims times resources at most 25,000**, because the engine holds every answer while it works. Results are held in
+  memory only: 200 at most, 64 MB in all (`CC_MAX_STORE_MB`, oldest first; one client may hold a tenth of the results and a
+  quarter of the bytes and loses its own oldest first), 120 minutes each, swept every minute and emptied at shutdown. No
+  temporary directory, because nothing is written to disk. At most four uploads are held in memory at once (counted before
+  the body is read), and the evaluations run in threads of their own, whose slot is given back only when the thread ends.
+- Owner-token isolation for results: random ids, a random owner token kept only as a SHA-256, constant-time comparison, and
+  the same `404` for a wrong id, a wrong token and an expired result.
+- Results stay small: a result lists at most 1,000 findings (contradicted first, then unknown, then supported), counts the
+  not-applicable ones, says what it left out, and shortens echoed values, so a 5 MB upload cannot become tens of megabytes
+  held for two hours.
+- The Markdown report is safe to open elsewhere. `report.md` carries text its readers did not write: a resource name,
+  a tag value, a location, a claim's statement, the decision's title. Each of those is now written with the characters
+  Markdown and HTML read replaced by entities (`|`, `<`, `>`, a backtick, square brackets, a backslash) and every
+  control character, newlines included, replaced by a space, so a value cannot start a heading, draw an image whose
+  address is a tracking beacon, add a `<script>` or split a table row. The JSON report keeps the original text,
+  quoted. It is a translation table, not a pattern: nothing in the lab runs a regular expression over what a visitor
+  sent. Found by a second independent security review (`tests/security/test_report_markdown.py`).
+- Content-free logs and errors: log lines carry counts and fixed words only (a refusal by code and status, an unexpected
+  failure by its exception class and never its message), and error bodies name field paths and positions, never a value the
+  visitor sent. New log words (`upload_rejected`, `upload_failed`, `too_complex`, `too_many_findings`, `invalid_decision`,
+  `result_too_large`, `request_timeout`, `deleted`, `expired`, `evicted`) are added to the lab's own list.
+- `infrastructure/docker/smoke.py`, run inside the built image by `ci.yml` and `publish-images.yml` (in a read-only
+  container with the lab host's memory and process limits): the pane, the four samples and an upload from start to finish.
+  The image copies only `samples/*.json`, root-owned, to `/app/samples`.
+- The pane: the file picker is enabled (several files at once, a drop zone), a decision chooser (starter, two samples or the
+  visitor's own file), a "Use the sample export" button, the human-verification widget, and the result: summary cards, the
+  per-claim table, findings with a filter, review notes, the draft decision record, the `NOT-AN-AUDIT` note, download and
+  copy buttons and a "Delete my result now" button. The old text that said uploads open with the App's first release is gone.
+- `edition.py` `CAPABILITIES` gains `upload-evidence`, `drift-findings`, `draft-decision-record`, `review-proposals`,
+  `report-markdown`, `report-json`, `not-an-audit`, `sample-data` and `delete-now` (only added; `health` and `pane` stay
+  first).
+- Samples: `samples/` now holds the App's fictional export and two decisions (copied unchanged) and a new generic
+  `decision-starter.json`; `samples/README.md` explains them and the decision file format. The image copies `samples/` to
+  `/app/samples` (`CC_SAMPLES_DIR`), only the four `*.json` files, root-owned.
+- Tests: the upload API, the bounded reader, the decision and evidence checks, the store, the pane's static contract, the
+  hardening suite (content-free logs, no disk writes, hostile documents, memory bounds) and an acceptance test that holds the
+  lab to the App's golden verdicts on the sample estate.
+- Gate-order tests found by mutation checks (`tests/security/test_upload_gate_order.py`): an upload that declares it
+  is too large does not spend the visitor's one-use verification; every refusal the application can raise is a word
+  the log knows; an owner token longer than the header allows is never looked up.
+- ADR 0004 (`docs/adr/0004-the-upload-route.md`) and `docs/api.md`.
+
 ### Changed
+- `docs/website-integration/` (guide and routes) and `README.md` say the upload route exists and what is still later;
+  `docs/whats-new-upstream.md` marks item 5 of the first adoption as done; `VALIDATION.md` records the run.
+- `tests/security/test_edition_boundary.py` asserts the new route list and that the one outbound call (human verification) is
+  imported by the upload route only.
+- `security/limits.py`: `read_body` takes a deadline, answers a client that disconnects with a handled refusal, and the
+  declared-length check can run before verification. `security/turnstile.py` treats a null `error-codes` as an empty list.
+- `docker-compose.yml`: `memswap_limit: 512m` and a sized, `noexec` `/tmp` (the lab writes nothing there).
+- The pane's delete button asks twice on the button itself (a framed page may not be allowed to open a dialog) and reports
+  "deleted" only when the lab says it was.
 
 - The lab image states its open-source licence in the form registries and scanners read.
   `infrastructure/docker/Dockerfile` sets `org.opencontainers.image.licenses="MIT"` on the final stage (the SPDX id
@@ -21,6 +100,11 @@ once, merge one before rebasing the next.
   tags on Docker Hub on 2026-10-26 (`v0.1.0` and `v0.1.0-rc.1`) were built without the
   label and are not changed; the label reaches Docker Hub with the next tagged release.
 - `core-update.yml` opens its bump pull request with a short-lived GitHub App token (`actions/create-github-app-token`, pinned to v3.3.0; the HCW Portfolio Admin App, whose client ID and private key are the `APP_CLIENT_ID` variable and `APP_PRIVATE_KEY` secret of the `admin-ops` environment) instead of `GITHUB_TOKEN`, and the job runs in that environment. Why: a pull request opened with `GITHUB_TOKEN` starts no workflow, so the required checks of the `Protect main` ruleset would never run on it and it could not merge. The token is minted for this repository only, with Contents and Pull requests write, after the compatibility check and just before the pull request is opened; `GITHUB_TOKEN` is now `contents: read` only. Because the App's pull request starts this edition's own CI, the "do not trigger other workflows" comment is gone; the compatibility check in the run still decides the label and whether auto-merge is requested. Turning on auto-merge no longer fails the run when the repository setting "Allow auto-merge" is off (it is off here); it warns and leaves the pull request to merge by hand. A manual run with `probe=true` mints the token and makes one read-only API call, to prove the credential while the pin is already at the latest release and no pull request would open. `tests/security/test_core_update_app_token.py` pins all of it (no `GITHUB_TOKEN` passed to `create-pull-request`, the token step first, the `admin-ops` environment, the two permissions, SHA pins).
+
+### Not in this change
+- Reading Terraform. The engine (0.1.0) records a Terraform state or plan and its claims stay `unknown`; the response and
+  the pane say so. Reading it belongs upstream, in the engine ([App issue 54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54)).
+- The MCP server surface, the trusted-caller session API, CSV uploads, and any change to the website's catalogue row.
 
 ## [0.1.0] - 2026-10-26
 

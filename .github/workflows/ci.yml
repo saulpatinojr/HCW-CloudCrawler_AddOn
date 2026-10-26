@@ -67,6 +67,21 @@ jobs:
             echo '::error::the image started under an identity endpoint'; exit 1
           fi
           test "$(docker run --rm --entrypoint id addon:ci -u)" = "10001"
+          # The hardened run, as the lab host runs it (read-only with no writable path at all, no capability, the same
+          # memory and process limits), then a real round trip inside it: the pane, the four sample files and an upload
+          # from start to finish. The unit tests read the repository's folders, not the image's.
+          cid="$(docker run -d --read-only --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --pids-limit 256 --cpus 1 -e CC_ALLOW_NO_TURNSTILE=1 addon:ci)"
+          ok=0
+          for i in $(seq 1 30); do
+            if docker exec "$cid" python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3).status==200 else 1)" 2>/dev/null; then ok=1; break; fi
+            sleep 1
+          done
+          if [ "$ok" = 1 ]; then out="$(docker exec -i "$cid" python - < infrastructure/docker/smoke.py)" || ok=0
+            printf '%s\n' "$out"
+            printf '%s\n' "$out" | grep -qx 'upload round trip ok' || ok=0
+          fi
+          docker logs "$cid" 2>&1 | tail -n 20 || true; docker rm -f "$cid" >/dev/null
+          test "$ok" = 1
       - name: The image states its open-source licence (org.opencontainers.image.licenses is the SPDX id of LICENSE)
         run: |
           set -euo pipefail

@@ -101,10 +101,17 @@ def test_health_reports_disabled_by_design(client):
 
 
 def test_no_route_can_call_azure(client):
-    """Every documented route is read-only and local; nothing in the application reaches out."""
+    """Every documented route is local; nothing in the application reaches out. The upload route is the only one that
+    writes, and it writes to memory only (tests/security/test_upload_hardening.py holds the no-disk rule)."""
     from cloud_crawler_lab.app import api_routes
 
-    assert api_routes(client.app) == {"/api/health": {"GET"}}
+    assert api_routes(client.app) == {
+        "/api/health": {"GET"},
+        "/api/uploads": {"POST"},
+        "/api/uploads/{upload_id}": {"GET", "DELETE"},
+        "/api/uploads/{upload_id}/files/{name}": {"GET"},
+        "/api/samples/{name}": {"GET"},
+    }
     outbound = ("urllib", "httpx", "requests", "aiohttp", "http")
     for path in (ROOT / "src").rglob("*.py"):
         if path.name == "turnstile.py":
@@ -118,3 +125,17 @@ def test_no_route_can_call_azure(client):
                 names = [node.module]
             for name in names:
                 assert name.split(".")[0] not in outbound, f"{path} imports {name}"
+
+
+def test_the_one_outbound_call_is_reachable_from_the_upload_route_only():
+    """Human verification (`security/turnstile.py`, a fixed https endpoint) is imported by the upload route and by
+    nothing else; the pipeline that reads an upload (inputs, decisions, evidence, analysis, store) cannot reach it."""
+    importers = set()
+    for path in (ROOT / "src").rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and (
+                (node.module or "").endswith("turnstile") or any(a.name == "turnstile" for a in node.names)
+            ):
+                importers.add(path.relative_to(ROOT).as_posix())
+    assert importers == {"src/cloud_crawler_lab/routes/uploads.py"}

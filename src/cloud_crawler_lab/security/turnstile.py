@@ -48,7 +48,8 @@ def verify(secret: str, token: str | None, remote_ip: str | None, *, opener: Ope
         return Verdict(False, ["verification-unavailable"])
     if not isinstance(payload, dict):
         return Verdict(False, ["verification-unavailable"])
-    codes = [str(c) for c in payload.get("error-codes", []) if isinstance(c, str)]
+    raw_codes = payload.get("error-codes")
+    codes = [c for c in raw_codes if isinstance(c, str)] if isinstance(raw_codes, list) else []
     if payload.get("success") is not True:
         return Verdict(False, codes or ["invalid-input-response"])
     if payload.get("action") != TURNSTILE_ACTION:

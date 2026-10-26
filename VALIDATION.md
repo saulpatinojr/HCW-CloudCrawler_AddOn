@@ -57,11 +57,64 @@ pins) and `uv lock --check` passes with it. Windows host, so the container check
 | Push, provenance, SBOM and SLSA attestation of the image, and the image digest | **no** | only a `v*` tag can push (the Docker connection trusts tags only); this is the tag `v0.1.0` in issue [17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17) |
 | `guide-drift.yml` on `main` before this change | yes, in CI | success, 12 fields compared ([run 40267695699](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40267695699)); this change edits the guide's prose only, not the catalogue-row copy |
 
+## Run 2026-10-26 (the upload route, issue 16)
+
+Toolchain: Python 3.14.6, uv 0.12.0 locally (CI uses uv 0.11.32). Windows host with Docker Desktop (context `desktop-linux`,
+local engine). Local container runs used a task-specific tag (`img-cc-lab-addon:task-upload-route`) and disposable containers
+(`--rm`, loopback ports only), all removed afterwards. "CI" means a manual run on the branch before the pull request; none of
+those runs can push an image.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| `uv run ruff check . && uv run ruff format --check .` | yes | clean (66 files) |
+| `uv run pytest -q --cov=src --cov-fail-under=85` | yes, and in CI | **284 passed, coverage 97.54%** (gate 85). 71 tests were there before; 209 are in the new or rewritten modules: the upload API, the bounded reader, the decision and evidence checks, the store, the pane's static contract, the hardening and abuse suites and the acceptance test |
+| The new tests against the old source (`origin/main` in a scratch checkout, new tests copied in) | yes | the 8 new test modules cannot be imported (the modules do not exist); of the other 91 tests, 26 fail (the route list, the capability list, the pane, the acceptance verdicts, the settings) and 65 pass |
+| Acceptance: the App's golden verdicts for the sample estate through the upload route | yes | the same verdict for every resource as the App's own acceptance tests (`tests/acceptance/golden/`, copied unchanged): supported 3, contradicted 2, unknown 0, not applicable 8, score 60.0, coverage 1.0 for the zone-redundancy decision; all six detectors of the wave-one baseline |
+| `uv lock --check`; `uv export ... --no-emit-package cloud-crawler-core \| pip-audit --strict` (as `security.yml`) | yes | lock current; no known vulnerabilities |
+| hadolint (the image `ghcr.io/hadolint/hadolint` already on this machine, by id) on the Dockerfile | yes | exit 0, before and after the change. No workflow runs hadolint (CodeRabbit does) |
+| actionlint (image already on this machine) on `ci.yml` and `publish-images.yml`, shellcheck off | yes | no finding except the repository-wide runner label `ubuntu-26.04` that this older actionlint does not know; `bash -n` on the two edited steps is clean |
+| `docker build` of the lab image; in-image boundary checks as in `ci.yml` | yes, local | `import azure` and `import msal` fail, `cloud_crawler_core` 0.1.0 imports, the image refuses to start under `IDENTITY_ENDPOINT`, uid 10001, no pip; `/app/samples` holds the four JSON files, root-owned |
+| `infrastructure/docker/smoke.py` run inside a hardened container (`--read-only`, no tmpfs, `--cap-drop ALL`, `no-new-privileges`, `--memory 512m --memory-swap 512m --pids-limit 256 --cpus 1`) | yes, local and in CI | every check `ok` (health with the new capabilities, the pane, the four samples, `README.md` 404, an upload of the sample, the owner reads it, anyone else 404, `NOT-AN-AUDIT.md`, delete, gone); `OOMKilled=false`; the container's log lines are counts and fixed words (zero matches for `hcw-sample`, a GUID, the owner token or a region) |
+| Abuse run against that container (script not committed): 5 MB of empty arrays, deep nesting, 5 MB + 1 byte, a zip, a YAML content type, a 4.5 MB / 5,000-row / 5-claim upload (25,000 findings), three of those at once while `/api/health` is polled | yes, local | refused in 0.05 s with `too_complex` (422), 422, 413, 400, 415; the big upload answers 201 in 1.4 s with 1,000 findings listed of 25,000 and exact counts; with three at once one waited and was answered 503 politely, the other two 201; `/api/health` answered 200 in 0.01 to 0.12 s throughout; **peak memory 269 MiB of 512 MiB**; healthy afterwards |
+| Memory of one evaluation by shape (`tracemalloc`, in process) | yes | 25,000 findings: 120 MB; the worst accepted shape (one row with 95,000 tiny objects): 55 MB (the first version accepted 385,000 of them and used 229 MB per evaluation, found by the security review); 600 strings of 8 KB: 15 MB |
+| Real browser (Playwright with its Chromium, from the website repository's `node_modules`, headless; script not committed) against a local lab | yes, local | **34 of 34 checks pass**: the sample flow end to end (summary cards, the not-an-audit line and its full text, findings with a filter, review notes, the draft decision record, the report), Markdown and JSON downloads, two-click delete, own files and a decision file, a Terraform plan listed with the not-read note, bad files refused in the browser, a lab refusal explained by claim position, no horizontal scroll at 390 px, and the pane inside a sandboxed frame (`allow-scripts allow-same-origin allow-forms`, no `allow-modals`) posting `loading, ready, working, ready` to the site origin only, with delete working there and no console errors |
+| The human-verification widget with the vendor's public test keys, local lab | yes, local | the verification script loads under the lab's CSP, the widget delivers a token and the pane enables the button, and the lab calls the verification endpoint with the test secret and enforces the result (`403`, code `action-mismatch`: the test keys do not echo the action `cloud-crawler-upload`, so a successful verification is **not** shown) |
+| `gh workflow run ci.yml`, `publish-images.yml`, `guide-drift.yml` on the branch | yes, in CI | all three succeed: [ci](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40276688270) (lint, test with 284 passed and 97.54%, image with the round trip), [publish-images dry run](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40276690648) (build, boundary checks, the round trip, Trivy HIGH/CRITICAL fixed-only, push skipped because the ref is not a `v*` tag), [guide drift](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40276693238) (12 fields compared, in step) |
+| Independent security review (`python-security-reviewer`, read-only) and container review (`container-security-reviewer`, read-only) | yes | first pass: 1 blocker, 3 high, 3 medium, 5 low findings and a list of suggestions, all addressed or recorded below; second pass after the fixes is recorded in the pull request |
+| Real human verification (a site key and secret of the lab host), the lab host and its proxy, the website's frame, a real estate's export | **no** | owner steps and the website's pull request; nothing here proves them |
+
+What the security review found and what was done (full detail in the pull request): a validation-error amplification
+(250,000 bad entries in a 4 MB decision built 1.3 GB of pydantic errors: fixed with a size budget before validation and by
+dropping the input from the errors), a quadratic pattern in the engine's secret redaction (1 to 3 s per 64 KB string of
+`eyJ` repeats: mitigated by refusing more than 16 `eyJ` in a string, engine fix is [App issue 53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53)), memory (documents of
+hundreds of thousands of tiny objects: bounds lowered, uploads in memory capped at four before the body is read,
+evaluations on their own threads), one client evicting everyone's results (per-client share), a pane delete that needed a
+dialog a sandboxed frame may not open (two-click button), a null claim parameter that became a 500, a client disconnect
+that was an unhandled error, a cancelled request that released its evaluation slot early, and the rate-limit key
+(X-Forwarded-For is now used only when it is an IP address; the lab host's Caddy ignores an incoming value by default).
+
+## Run 2026-10-26 (the upload route: an independent second check)
+
+A second implementation of the same issue, written in parallel and never pushed, was reviewed by an independent read-only
+security reviewer. Its findings were turned into hostile inputs and sent to this route, which was then mutation-checked.
+Same toolchain as the run above; the in-process runs used the repository's own environment, so no second one was built.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The review's hostile inputs sent to `POST /api/uploads` in process: 81 KB and 2 MB of `eyJ` in a tag, a 4 MB tag value read by 10 claims, an 8,500-entry scope list, 5,000 rows with 5 claims, 600,000 empty rows, NaN, nesting 3,000 deep | yes, local | the first seven are refused in under 0.1 s with `too_complex` (422) or `invalid_request` (400) and at most 16 MB; the 5,000-row upload is accepted in 2.5 s with a peak of 83 MB. The first draft of the parallel implementation took 2.1 s, 485 MB and 45 s on three of them |
+| Text from the export in `report.md` (a newline then `# heading`, an image link, `<script>`, `<img>`, a pipe, a backtick, in a location, an id, a decision title and a claim statement) | yes | **found a gap**: all five markers were present raw in `report.md`. Fixed (`markdown_text`); `tests/security/test_report_markdown.py` holds it and `report.json` still keeps the text |
+| Mutation checks: 26 deliberate breaks of the source (verification skipped, fail-closed removed, owner token not compared, expiry never applied, declared size not refused before verification, media type unchecked, rate limit off, row budget lifted, `eyJ` cap removed, NaN accepted, claims times resources uncapped, echoed values not shortened, findings uncapped, markdown not escaped, log code unmapped, exception text logged, evaluation slot never released, decisions stored as accepted, oversize result stored, no eviction at the item limit, non-ASCII digits accepted, an outbound import, an over-long owner token, any file name accepted, `NOT-AN-AUDIT.md` left out, read deadline removed), each followed by the whole suite | yes | 23 caught at first; **3 survived** (declared size before verification, the log-word mapping, the owner-token length cap); `tests/security/test_upload_gate_order.py` closes them and all 26 are now caught. Each file was restored after its run |
+| `uv run pytest` (the repository's tests plus the two new modules) with the 85 percent gate | yes | 302 passed, coverage 97.59% |
+| Real browser (headless Chromium over the DevTools protocol, no package installed, script not committed) against a local lab, with the local override and without it | yes, local | 22 of 22 checks with the override (the real file picker with a real file, the sample baseline decision, the claims table, 39 findings, review notes, the not-an-audit line, the filter, the draft record, the report, a two-click delete, a refused decision explained, no storage, no console error or policy violation) and 5 of 5 on the closed lab (the pane says uploads are not available until human verification is configured and keeps the button off) |
+
 ## Limitations recorded
 
-- No uploads, no MCP server and no trusted-caller session API yet: the pane shell says so and the file picker is
-  disabled. The engine is adopted (run 2026-10-26 below) but nothing calls its ingest or drift code yet; they arrive
-  with the following pull requests (website proposal, section 22).
+- The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
+  are later releases (website proposal, section 22).
+- The engine 0.1.0 does not read Terraform: a state or plan is accepted and recorded with a fingerprint, and claims about it
+  stay `unknown`. Reading it is engine work, upstream first ([App issue 54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54), `docs/whats-new-upstream.md`).
+- The engine's secret-redaction pattern is quadratic on a string of repeated `eyJ`; the lab refuses more than 16 of them in
+  one string until the engine fixes its pattern upstream.
 - `security/redaction.py` is a thin layer over the engine's module (the old copy had drifted; see
   `docs/whats-new-upstream.md`), plus the ten words only the lab logs.
 - `core-update.yml` now has a `CORE_REF v0.1.0` line to compare with the App's latest release. It has not run against a
@@ -74,8 +127,8 @@ pins) and `uv lock --check` passes with it. Windows host, so the container check
   `gh workflow run core-update.yml -R saulpatinojr/HCW-CloudCrawler_AddOn --ref main -f probe=true`. Auto-merge of a
   compatible bump needs the repository setting "Allow auto-merge" and the variable `CORE_AUTOMERGE=true`; on 2026-10-26
   (UTC) neither was set here, so a compatible bump waits for a person to merge it.
-- Human verification is configured but unused until an upload route exists; `/api/health` already reports
-  `turnstile.required` so the pane's wording is right from the first deployment.
+- Human verification is wired to the upload route and tested with a stand-in verifier; it has not been exercised against a
+  real site key and secret (see the 2026-10-26 run).
 - The base-image digest is the website's current pin (moved on 2026-10-26; before that, the Cloud Assessor AddOn's pin of
   2026-10-16), and the uv-image digest is the Cloud Assessor AddOn's verified pin of 2026-10-16; CI
   re-resolves the uv digest on every run and the weekly job compares the base with the website's.

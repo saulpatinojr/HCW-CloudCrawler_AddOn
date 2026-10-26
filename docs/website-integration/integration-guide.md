@@ -6,9 +6,11 @@ one page; nothing from this repository is installed into the site bundle.
 
 **Where it stands, read on 2026-10-26.** The website has a catalogue row for this AddOn with `status: 'coming'`, added by
 website pull request #1351 (merge commit `e4e53807`): `/tools/cloud-crawler` shows an explainer and frames nothing. That
-is deliberate. The App has released `v0.1.0` and this repository has adopted the engine from it, but the AddOn has no
-upload route yet (issue 16) and its first real image is not published (issue 17, tag `v0.1.0`; only the test image
-`v0.1.0-rc.1` exists). Everything below that needs an image (the lab-host row, the port, the Function App setting, the
+is deliberate. The App has released `v0.1.0` and this repository has adopted the engine from it. The first real image,
+`v0.1.0` (digest `sha256:1c63929a60414f530e76db431d78ed345feebb30e601115b81c0e1fffbec1506`, issue 17), is published but has
+no upload route. The upload route (issue 16) is built on `main` and is the content of the next release, `0.2.0`. The
+website's row should flip to `available` only once an image that contains the upload route (`v0.2.0`) is published and on
+the lab host, because the row promises what the route does. Everything below that needs an image (the lab-host row, the port, the Function App setting, the
 frame-src entry) does not exist on the website yet. The checklist for the pull request that flips the row is on issue 17,
 and the website's page for this pair (`docs/architecture/app-to-addon/cloud-crawler.md`) lists what the flip takes.
 
@@ -24,7 +26,7 @@ and the website's page for this pair (`docs/architecture/app-to-addon/cloud-craw
 | Function App setting (status proxy) | `ADDON_CLOUD_CRAWLER_URL`. The registry (`functions/src/lib/addons/registry.js`) already names it; the website does not declare it in `infra/functionapp.tf` until the row is `available`, so the status route answers `{ configured: false }`. |
 | Lab-host vault key | `vault_addon_cloud_crawler_turnstile_secret` (ADR 0003 here) |
 | Lab-host loopback port | not assigned; ADR 0003 leaves it to the website ("the next free port is the website's call"; the Cloud Assessor uses 18083) |
-| Image | `docker.io/hybridcloudworks/img-cc-lab-addon`, published on `v*` tags by `publish-images.yml`; only the test image `v0.1.0-rc.1` exists, the first real one is the tag `v0.1.0` (issue 17). The website will pin it by digest in `lab-host/ansible/group_vars/all.yml` `addons[]`. |
+| Image | `docker.io/hybridcloudworks/img-cc-lab-addon`, published on `v*` tags by `publish-images.yml`; `v0.1.0` (the engine adopted, no upload route) is published, and `v0.2.0` will be the first with the upload route (issue 17). The website will pin it by digest in `lab-host/ansible/group_vars/all.yml` `addons[]`. |
 
 ## Catalogue row (`frontend/src/data/addons/catalogue.js`)
 
@@ -83,9 +85,19 @@ the unavailable sentence if nothing arrives.
 
 Base sandbox `allow-scripts allow-same-origin allow-forms`. The website's row lists `navigate` and `downloads`. Those were
 copied from the first add-on, not decided for this one. Website issue #1354 settled the rule on 2026-10-24 (pull request
-#1359): a pane is granted what it uses, and the two assessment panes hold `downloads` and `clipboard-write`. This pane
-uses neither today: it has no download or copy control and never posts a `navigate` message. The list is decided when the
-row is flipped, from what the pane does then. Never `allow-top-navigation`.
+#1359): a pane is granted what it uses, and the two assessment panes hold `downloads` and `clipboard-write`. With the upload
+route this pane has the same two controls (a "Download report" button, which saves a file made in the browser, and a "Copy
+report" button), and it still never posts a `navigate` message, so when the row is flipped it needs `downloads` and
+`clipboard-write` and does not need `navigate`. The row above is the website's and is not changed here. Never
+`allow-top-navigation`.
+
+## What `/api/health` reports as capabilities
+
+The status proxy projects the `capabilities` list from health. The lab's list (only ever added to) is `health`, `pane`,
+`upload-evidence`, `drift-findings`, `draft-decision-record`, `review-proposals`, `report-markdown`, `report-json`,
+`not-an-audit`, `sample-data` and `delete-now`. These are the lab's own names and are different from the sandbox
+capabilities of the row above. The MCP server surface and the trusted-caller session API are later releases and are not
+in the list.
 
 ## Content security policy, both sides
 
@@ -115,6 +127,8 @@ last column is what the other add-ons use, to be confirmed when the row is writt
 ## What this AddOn calls on the website's backend
 
 Nothing today, and by design nothing that reaches Azure (`docs/adr/0003-runs-on-the-lab-host.md`; the edition boundary).
+The upload route's one outbound request is the human-verification check, sent from the lab host to the verification
+service with the site key's secret; it is not a call to the website or to a cloud.
 The one planned path is the trusted-caller session API for the site's chat experience, which the website's Function App
 would reach over https exactly as `/api/health` is reached; it is not built, and no new egress from the host or inbound
 path other than the reverse proxy is part of the plan.

@@ -8,6 +8,21 @@ from cloud_crawler_lab.security.headers import VERIFICATION_ORIGIN
 
 from ..conftest import make_settings
 
+# Only ever added to, in this order (the website's status proxy reads the list).
+CAPABILITIES = [
+    "health",
+    "pane",
+    "upload-evidence",
+    "drift-findings",
+    "draft-decision-record",
+    "review-proposals",
+    "report-markdown",
+    "report-json",
+    "not-an-audit",
+    "sample-data",
+    "delete-now",
+]
+
 
 def test_health_is_flat_and_complete(client):
     r = client.get("/api/health")
@@ -19,7 +34,7 @@ def test_health_is_flat_and_complete(client):
         "https://hybridcloudworks.com"
     ]
     assert body["limits"] == {"maxUploadBytes": 5242880, "maxRows": 5000, "ttlMinutes": 120}
-    assert body["asOf"].endswith("Z") and body["capabilities"] == ["health", "pane"]
+    assert body["asOf"].endswith("Z") and body["capabilities"] == CAPABILITIES
     assert r.headers["x-addon-id"] == "cloud-crawler" and r.headers["x-addon-version"] == __version__
     assert r.headers["x-content-type-options"] == "nosniff" and r.headers["referrer-policy"] == "no-referrer"
     assert r.headers["cache-control"] == "no-store" and r.headers["x-frame-options"] == "DENY"
@@ -36,7 +51,13 @@ def test_health_reports_verification_as_required_when_fail_closed():
 
 
 def test_documented_api_surface(client):
-    assert api_routes(client.app) == {"/api/health": {"GET"}}
+    assert api_routes(client.app) == {
+        "/api/health": {"GET"},
+        "/api/uploads": {"POST"},
+        "/api/uploads/{upload_id}": {"GET", "DELETE"},
+        "/api/uploads/{upload_id}/files/{name}": {"GET"},
+        "/api/samples/{name}": {"GET"},
+    }
 
 
 def test_unknown_api_paths_and_wrong_methods_use_the_envelope(client):

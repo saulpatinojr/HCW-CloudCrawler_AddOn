@@ -142,10 +142,15 @@ done, and where it differed from the plan this file used to carry:
    have made the lab refuse to log `turnstile_disabled` at startup. The file now re-exports the engine's `scrub`,
    `VisitorDataError` and guard, and adds the ten lab-only words. If the App ever adds those words to the engine, remove
    them from `LAB_ONLY_WORDS` (a test fails while a word is in both lists).
-5. **Not done, on purpose: the upload route, the MCP server and the trusted-caller session API.** `edition.py`'s
-   `CAPABILITIES` stays `("health", "pane")` because it must only list what exists. The pane still says uploads are not
-   open yet. This is feature work, not adoption, and it decides whether the website can honestly show the tool as
-   available (see the tracking issue for the first image).
+5. **Not done at adoption, on purpose: the upload route, the MCP server and the trusted-caller session API.** `edition.py`'s
+   `CAPABILITIES` stayed `("health", "pane")` because it must only list what exists. This is feature work, not adoption,
+   and it decides whether the website can honestly show the tool as available.
+   **Update, 2026-10-26: the upload route is built** ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16),
+   [ADR 0004](adr/0004-the-upload-route.md), [`docs/api.md`](api.md)); it is the content of release `0.2.0`, and
+   `CAPABILITIES` now lists it. It calls the engine's `ingest` and `evaluate_decision` and `bundle` as published, and builds
+   the decision record the way the App's `adr_create` tool does (the engine does not contain that step: it lives in the
+   App's `mcp_server.py`, so the lab keeps its own copy with limits, and the App's golden verdicts hold it to the same
+   answers). Still not done: the MCP server surface and the trusted-caller session API (later releases).
 6. Ran `uv sync --all-packages`, `uv run ruff check . && uv run ruff format --check .` and
    `uv run pytest -q --cov=src --cov-fail-under=85` (70 passed, 95 percent), and built the image locally.
 7. Updated `CHANGELOG.md`, `VALIDATION.md` and the "Current upstream state" table here.
@@ -165,4 +170,6 @@ The App has published three decisions: [0001](https://github.com/saulpatinojr/HC
 | [8](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/8): no sign-in on the App's `/api` and `/mcp` | The "human only" gate is a non-empty `actorId` today; an authentication model needs an owner decision | The caller classes and identity model it picks may change the tool contract this repository must match. Here, identity stays the website's job (asserted claims only); watch for a contract change. |
 | [9](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/9): protect `main` and tags | Partly done: pull request plus six checks, `v*` tags locked, but no approving review is required and `CODEOWNERS` still has placeholders | None directly. |
 | [13](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/13): GUID-scan false alarm | Fixed for bytecode; "scan only tracked files" is not done in the App | This repository already scans only files git lists. |
+| [54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54): Terraform state and plan readers | The engine 0.1.0 stores `tf-state` and `tf-plan` evidence redacted and unparsed (`NORMALISED_KINDS` holds only `arg-export` and `azure-mcp-result`), so no detector reads Terraform | The website row promises Terraform. This edition accepts the two kinds and reports claims about them as `unknown`; reading them is engine work and goes upstream first. |
+| [53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53): the secret-shape pattern is quadratic on repeated `eyJ` | The engine's redaction runs it over every string of an upload; a 64 KB string of `eyJ` repeats held the process for 1 to 3 s | This edition refuses more than 16 `eyJ` in one string (`MAX_TOKEN_STARTS` in `inputs.py`); remove that guard once an engine release fixes the pattern. |
 | [16](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/16): release hygiene | Proven by the `v0.1.0` release: the three files are there and the wheel's provenance verifies | The first adoption used those files. |
