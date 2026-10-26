@@ -6,10 +6,11 @@ one page; nothing from this repository is installed into the site bundle.
 
 **Where it stands, read on 2026-10-26.** The website has a catalogue row for this AddOn with `status: 'coming'`, added by
 website pull request #1351 (merge commit `e4e53807`): `/tools/cloud-crawler` shows an explainer and frames nothing. That
-is deliberate. The App has released `v0.1.0` and this repository has adopted the engine from it. The upload route (issue
-16) is built on `main` and is the content of the next release, `0.2.0`; no first real image is published yet (issue 17,
-tag `v0.1.0`; only the test image `v0.1.0-rc.1` exists). The website's row should flip to `available` only once an image
-that contains the upload route (`v0.2.0`) is published, because the row promises what the route does. Everything below that needs an image (the lab-host row, the port, the Function App setting, the
+is deliberate. The App has released `v0.1.0` and this repository has adopted the engine from it. The first real image,
+`v0.1.0` (digest `sha256:1c63929a60414f530e76db431d78ed345feebb30e601115b81c0e1fffbec1506`, issue 17), is published but has
+no upload route. The upload route (issue 16) is built on `main` and is the content of the next release, `0.2.0`. The
+website's row should flip to `available` only once an image that contains the upload route (`v0.2.0`) is published and on
+the lab host, because the row promises what the route does. Everything below that needs an image (the lab-host row, the port, the Function App setting, the
 frame-src entry) does not exist on the website yet. The checklist for the pull request that flips the row is on issue 17,
 and the website's page for this pair (`docs/architecture/app-to-addon/cloud-crawler.md`) lists what the flip takes.
 
@@ -25,7 +26,7 @@ and the website's page for this pair (`docs/architecture/app-to-addon/cloud-craw
 | Function App setting (status proxy) | `ADDON_CLOUD_CRAWLER_URL`. The registry (`functions/src/lib/addons/registry.js`) already names it; the website does not declare it in `infra/functionapp.tf` until the row is `available`, so the status route answers `{ configured: false }`. |
 | Lab-host vault key | `vault_addon_cloud_crawler_turnstile_secret` (ADR 0003 here) |
 | Lab-host loopback port | not assigned; ADR 0003 leaves it to the website ("the next free port is the website's call"; the Cloud Assessor uses 18083) |
-| Image | `docker.io/hybridcloudworks/img-cc-lab-addon`, published on `v*` tags by `publish-images.yml`; only the test image `v0.1.0-rc.1` exists, the first real one is the tag `v0.1.0` (issue 17). The website will pin it by digest in `lab-host/ansible/group_vars/all.yml` `addons[]`. |
+| Image | `docker.io/hybridcloudworks/img-cc-lab-addon`, published on `v*` tags by `publish-images.yml`; `v0.1.0` (the engine adopted, no upload route) is published, and `v0.2.0` will be the first with the upload route (issue 17). The website will pin it by digest in `lab-host/ansible/group_vars/all.yml` `addons[]`. |
 
 ## Catalogue row (`frontend/src/data/addons/catalogue.js`)
 

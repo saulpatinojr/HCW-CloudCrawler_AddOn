@@ -35,7 +35,7 @@ egress from the host, and force this application to handle Entra tokens, which t
    `HCW-CloudCrawler_App` (pydantic only, no HTTP, no cloud SDK). This repository pins the wheel the App attaches to
    its GitHub Release, by URL, so `uv lock` records its sha256 and the image's `pip install --require-hashes`
    verifies it; `core-update.yml` opens the bump pull request on each upstream release. The engine is adopted
-   (`v0.1.0`, 2026-10-26); until the upload route is built the lab accepts no uploads, and the pane says so.
+   (`v0.1.0`, 2026-10-26); the upload route that feeds it is [ADR 0004](0004-the-upload-route.md).
 4. **Honesty is in the data.** Findings are `supported | contradicted | unknown | not-applicable`; unknown lowers
    coverage, never score; what an upload cannot show stays unknown by design; every bundle ships `NOT-AN-AUDIT.md`.
 
