@@ -6,7 +6,21 @@
 # `uv lock` records the wheel's sha256 and the image build's `uv export --frozen` carries it, so the image's
 # `pip install --require-hashes` keeps verifying every third-party file (a git+https pin cannot be hash-checked and would
 # break that build). If the CORE_REF line were ever removed, the comparison below finds nothing and exits cleanly.
-# Pull requests opened with GITHUB_TOKEN do not trigger other workflows, so the compatibility check runs here.
+#
+# The pull request is opened with a short-lived GitHub App token (actions/create-github-app-token), not with
+# GITHUB_TOKEN. A pull request opened with GITHUB_TOKEN starts no workflow, so the required checks of the
+# "Protect main" ruleset never ran on it and it could never merge. One opened with the App token does start
+# them, so this edition's own CI (ci, security) also runs on the bump pull request; the compatibility check
+# below still runs first, in this run, and decides the compatible / needs-adaptation label and whether
+# auto-merge is asked for.
+# The credential is the HCW Portfolio Admin App: its client ID is the variable APP_CLIENT_ID and its private key
+# the secret APP_PRIVATE_KEY of the admin-ops environment, which is why the job runs in that environment. Only
+# the token step is given the key. That step comes late (after uv and the tests have run), mints a token for this
+# repository only with Contents and Pull requests write, and the action revokes the token when the job ends.
+# GITHUB_TOKEN is read-only here.
+# A manual run with probe=true mints the token and makes one read-only API call and nothing else that writes,
+# to prove the credential on a day when there is no release to adopt:
+#   gh workflow run core-update.yml --ref main -f probe=true
 name: core-update
 on:
   schedule: [{ cron: "41 */6 * * *" }]
@@ -15,14 +29,21 @@ on:
       ref:
         description: "Upstream release tag to adopt (default: latest release)"
         required: false
-permissions:
-  contents: write
-  pull-requests: write
+      probe:
+        description: "Only prove the GitHub App credential: mint the token and make one read-only call (default: false)"
+        type: boolean
+        default: false
+permissions: {}
 env:
   UPSTREAM: saulpatinojr/HCW-CloudCrawler_App
 jobs:
   check-and-bump:
     runs-on: ubuntu-26.04
+    # GITHUB_TOKEN may only read here (checkout, and the public releases API of the upstream repository).
+    # Everything that writes uses the App token.
+    permissions:
+      contents: read
+    environment: admin-ops
     steps:
       # persist-credentials: false — create-pull-request sets its own Authorization header for the push; with the
       # checkout's persisted header beside it, git sends two and GitHub answers 400.
@@ -67,11 +88,31 @@ jobs:
           set -euo pipefail
           uv sync --frozen --all-packages
           uv run ruff check . && uv run pytest -q
+      - if: steps.refs.outputs.changed == 'true' || inputs.probe
+        id: app-token
+        name: GitHub App token (this repository only; Contents and Pull requests write)
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - if: inputs.probe
+        name: Probe - one read-only call as the GitHub App (manual run with probe=true)
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "Minted an installation token for the GitHub App ${APP_SLUG}, for ${REPO} only."
+          gh api "repos/${REPO}" --jq '"Read-only call as the App succeeded for " + .full_name'
       - if: steps.refs.outputs.changed == 'true'
         id: pr
         name: Open the bump pull request (ready for review)
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
+          token: ${{ steps.app-token.outputs.token }}
           branch: core-update/${{ steps.refs.outputs.latest }}
           title: "core: adopt upstream ${{ steps.refs.outputs.latest }} (${{ steps.compat.outcome == 'success' && 'compatible' || 'needs adaptation' }})"
           commit-message: "core: bump cloud-crawler-core ${{ steps.refs.outputs.current }} -> ${{ steps.refs.outputs.latest }}"
@@ -91,7 +132,16 @@ jobs:
             ADR 0001 (the engine is adopted from the App unchanged).
       - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome == 'success' && vars.CORE_AUTOMERGE == 'true' && steps.pr.outputs.pull-request-number != ''
         name: Auto-merge the compatible bump
-        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: gh pr merge --squash --auto "${{ steps.pr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+        # The pull request is open and its checks run whatever happens here, so a refusal (for example the
+        # repository setting "Allow auto-merge" being off) is a warning to merge by hand, not a failed run.
+        run: |
+          if ! gh pr merge --squash --auto "$PR_NUMBER"; then
+            echo "::warning::Auto-merge was not turned on for pull request #${PR_NUMBER}; merge it by hand."
+            echo "Auto-merge needs the repository setting Allow auto-merge to be on."
+          fi
       - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome != 'success'
-        run: echo "::warning::Upstream ${{ steps.refs.outputs.latest }} is not compatible with this edition; see the pull request."
+        env: { LATEST: "${{ steps.refs.outputs.latest }}" }
+        run: echo "::warning::Upstream ${LATEST} is not compatible with this edition; see the pull request."

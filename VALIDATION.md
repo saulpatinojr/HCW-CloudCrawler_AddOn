@@ -106,6 +106,13 @@ that was an unhandled error, a cancelled request that released its evaluation sl
 - `core-update.yml` now has a `CORE_REF v0.1.0` line to compare with the App's latest release. It has not run against a
   newer release (none exists), so the bump path itself is still unexercised; the scheduled run only reports "already at
   v0.1.0".
+- When a newer release exists, `core-update.yml` opens the pull request with a GitHub App token (the `admin-ops`
+  environment's App credential), not `GITHUB_TOKEN`, so the required checks run on the pull request itself. That path is
+  covered by `tests/security/test_core_update_app_token.py` (static) and was linted with actionlint and zizmor; it has not
+  yet opened a real bump pull request here. To prove the credential without a release to adopt:
+  `gh workflow run core-update.yml -R saulpatinojr/HCW-CloudCrawler_AddOn --ref main -f probe=true`. Auto-merge of a
+  compatible bump needs the repository setting "Allow auto-merge" and the variable `CORE_AUTOMERGE=true`; on 2026-10-26
+  (UTC) neither was set here, so a compatible bump waits for a person to merge it.
 - Human verification is wired to the upload route and tested with a stand-in verifier; it has not been exercised against a
   real site key and secret (see the 2026-10-26 run).
 - The base-image digest is the website's current pin (moved on 2026-10-26; before that, the Cloud Assessor AddOn's pin of
