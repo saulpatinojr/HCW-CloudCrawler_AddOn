@@ -41,6 +41,9 @@ def test_turnstile_verdicts():
         "s", "tok", None, opener=_opener({"success": False, "error-codes": ["timeout-or-duplicate", 5]})
     ).codes == ["timeout-or-duplicate"]
     assert verify("s", "tok", None, opener=_opener({"success": False})).codes == ["invalid-input-response"]
+    assert verify("s", "tok", None, opener=_opener({"success": False, "error-codes": None})).codes == [
+        "invalid-input-response"
+    ], "a null list is no list"
     assert verify("s", "tok", None, opener=_opener(b"not json")).codes == ["verification-unavailable"]
     assert verify("s", "tok", None, opener=_opener([1])).codes == ["verification-unavailable"]
     assert verify("s", "tok", None, opener=_opener({}, raise_exc=urllib.error.URLError("x"))).codes == [

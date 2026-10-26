@@ -49,11 +49,13 @@ jobs:
           if docker run --rm "${IMAGE}:scan" python -m pip --version; then echo "::error::pip is present in the runtime image"; exit 1; fi
           test "$(docker run --rm "${IMAGE}:scan" id -u)" = "10001"
           if docker run --rm -e IDENTITY_ENDPOINT=http://169.254.169.254 "${IMAGE}:scan"; then echo "::error::the image started under an identity endpoint"; exit 1; fi
-          cid="$(docker run -d --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges -e CC_ALLOW_NO_TURNSTILE=1 "${IMAGE}:scan")"
+          cid="$(docker run -d --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --pids-limit 256 --cpus 1 -e CC_ALLOW_NO_TURNSTILE=1 "${IMAGE}:scan")"
           for i in $(seq 1 30); do
             if docker exec "$cid" python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3).status==200 else 1)"; then ok=1; break; fi
             sleep 1
           done
+          # a real round trip inside the hardened container: the pane, the four samples and an upload start to finish
+          if [ "${ok:-0}" = 1 ]; then docker exec -i "$cid" python - < infrastructure/docker/smoke.py || ok=0; fi
           docker logs "$cid" | head -20; docker rm -f "$cid" >/dev/null
           test "${ok:-0}" = 1
       - name: Scan before publishing (HIGH/CRITICAL, fixed only)

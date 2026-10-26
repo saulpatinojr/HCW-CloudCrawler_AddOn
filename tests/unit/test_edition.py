@@ -20,7 +20,21 @@ from cloud_crawler_lab.edition import (
 
 def test_constants():
     assert EDITION == "lab" and AZURE_CONNECTIVITY == "disabled-by-design"
-    assert CAPABILITIES == ("health", "pane") and FORBIDDEN_MODULES == ("azure", "msal", "boto3")
+    assert FORBIDDEN_MODULES == ("azure", "msal", "boto3")
+    # Capabilities are only ever added: 0.1.0 shipped these two, in this order, and they stay first.
+    assert CAPABILITIES[:2] == ("health", "pane")
+    assert CAPABILITIES[2:] == (
+        "upload-evidence",
+        "drift-findings",
+        "draft-decision-record",
+        "review-proposals",
+        "report-markdown",
+        "report-json",
+        "not-an-audit",
+        "sample-data",
+        "delete-now",
+    )
+    assert len(set(CAPABILITIES)) == len(CAPABILITIES)
     assert set(IDENTITY_ENV_VARS) == {
         "IDENTITY_ENDPOINT",
         "MSI_ENDPOINT",

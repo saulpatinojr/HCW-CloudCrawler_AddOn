@@ -1,0 +1,31 @@
+{
+  "title": "Production data platform must be zone redundant",
+  "context": "The production data platform serves the customer-facing API. A single-zone outage in the primary region must not take the platform down.",
+  "decision": "Every production data-platform resource that can be zone redundant is zone redundant: SQL databases, storage accounts, PostgreSQL flexible servers, Cosmos DB accounts.",
+  "decisionDrivers": ["Availability target of 99.95 percent for the API", "Zone-level failure is the most frequent regional incident class"],
+  "consequences": ["Higher SKU cost on SQL and PostgreSQL", "Storage uses ZRS or GZRS"],
+  "constraints": ["Region centralus", "No cross-region failover in this decision"],
+  "assumptions": ["All production data-platform resources carry the tag env=prod"],
+  "risks": ["Resources created outside the platform's pipeline may drift"],
+  "scope": { "subscriptionIds": ["00000000-0000-0000-0000-000000000001"] },
+  "sourceType": "human",
+  "claims": [
+    {
+      "statement": "Production data-platform resources are zone redundant",
+      "detectorId": "zone-redundancy",
+      "expectation": { "property": "zoneRedundant", "operator": "eq", "value": true },
+      "selector": {
+        "resourceTypes": [
+          "microsoft.sql/servers/databases",
+          "microsoft.storage/storageaccounts",
+          "microsoft.dbforpostgresql/flexibleservers",
+          "microsoft.documentdb/databaseaccounts"
+        ],
+        "tagSelectors": { "env": "prod" }
+      },
+      "severity": "critical",
+      "required": true,
+      "maxAgeHours": 24
+    }
+  ]
+}

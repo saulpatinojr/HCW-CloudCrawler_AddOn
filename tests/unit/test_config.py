@@ -61,3 +61,16 @@ def test_override_only_applies_without_secret():
 def test_invalid_values_raise(env):
     with pytest.raises(ValueError):
         Settings.from_env(env)
+
+
+def test_the_upload_settings_have_defaults_and_can_be_set():
+    s = Settings.from_env({})
+    assert s.samples_dir.name == "samples" and s.max_store_mb == 64
+    s = Settings.from_env({"CC_SAMPLES_DIR": "/app/samples", "CC_MAX_STORE_MB": "8"})
+    assert s.samples_dir.as_posix() == "/app/samples" and s.max_store_mb == 8
+
+
+@pytest.mark.parametrize("env", [{"CC_MAX_STORE_MB": "0"}, {"CC_MAX_STORE_MB": "-4"}, {"CC_MAX_STORE_MB": "lots"}])
+def test_the_store_budget_must_be_a_positive_integer(env):
+    with pytest.raises(ValueError):
+        Settings.from_env(env)

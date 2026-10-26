@@ -14,11 +14,21 @@ from collections.abc import Mapping
 
 EDITION = "lab"
 AZURE_CONNECTIVITY = "disabled-by-design"
-# The skeleton's capabilities. The engine's (evidence, drift, reviews, bundles) are added when cloud-crawler-core is
-# adopted; capabilities are only ever added, never renamed.
+# What this edition can do, in the order it gained each. Capabilities are only ever added, never renamed or removed:
+# the website's status proxy reads this list. The upload route (issue 16) brought everything after `pane`.
+# Still to come, and so not listed: the MCP server surface and the trusted-caller session API.
 CAPABILITIES = (
     "health",
     "pane",
+    "upload-evidence",
+    "drift-findings",
+    "draft-decision-record",
+    "review-proposals",
+    "report-markdown",
+    "report-json",
+    "not-an-audit",
+    "sample-data",
+    "delete-now",
 )
 FORBIDDEN_MODULES = ("azure", "msal", "boto3")
 IDENTITY_ENV_VARS = (

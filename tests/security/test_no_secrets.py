@@ -83,6 +83,8 @@ def test_env_example_defines_no_secret_values():
         "CC_TRUST_PROXY",
         "CC_LOG_SILENT",
         "CC_STATIC_DIR",
+        "CC_SAMPLES_DIR",
+        "CC_MAX_STORE_MB",
     ):
         assert re.search(rf"^{key}=", env, re.MULTILINE), key
 
