@@ -1,6 +1,6 @@
 [project]
 name = "cloud-crawler-lab"
-version = "0.1.0"
+version = "0.2.0"
 description = "Hybrid Cloud Works Cloud Crawler, lab edition: the credential-free AddOn that collects evidence handed to it, runs deterministic drift detectors and expires everything after two hours. No cloud connectivity by design."
 readme = "README.md"
 license = "MIT"

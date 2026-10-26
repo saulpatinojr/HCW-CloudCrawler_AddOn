@@ -107,6 +107,19 @@ Same toolchain as the run above; the in-process runs used the repository's own e
 | `uv run pytest` (the repository's tests plus the two new modules) with the 85 percent gate | yes | 302 passed, coverage 97.59% |
 | Real browser (headless Chromium over the DevTools protocol, no package installed, script not committed) against a local lab, with the local override and without it | yes, local | 22 of 22 checks with the override (the real file picker with a real file, the sample baseline decision, the claims table, 39 findings, review notes, the not-an-audit line, the filter, the draft record, the report, a two-click delete, a refused decision explained, no storage, no console error or policy violation) and 5 of 5 on the closed lab (the pane says uploads are not available until human verification is configured and keeps the button off) |
 
+## Run 2026-10-26 (release 0.2.0 prepared; publish dry run)
+
+Toolchain as in the runs above (Python 3.14.6, uv 0.12.0 locally, CI uses uv 0.11.32). This run prepares the version bump
+only; the upload route itself was validated in the run before this one.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The version in every place that says it: `pyproject.toml`, `uv.lock` (the `cloud-crawler-lab` entry), `__version__` | yes | all `0.2.0`; `uv lock --check` passes; `/api/health` and the `X-Addon-Version` header read `__version__`, and `tests/contract/test_health_shape.py` holds `pyproject.toml` and `__version__` together |
+| `uv run ruff check . && uv run ruff format --check .` and `uv run pytest -q --cov=src --cov-fail-under=85` | yes | clean (69 files); 302 passed, coverage 97.59% |
+| `gh workflow run publish-images.yml --ref release/v0.2.0` ([run 40311390536](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40311390536), commit `c4efbfb`) | yes, in CI | success: the image built, the in-image boundary checks and the round trip inside the hardened container passed (`upload round trip ok`), Trivy (HIGH/CRITICAL, fixed only) passed, and login, push, provenance, SBOM and attestation were **skipped** with the notice that the ref is not a `v*` tag |
+| Push, provenance, SBOM and SLSA attestation of the image, and its digest | **no** | only a `v*` tag can push (the Docker connection trusts tags only); `v0.2.0` is the owner's explicit call on issue [17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17). The same dry run on `main`, at the merge commit of this change, is linked from that issue |
+| The website's catalogue row is unchanged here | yes | the guide's row copy is untouched; the guide-drift check on this branch compares the same 12 fields |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
