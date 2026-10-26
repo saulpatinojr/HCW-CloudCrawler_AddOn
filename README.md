@@ -54,8 +54,9 @@ token or refresh token is ever held here (website proposal section 11).
 
 ## Status
 
-The released version is 0.1.0 (the lab application skeleton with the engine adopted); the next release, 0.2.0, carries the
-upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)). What exists on `main` today:
+Version 0.2.0 carries the upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)); 0.1.0 was
+the lab application skeleton with the engine adopted, and is the only version whose image is published so far. What exists
+in 0.2.0:
 
 - the lab application: configuration, the edition boundary and its startup refusal, content-free logging, security
   headers, exact-origin CORS, the upload and rate limits, and a flat `/api/health`;

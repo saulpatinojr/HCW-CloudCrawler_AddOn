@@ -11,10 +11,16 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-26
+
 The upload route: the lab can now read what a visitor uploads and check it with the engine (issue
-[16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)). It is the content of the next release, `0.2.0`;
-this change does not move the version number, the release pull request does. The MCP server and the trusted-caller
-session API for the website's chat path are still later releases.
+[16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)). This is the first release that carries it:
+`0.1.0` was the lab skeleton with the engine adopted and had no upload route, so its pane's file picker was still
+disabled. The version moves to `0.2.0` (a new minor version: routes and capabilities were added, nothing was removed or
+renamed). `pyproject.toml`, `uv.lock`, `__version__` and `/api/health` all say `0.2.0`; publishing the image is the tag
+`v0.2.0` (tracking issue [17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17)), which is the owner's call
+and is not part of this change. The MCP server and the trusted-caller session API for the website's chat path are still
+later releases.
 
 ### Added
 - `POST /api/uploads`: a visitor sends one JSON request that holds the **evidence** (what is built: up to five Resource
