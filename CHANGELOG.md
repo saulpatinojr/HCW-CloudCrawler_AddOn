@@ -11,6 +11,20 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-26
+
+The first release that is not a release candidate. It is the lab application skeleton with the engine
+(`cloud-crawler-core` 0.1.0) adopted from the App; it has no upload route yet (issue
+[16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)), so the pane's file picker is still disabled.
+The version stays `0.1.0` on purpose: `0.1.0-rc.1` sorts before `0.1.0` in Semantic Versioning, nothing was ever
+released as `0.1.0`, and the tag, `pyproject.toml`, `__version__` and `/api/health` already agree on that number. A
+higher number would claim features that are not here, and a pushed `v*` tag can never be moved or deleted. Publishing
+the image is the tag `v0.1.0` (tracking issue [17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17)).
+
+- `publish-images.yml` only pushes when it runs on a `v*` tag. A manual run (`workflow_dispatch`) used to reach the push
+  step as soon as `DOCKERHUB_ENABLED` was `true`, and then fail at the registry login, because the Docker connection
+  trusts tags only. A manual run now builds the image, proves the edition boundary inside it and scans it, then skips
+  the push with a notice. That makes a manual run a real dry run.
 - The engine is adopted: `cloud-crawler-core` 0.1.0, the wheel attached to the App's release `v0.1.0` (2026-10-26), is now a dependency. `pyproject.toml` pins it by release-asset URL on the one `# CORE_REF v0.1.0` line that `core-update.yml` rewrites, and `uv.lock` records the wheel's sha256 (`25a7abfcec50b0f85cb427145a1fd7fb57898bd09cfc3483edad8a042e5e7be3`, the hash of a fresh download, equal to GitHub's digest for the asset; the wheel's build provenance verifies with `gh attestation verify`). The image build's `pip install --require-hashes` verifies it like every other file. `core-update.yml` is no longer inert: it now compares that line with the App's latest release.
 - `[tool.hatch.metadata] allow-direct-references = true` in `pyproject.toml`. The build tool refuses a dependency written as a URL without it, which the plan for the first adoption did not mention. It affects only this project's own wheel, which is never published.
 - `security/redaction.py` is no longer a copy of the engine's module. The copy had drifted (the engine's list of words allowed in logs does not contain ten words only the lab logs). It now re-exports the engine's `scrub`, `VisitorDataError` and log guard and adds those ten words (`LAB_ONLY_WORDS`); the guard still runs the engine's own check on everything else. The engine also redacts more than the copy did (shared access keys and private-key headers).

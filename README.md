@@ -54,7 +54,7 @@ token or refresh token is ever held here (website proposal section 11).
 
 ## Status
 
-Skeleton. What exists today:
+Version 0.1.0, the first release: the lab application skeleton with the engine adopted. What exists today:
 
 - the lab application skeleton: configuration, the edition boundary and its
   startup refusal, content-free logging, security headers, exact-origin CORS,
@@ -62,12 +62,13 @@ Skeleton. What exists today:
 - the pane shell that posts `{type:'hcw-addon', id:'cloud-crawler', state}`
   with the states `loading | ready | working | unavailable` to the website
   origins only;
+- the engine `cloud-crawler-core` 0.1.0 as a hash-pinned dependency, used so far by the log guard only;
 - the security suite that proves the boundary, including inside the image;
 - the hardened Dockerfile and the publish, security and core-update workflows.
 
 The engine `cloud-crawler-core` 0.1.0 is a dependency and the log guard
-uses its rules. Not yet: the upload route (so the file picker is still
-disabled), the MCP server surface, the trusted-caller session API for the
+uses its rules. Not yet: the upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16);
+so the file picker is still disabled), the MCP server surface, the trusted-caller session API for the
 site's chat path. The roadmap is section 22 of the website proposal
 *Azure Architecture MCP Appliance on Azure MCP Server 3.0*; nothing here is
 production.

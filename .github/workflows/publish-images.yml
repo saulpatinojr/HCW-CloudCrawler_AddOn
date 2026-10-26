@@ -5,6 +5,8 @@
 # A failing scan or boundary check publishes nothing. The website pins the printed digest in lab-host group_vars.
 # Until the owner creates the OIDC connection and sets DOCKERHUB_ENABLED=true / DOCKERHUB_CONNECTION=<uuid>, the push is
 # skipped and the website row stays `coming`.
+# A manual run (workflow_dispatch) is a dry run: it builds, checks the boundary and scans, and never pushes, because the
+# Docker connection only trusts tags.
 name: publish-images
 on:
   push:
@@ -62,6 +64,7 @@ jobs:
         env: { ENABLED: "${{ vars.DOCKERHUB_ENABLED }}", CONNECTION: "${{ vars.DOCKERHUB_CONNECTION }}" }
         run: |
           set -euo pipefail
+          if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then echo "push=false" >> "$GITHUB_OUTPUT"; echo "::notice::${GITHUB_REF} is not a v* tag: built and scanned, not pushed (the Docker connection only trusts tags)"; exit 0; fi
           if [ "$ENABLED" != "true" ]; then echo "push=false" >> "$GITHUB_OUTPUT"; echo "::notice::DOCKERHUB_ENABLED is not 'true'; built and scanned, not pushed"; exit 0; fi
           if ! [[ "$CONNECTION" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then echo "::error::DOCKERHUB_CONNECTION is not a UUID"; exit 1; fi
           echo "push=true" >> "$GITHUB_OUTPUT"

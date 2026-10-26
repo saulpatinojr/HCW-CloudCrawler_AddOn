@@ -49,6 +49,14 @@ pins) and `uv lock --check` passes with it. Windows host, so the container check
 | Trivy scan, SBOM, provenance and attestation of the image, the push | **no**, CI only | `publish-images.yml` on a tag |
 | CodeQL, gitleaks, dependency review, CodeRabbit | **no**, CI only | run on the pull request |
 
+## Run 2026-10-26 (release 0.1.0 prepared; publish dry run)
+
+| Check | Executed here | Result |
+|---|---|---|
+| `gh workflow run publish-images.yml --ref release/v0.1.0` (manual run, [run 40268798058](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40268798058)) | yes, in CI | success: the image built with the engine in it, the in-image boundary checks passed (`import azure` and `import msal` fail, no pip, uid 10001, refuses an identity endpoint, hardened health check answers), Trivy (HIGH/CRITICAL, fixed only) passed, and the push, provenance, SBOM and attestation steps were **skipped** with a notice that the ref is not a `v*` tag |
+| Push, provenance, SBOM and SLSA attestation of the image, and the image digest | **no** | only a `v*` tag can push (the Docker connection trusts tags only); this is the tag `v0.1.0` in issue [17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17) |
+| `guide-drift.yml` on `main` before this change | yes, in CI | success, 12 fields compared ([run 40267695699](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40267695699)); this change edits the guide's prose only, not the catalogue-row copy |
+
 ## Limitations recorded
 
 - No uploads, no MCP server and no trusted-caller session API yet: the pane shell says so and the file picker is
