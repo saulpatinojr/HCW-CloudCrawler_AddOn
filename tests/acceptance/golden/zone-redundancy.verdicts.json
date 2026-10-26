@@ -1,0 +1,15 @@
+{
+  "hcw-sample-sql-01": "contradicted",
+  "hcw-sample-sql-02": "supported",
+  "hcwsamplestprod01": "supported",
+  "hcwsamplestdev01": "not-applicable",
+  "hcw-sample-asp-prod-01": "not-applicable",
+  "hcw-sample-pg-prod-01": "supported",
+  "hcw-sample-cosmos-prod-01": "contradicted",
+  "hcw-sample-aks-prod-01": "not-applicable",
+  "hcw-sample-vm-prod-01": "not-applicable",
+  "hcw-sample-pip-prod-01": "not-applicable",
+  "hcw-sample-kv-prod-01": "not-applicable",
+  "hcw-sample-sqlsrv-01": "not-applicable",
+  "hcw-sample-app-prod-01": "not-applicable"
+}

@@ -22,32 +22,126 @@
   </header>
 
   <p class="notice" id="notice">
-    This tool works only on evidence you give it: an export of your resource inventory, a review report, or results the site hands in on your behalf.
+    This tool works only on evidence you give it: an export of your resource inventory, or a Terraform state or plan.
     It never asks for credentials and never connects to your cloud. Everything is held in memory, is returned only to this browser session, and expires after two hours or when you delete it.
+    The answer is not an audit.
   </p>
 
-  <section class="step" id="step-upload" aria-labelledby="h-upload">
-    <h2 id="h-upload">1. Upload evidence</h2>
-    <p class="small" id="engine-note">The evidence engine arrives with the first release of the upstream App. Until then this lab accepts no uploads; the file picker below is disabled.</p>
-    <label class="dropzone" id="dropzone" for="file">
-      Drop a .json file here, or choose a file
-      <input type="file" id="file" accept=".json,application/json" disabled>
+  <section class="step" id="step-evidence" aria-labelledby="h-evidence">
+    <h2 id="h-evidence">1. What is built: your evidence</h2>
+    <p class="small">
+      Add an export of your Azure resources: the JSON from <code>az graph query</code> or the Resource Graph Explorer (an array, or an object with a <code>data</code> array).
+      A Terraform state or plan (<code>terraform show -json</code>) is accepted too, but this version does not read Terraform yet: it is recorded with a fingerprint and any claim about it stays "unknown".
+      Remove secrets from a Terraform state first. Up to 5 files, 5 MB and 5,000 rows.
+    </p>
+    <label class="dropzone" id="dropzone" tabindex="0" for="file">
+      Drop .json files here, or choose files
+      <input type="file" id="file" accept=".json,application/json" multiple>
     </label>
+    <p class="small" id="file-note" role="status"></p>
+    <ul class="warnings" id="file-list"></ul>
     <div class="row">
-      <div id="verification" aria-label="Human verification"></div>
-      <button type="button" id="run" disabled>Evaluate drift</button>
-      <span class="small" id="run-note"></span>
+      <button type="button" class="secondary" id="use-sample">Use the sample export</button>
+      <a class="button secondary" href="/api/samples/sample-resource-graph.json" download>Download the sample export</a>
     </div>
   </section>
 
-  <section class="step" aria-labelledby="h-what">
-    <h2 id="h-what">What this lab will do</h2>
-    <ul class="small">
-      <li>Validate, hash and redact what you upload, and record where it came from.</li>
-      <li>Check the architecture decisions in your session against that evidence with deterministic detectors: supported, contradicted or unknown, never a guess.</li>
-      <li>Turn contradictions, retirement notices and cost ceilings into review proposals you can approve or reject.</li>
-      <li>Give you a bundle you can download, with a note that none of it is an audit.</li>
-    </ul>
+  <section class="step" id="step-decision" aria-labelledby="h-decision">
+    <h2 id="h-decision">2. What you decided: your architecture decision</h2>
+    <p class="small">
+      A decision says what should be true, as claims such as "data stores have no public access". The check reports, for each resource, whether what is built supports or contradicts each claim.
+      Start from the starter or a sample, or upload your own decision file. The lab keeps it as a draft decision record; it never accepts a decision for you.
+    </p>
+    <div class="row">
+      <label>Decision
+        <select id="decision-choice">
+          <option value="starter">Starter decision (edit before relying on it)</option>
+          <option value="zone-redundancy">Sample: production data platform is zone redundant</option>
+          <option value="wave-one">Sample: production platform baseline (six claims)</option>
+          <option value="file">My own decision file</option>
+        </select>
+      </label>
+      <a class="button secondary" href="/api/samples/decision-starter.json" download>Download the starter decision</a>
+    </div>
+    <label class="filebutton" id="decision-file-wrap" for="decision-file" tabindex="0" hidden>
+      Choose your decision file (.json)
+      <input type="file" id="decision-file" accept=".json,application/json">
+    </label>
+    <p class="small" id="decision-note" role="status"></p>
+  </section>
+
+  <section class="step" id="step-run" aria-labelledby="h-run">
+    <h2 id="h-run">3. Check for drift</h2>
+    <div class="row">
+      <div id="verification" aria-label="Human verification"></div>
+      <button type="button" id="run" disabled>Check for drift</button>
+      <span class="small" id="run-note" role="status">Add at least one evidence file, or use the sample export.</span>
+    </div>
+  </section>
+
+  <section class="step" id="step-summary" hidden aria-labelledby="h-summary">
+    <h2 id="h-summary">Result</h2>
+    <div class="notice" id="audit">
+      <strong id="audit-line"></strong>
+      <details>
+        <summary>What "not an audit" means</summary>
+        <pre class="report" id="audit-text"></pre>
+      </details>
+    </div>
+    <p class="small" id="summary-line"></p>
+    <div class="cards" id="cards"></div>
+    <h3>Claims</h3>
+    <div class="scroll">
+      <table id="claims">
+        <thead><tr><th>Claim</th><th>Detector</th><th>Severity</th><th class="num">Contradicted</th><th class="num">Supported</th><th class="num">Unknown</th><th class="num">Not applicable</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <h3>Evidence</h3>
+    <ul class="warnings" id="evidence-list"></ul>
+  </section>
+
+  <section class="step" id="step-findings" hidden aria-labelledby="h-findings">
+    <h2 id="h-findings">Findings</h2>
+    <p class="small" id="listing-note"></p>
+    <div class="filters">
+      <label>Show <select id="f-verdict"></select></label>
+      <span class="small" id="findings-count"></span>
+    </div>
+    <div class="scroll">
+      <table id="findings">
+        <thead><tr><th>Verdict</th><th>Claim</th><th>Resource</th><th>Observed</th><th>Expected</th><th>Why unknown</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="step" id="step-proposals" hidden aria-labelledby="h-proposals">
+    <h2 id="h-proposals">Review notes</h2>
+    <p class="small">What the architects are asked to decide, drafted from the contradictions. Nothing here is approved: approving is a person's act, elsewhere.</p>
+    <ul class="proposals" id="proposals"></ul>
+  </section>
+
+  <section class="step" id="step-record" hidden aria-labelledby="h-record">
+    <h2 id="h-record">Draft decision record</h2>
+    <details>
+      <summary id="record-title"></summary>
+      <p class="small">Your decision as the lab recorded it. It is a draft: only a person accepting it elsewhere makes it accepted.</p>
+      <dl class="record" id="record-list"></dl>
+    </details>
+  </section>
+
+  <section class="step" id="step-actions" hidden aria-labelledby="h-actions">
+    <h2 id="h-actions">Report</h2>
+    <div class="row">
+      <button type="button" id="download-md">Download report (Markdown)</button>
+      <button type="button" class="secondary" id="download-json">Download report (JSON)</button>
+      <button type="button" class="secondary" id="copy-report">Copy report</button>
+      <button type="button" class="danger" id="delete">Delete my result now</button>
+    </div>
+    <p class="small" id="expiry"></p>
+    <p class="small" id="copy-note"></p>
+    <pre class="report" id="report" tabindex="0" aria-label="Report in Markdown"></pre>
   </section>
 
   <p class="small" id="unavailable" hidden>This tool isn't available right now.</p>

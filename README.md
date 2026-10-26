@@ -54,24 +54,26 @@ token or refresh token is ever held here (website proposal section 11).
 
 ## Status
 
-Version 0.1.0, the first release: the lab application skeleton with the engine adopted. What exists today:
+The released version is 0.1.0 (the lab application skeleton with the engine adopted); the next release, 0.2.0, carries the
+upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)). What exists on `main` today:
 
-- the lab application skeleton: configuration, the edition boundary and its
-  startup refusal, content-free logging, security headers, exact-origin CORS,
-  the upload and rate limits, and a flat `/api/health`;
-- the pane shell that posts `{type:'hcw-addon', id:'cloud-crawler', state}`
-  with the states `loading | ready | working | unavailable` to the website
-  origins only;
-- the engine `cloud-crawler-core` 0.1.0 as a hash-pinned dependency, used so far by the log guard only;
+- the lab application: configuration, the edition boundary and its startup refusal, content-free logging, security
+  headers, exact-origin CORS, the upload and rate limits, and a flat `/api/health`;
+- **the upload route**: a visitor uploads evidence (a Resource Graph export, or a Terraform state or plan) and a
+  decision, behind human verification, and the lab runs the engine's ingest and drift code and answers with findings,
+  review notes, a draft decision record and a report bundle that carries `NOT-AN-AUDIT.md`; the results live in memory
+  for two hours, behind an owner token (see [`docs/api.md`](docs/api.md) and
+  [ADR 0004](docs/adr/0004-the-upload-route.md));
+- the pane (file picker, decision chooser, samples, results) that posts `{type:'hcw-addon', id:'cloud-crawler', state}`
+  with the states `loading | ready | working | unavailable` to the website origins only;
+- the engine `cloud-crawler-core` 0.1.0 as a hash-pinned dependency;
 - the security suite that proves the boundary, including inside the image;
 - the hardened Dockerfile and the publish, security and core-update workflows.
 
-The engine `cloud-crawler-core` 0.1.0 is a dependency and the log guard
-uses its rules. Not yet: the upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16);
-so the file picker is still disabled), the MCP server surface, the trusted-caller session API for the
-site's chat path. The roadmap is section 22 of the website proposal
-*Azure Architecture MCP Appliance on Azure MCP Server 3.0*; nothing here is
-production.
+Not yet: the MCP server surface and the trusted-caller session API for the site's chat path (later releases), and
+Terraform *reading* (the engine 0.1.0 records a Terraform state or plan but its detectors read only Resource Graph
+exports, so claims about Terraform stay `unknown`). The roadmap is section 22 of the website proposal
+*Azure Architecture MCP Appliance on Azure MCP Server 3.0*; nothing here is production.
 
 ## Getting started
 

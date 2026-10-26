@@ -34,7 +34,7 @@ tool changes go upstream first; this repository owns the lab application, its bo
   `loading | ready | working | unavailable` to each origin in `siteOrigins` only. Every `/api/*` error uses the
   `{error:{code,message,details?}}` envelope.
 - Settings carry the `CC_` prefix (`config.py`); the secret is `TURNSTILE_SECRET`, read once and never echoed.
-- ADRs: this edition's own in `docs/adr/` (template there; next number: 0004); upstream decisions are cited, not
+- ADRs: this edition's own in `docs/adr/` (template there; next number: 0005); upstream decisions are cited, not
   copied (the App has published ADRs 0001 to 0003; links are in `docs/whats-new-upstream.md`). Keep `CHANGELOG.md`
   current in the same pull request as the change. Pull requests open ready for review and follow
   `.github/PULL_REQUEST_TEMPLATE.md`.

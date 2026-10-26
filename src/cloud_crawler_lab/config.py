@@ -61,8 +61,11 @@ class Settings:
     trust_proxy: bool = False
     log_silent: bool = False
     static_dir: Path = ROOT / "web"
+    samples_dir: Path = ROOT / "samples"
     max_upload_bytes: int = 5 * 1024 * 1024
     max_rows: int = 5_000
+    # Everything held for visitors at once, in megabytes. When a new result would not fit, the oldest go first.
+    max_store_mb: int = 64
 
     @property
     def turnstile_required(self) -> bool:
@@ -81,6 +84,7 @@ class Settings:
         if any(ch in frame_ancestors for ch in ";\n\r"):
             raise ValueError("CC_FRAME_ANCESTORS must be a single CSP source list")
         static_dir = Path(env.get("CC_STATIC_DIR", "").strip() or cls.static_dir)
+        samples_dir = Path(env.get("CC_SAMPLES_DIR", "").strip() or cls.samples_dir)
         return cls(
             port=_int(env, "PORT", 8080, minimum=1),
             allowed_origins=_origins(env, "CC_ALLOWED_ORIGINS"),
@@ -97,4 +101,6 @@ class Settings:
             trust_proxy=_flag(env, "CC_TRUST_PROXY"),
             log_silent=_flag(env, "CC_LOG_SILENT"),
             static_dir=static_dir,
+            samples_dir=samples_dir,
+            max_store_mb=_int(env, "CC_MAX_STORE_MB", 64, minimum=1),
         )

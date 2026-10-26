@@ -50,12 +50,17 @@ jobs:
           test "$(docker run --rm "${IMAGE}:scan" id -u)" = "10001"
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' "${IMAGE}:scan")" = "MIT" || { echo "::error::the image does not state its open-source licence (org.opencontainers.image.licenses=MIT)"; exit 1; }
           if docker run --rm -e IDENTITY_ENDPOINT=http://169.254.169.254 "${IMAGE}:scan"; then echo "::error::the image started under an identity endpoint"; exit 1; fi
-          cid="$(docker run -d --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges -e CC_ALLOW_NO_TURNSTILE=1 "${IMAGE}:scan")"
+          cid="$(docker run -d --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --pids-limit 256 --cpus 1 -e CC_ALLOW_NO_TURNSTILE=1 "${IMAGE}:scan")"
           for i in $(seq 1 30); do
             if docker exec "$cid" python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3).status==200 else 1)"; then ok=1; break; fi
             sleep 1
           done
-          docker logs "$cid" | head -20; docker rm -f "$cid" >/dev/null
+          # a real round trip inside the hardened container: the pane, the four samples and an upload start to finish
+          if [ "${ok:-0}" = 1 ]; then out="$(docker exec -i "$cid" python - < infrastructure/docker/smoke.py)" || ok=0
+            printf '%s\n' "$out"
+            printf '%s\n' "$out" | grep -qx 'upload round trip ok' || ok=0
+          fi
+          docker logs "$cid" 2>&1 | tail -n 20 || true; docker rm -f "$cid" >/dev/null
           test "${ok:-0}" = 1
       - name: Scan before publishing (HIGH/CRITICAL, fixed only)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -70,7 +75,7 @@ jobs:
           if ! [[ "$CONNECTION" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then echo "::error::DOCKERHUB_CONNECTION is not a UUID"; exit 1; fi
           echo "push=true" >> "$GITHUB_OUTPUT"
       - if: steps.gate.outputs.push == 'true'
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         env:
           DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_CONNECTION }}
           DOCKERHUB_OIDC_EXPIREIN: "900"

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -12,13 +14,16 @@ from cloud_crawler_lab import __version__
 from cloud_crawler_lab.config import Settings
 from cloud_crawler_lab.edition import assert_lab_cannot_reach_azure
 from cloud_crawler_lab.errors import DEFAULT_CODES, DEFAULT_MESSAGES, ApiError
-from cloud_crawler_lab.routes import health, static
+from cloud_crawler_lab.routes import health, samples, static, uploads
 from cloud_crawler_lab.security import logging as logs
 from cloud_crawler_lab.security.cors import ExactOriginCorsMiddleware
 from cloud_crawler_lab.security.headers import SecurityHeadersMiddleware
 from cloud_crawler_lab.security.ratelimit import ConcurrencyBound, TokenBucketLimiter
+from cloud_crawler_lab.store import UploadStore
 
 assert_lab_cannot_reach_azure()
+
+SWEEP_SECONDS = 60
 
 
 def _envelope(status: int, code: str, message: str, details=None, headers=None) -> JSONResponse:
@@ -28,7 +33,7 @@ def _envelope(status: int, code: str, message: str, details=None, headers=None) 
     return JSONResponse({"error": error}, status_code=status, headers=headers or {})
 
 
-def create_app(settings: Settings | None = None, *, verifier=None) -> FastAPI:
+def create_app(settings: Settings | None = None, *, verifier=None, sweep: bool = True) -> FastAPI:
     settings = settings or Settings.from_env()
     logs.configure(silent=settings.log_silent)
 
@@ -37,9 +42,15 @@ def create_app(settings: Settings | None = None, *, verifier=None) -> FastAPI:
         logs.log_event("startup", turnstileRequired=settings.turnstile_required)
         if not settings.turnstile_required and settings.allow_no_turnstile:
             logs.log_event("turnstile_disabled", warning=True)
+        task = asyncio.create_task(_sweeper(app)) if sweep else None
         try:
             yield
         finally:
+            if task:
+                task.cancel()
+            # nothing is kept past the process: the results are in memory only, and this empties them
+            app.state.store.clear()
+            app.state.pool.shutdown(wait=False, cancel_futures=True)
             logs.log_event("shutdown")
 
     app = FastAPI(
@@ -53,7 +64,13 @@ def create_app(settings: Settings | None = None, *, verifier=None) -> FastAPI:
     app.state.settings = settings
     app.state.limiter = TokenBucketLimiter(settings.rate_limit_posts, settings.rate_limit_window_minutes * 60)
     app.state.bound = ConcurrencyBound(settings.max_concurrent)
+    # Bodies held in memory at once: the ones being evaluated and as many again waiting for a slot. Past this, an
+    # upload is told to try again before its body is read.
+    app.state.intake = ConcurrencyBound(settings.max_concurrent * 2, wait_seconds=0.05)
+    # The evaluations get threads of their own, so a slow verification service cannot queue them behind itself.
+    app.state.pool = ThreadPoolExecutor(max_workers=settings.max_concurrent, thread_name_prefix="evaluate")
     app.state.verifier = verifier
+    app.state.store = UploadStore(settings.ttl_minutes * 60, settings.max_items, settings.max_store_mb * 1024 * 1024)
 
     @app.exception_handler(ApiError)
     async def _api_error(request: Request, exc: ApiError):
@@ -79,6 +96,8 @@ def create_app(settings: Settings | None = None, *, verifier=None) -> FastAPI:
         return _envelope(500, "internal_error", DEFAULT_MESSAGES[500])
 
     app.include_router(health.router)
+    app.include_router(uploads.router)
+    app.include_router(samples.router)
 
     @app.api_route(
         "/api/{rest:path}",
@@ -117,3 +136,12 @@ def api_routes(app: FastAPI) -> dict[str, set[str]]:
             continue
         table.setdefault(route.path, set()).update(m for m in route.methods if m not in ("HEAD", "OPTIONS"))
     return table
+
+
+async def _sweeper(app: FastAPI) -> None:
+    """Drop what has expired once a minute; a lookup refuses an expired result before the sweep gets to it."""
+    while True:
+        await asyncio.sleep(SWEEP_SECONDS)
+        removed = app.state.store.sweep()
+        if removed:
+            logs.log_event("sweep", removed=removed, stored=app.state.store.size)

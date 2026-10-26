@@ -18,12 +18,13 @@ services:
       CC_TRUST_PROXY: "0"
     read_only: true
     tmpfs:
-      - /tmp
+      - /tmp:size=16m,noexec,nosuid,nodev
     cap_drop:
       - ALL
     security_opt:
       - no-new-privileges:true
     mem_limit: 512m
+    memswap_limit: 512m
     pids_limit: 256
     cpus: 1
     restart: unless-stopped

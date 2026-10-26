@@ -16,7 +16,7 @@ host can neither offer that nor should.
 ## Decision
 
 - **Lab edition: the lab host.** One `docker_container` named `hcw-addon-cloud-crawler`, image
-  `docker.io/hybridcloudworks/hcw-addon-cloud-crawler` by digest, a loopback port assigned in the website's
+  `docker.io/hybridcloudworks/img-cc-lab-addon` by digest, a loopback port assigned in the website's
   `group_vars` when the row is added (the Cloud Assessor uses 18083; the next free port is the website's call),
   hostname `cloud-crawler.lab.hybridcloudworks.com`, environment from `group_vars`, the verification secret from the
   host vault (`vault_addon_cloud_crawler_turnstile_secret`), run with read-only root, `tmpfs /tmp`, `cap_drop ALL`,

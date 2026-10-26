@@ -9,5 +9,7 @@
 - Tools menu: the Header derives its items from `availableAddons`, so the item appears only when the row flips to
   `available`. A real-browser check of the `coming` page on 2026-10-24 found no link to it from `/azure`.
 - No provider-scoped variant (`/azure/tools/cloud-crawler` is not created); `providers: ['azure']` is hub-card metadata.
-- This AddOn's own routes will be in its API description once it has an engine; the site calls only `GET /api/health`,
-  server side, through the status proxy.
+- This AddOn's own routes are described in [`docs/api.md`](../api.md); the site calls only `GET /api/health`, server side,
+  through the status proxy. The pane (inside the frame) calls `POST /api/uploads`, `GET` and `DELETE /api/uploads/{id}`,
+  `GET /api/uploads/{id}/files/{name}` and `GET /api/samples/{name}` on its own origin, with the visitor's human-verification
+  token and owner token as headers. The frame URL carries `?theme=` only; the pane reads nothing else from the query.

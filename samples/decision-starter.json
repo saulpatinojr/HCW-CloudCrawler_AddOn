@@ -1,0 +1,68 @@
+{
+  "title": "Starter decision: data stores are private and workloads have an identity",
+  "context": "A starting point to try the lab with your own export. It is an illustration, not advice: read each claim, change what does not match how you build, and delete what you never decided. It carries no region, no tag value and no subscription, so it applies to every resource in the export.",
+  "decision": "Data and secret stores disable public network access and are reached over approved private endpoints; compute runs under a managed identity; every resource carries an owner tag.",
+  "decisionDrivers": ["Public endpoints on data stores are the commonest way a data leak starts", "Secrets in app settings are avoidable when workloads have an identity", "Cost and incident follow-up need a named owner on every resource"],
+  "consequences": ["Private DNS zones and endpoints for each data store", "Workload identities replace connection-string secrets", "Resources without an owner tag are reported until they are tagged"],
+  "constraints": [],
+  "assumptions": ["The export is a Resource Graph export that includes each resource's properties"],
+  "risks": ["A claim that matches nothing in your export reports unknown, which is not the same as supported"],
+  "scope": {},
+  "sourceType": "human",
+  "claims": [
+    {
+      "statement": "Data and secret stores disable public network access",
+      "detectorId": "public-access-disabled",
+      "expectation": { "property": "publicNetworkAccessDisabled", "operator": "eq", "value": true },
+      "selector": {
+        "resourceTypes": [
+          "microsoft.storage/storageaccounts",
+          "microsoft.keyvault/vaults",
+          "microsoft.documentdb/databaseaccounts",
+          "microsoft.sql/servers",
+          "microsoft.dbforpostgresql/flexibleservers"
+        ]
+      },
+      "severity": "high",
+      "maxAgeHours": 24
+    },
+    {
+      "statement": "Data and secret stores are reached over an approved private endpoint",
+      "detectorId": "private-endpoint-present",
+      "expectation": { "property": "privateEndpointPresent", "operator": "eq", "value": true },
+      "selector": {
+        "resourceTypes": [
+          "microsoft.storage/storageaccounts",
+          "microsoft.keyvault/vaults",
+          "microsoft.documentdb/databaseaccounts",
+          "microsoft.sql/servers",
+          "microsoft.dbforpostgresql/flexibleservers"
+        ]
+      },
+      "severity": "high",
+      "maxAgeHours": 24
+    },
+    {
+      "statement": "Compute runs under a managed identity",
+      "detectorId": "managed-identity",
+      "expectation": { "property": "managedIdentityAssigned", "operator": "eq", "value": true },
+      "selector": {
+        "resourceTypes": [
+          "microsoft.web/sites",
+          "microsoft.containerservice/managedclusters",
+          "microsoft.compute/virtualmachines"
+        ]
+      },
+      "severity": "medium",
+      "maxAgeHours": 24
+    },
+    {
+      "statement": "Every resource carries an owner tag",
+      "detectorId": "tag-required",
+      "parameters": { "tag": "owner" },
+      "expectation": { "property": "tag", "operator": "exists" },
+      "severity": "low",
+      "maxAgeHours": 24
+    }
+  ]
+}

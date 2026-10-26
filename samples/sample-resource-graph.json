@@ -1,0 +1,177 @@
+{
+  "count": 13,
+  "data": [
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Sql/servers/hcw-sample-sqlsrv-01/databases/hcw-sample-sql-01",
+      "name": "hcw-sample-sql-01",
+      "type": "microsoft.sql/servers/databases",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "data-platform", "costCenter": "cc-1001" },
+      "sku": { "name": "GP_Gen5_4", "tier": "GeneralPurpose" },
+      "properties": { "zoneRedundant": false, "status": "Online", "maxSizeBytes": 34359738368 }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Sql/servers/hcw-sample-sqlsrv-01/databases/hcw-sample-sql-02",
+      "name": "hcw-sample-sql-02",
+      "type": "microsoft.sql/servers/databases",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "data-platform", "costCenter": "cc-1001" },
+      "sku": { "name": "BC_Gen5_4", "tier": "BusinessCritical" },
+      "properties": { "zoneRedundant": true, "status": "Online" }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Storage/storageAccounts/hcwsamplestprod01",
+      "name": "hcwsamplestprod01",
+      "type": "microsoft.storage/storageaccounts",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "data-platform", "costCenter": "cc-1001" },
+      "sku": { "name": "Standard_ZRS", "tier": "Standard" },
+      "properties": {
+        "publicNetworkAccess": "Disabled",
+        "minimumTlsVersion": "TLS1_2",
+        "privateEndpointConnections": [
+          {
+            "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Storage/storageAccounts/hcwsamplestprod01/privateEndpointConnections/hcw-sample-pe-st-01",
+            "properties": { "privateLinkServiceConnectionState": { "status": "Approved" } }
+          }
+        ]
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-dev/providers/Microsoft.Storage/storageAccounts/hcwsamplestdev01",
+      "name": "hcwsamplestdev01",
+      "type": "microsoft.storage/storageaccounts",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-dev",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "dev", "owner": "data-platform", "costCenter": "cc-1002" },
+      "sku": { "name": "Standard_LRS", "tier": "Standard" },
+      "properties": { "publicNetworkAccess": "Enabled" }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Web/serverfarms/hcw-sample-asp-prod-01",
+      "name": "hcw-sample-asp-prod-01",
+      "type": "microsoft.web/serverfarms",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "web-team", "costCenter": "cc-1003" },
+      "sku": { "name": "P1v3", "tier": "PremiumV3", "capacity": 3 },
+      "properties": { "zoneRedundant": true, "numberOfWorkers": 3 }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.DBforPostgreSQL/flexibleServers/hcw-sample-pg-prod-01",
+      "name": "hcw-sample-pg-prod-01",
+      "type": "microsoft.dbforpostgresql/flexibleservers",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "data-platform", "costCenter": "cc-1001" },
+      "sku": { "name": "Standard_D4ds_v5", "tier": "GeneralPurpose" },
+      "properties": { "highAvailability": { "mode": "ZoneRedundant", "state": "Healthy" }, "version": "16" }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.DocumentDB/databaseAccounts/hcw-sample-cosmos-prod-01",
+      "name": "hcw-sample-cosmos-prod-01",
+      "type": "microsoft.documentdb/databaseaccounts",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "data-platform", "costCenter": "cc-1001" },
+      "properties": {
+        "locations": [
+          { "locationName": "Central US", "failoverPriority": 0, "isZoneRedundant": true },
+          { "locationName": "East US 2", "failoverPriority": 1, "isZoneRedundant": false }
+        ],
+        "publicNetworkAccess": "Disabled",
+        "privateEndpointConnections": []
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.ContainerService/managedClusters/hcw-sample-aks-prod-01",
+      "name": "hcw-sample-aks-prod-01",
+      "type": "microsoft.containerservice/managedclusters",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "platform-team", "costCenter": "cc-1004" },
+      "identity": { "type": "SystemAssigned" },
+      "properties": {
+        "agentPoolProfiles": [
+          { "name": "system", "availabilityZones": ["1", "2", "3"], "count": 3 },
+          { "name": "user", "availabilityZones": ["1", "2", "3"], "count": 3 }
+        ]
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Compute/virtualMachines/hcw-sample-vm-prod-01",
+      "name": "hcw-sample-vm-prod-01",
+      "type": "microsoft.compute/virtualmachines",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "platform-team", "costCenter": "cc-1004" },
+      "identity": { "type": "UserAssigned" },
+      "properties": { "hardwareProfile": { "vmSize": "Standard_D4s_v5" } }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Network/publicIPAddresses/hcw-sample-pip-prod-01",
+      "name": "hcw-sample-pip-prod-01",
+      "type": "microsoft.network/publicipaddresses",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "zones": ["1", "2", "3"],
+      "tags": { "env": "prod", "owner": "platform-team", "costCenter": "cc-1004" },
+      "sku": { "name": "Standard", "tier": "Regional" },
+      "properties": { "publicIPAllocationMethod": "Static" }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.KeyVault/vaults/hcw-sample-kv-prod-01",
+      "name": "hcw-sample-kv-prod-01",
+      "type": "microsoft.keyvault/vaults",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "platform-team", "costCenter": "cc-1004" },
+      "properties": {
+        "publicNetworkAccess": "Disabled",
+        "enablePurgeProtection": true,
+        "vaultUri": "https://hcw-sample-kv-prod-01.vault.azure.net/",
+        "privateEndpointConnections": [
+          {
+            "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.KeyVault/vaults/hcw-sample-kv-prod-01/privateEndpointConnections/hcw-sample-pe-kv-01",
+            "properties": { "privateLinkServiceConnectionState": { "status": "Approved" } }
+          }
+        ]
+      }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Sql/servers/hcw-sample-sqlsrv-01",
+      "name": "hcw-sample-sqlsrv-01",
+      "type": "microsoft.sql/servers",
+      "location": "centralus",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "owner": "data-platform", "costCenter": "cc-1001" },
+      "identity": { "type": "SystemAssigned" },
+      "properties": { "publicNetworkAccess": "Enabled", "minimalTlsVersion": "1.2", "version": "12.0", "privateEndpointConnections": [] }
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Web/sites/hcw-sample-app-prod-01",
+      "name": "hcw-sample-app-prod-01",
+      "type": "microsoft.web/sites",
+      "location": "eastus2",
+      "resourceGroup": "rg-hcw-sample-prod",
+      "subscriptionId": "00000000-0000-0000-0000-000000000001",
+      "tags": { "env": "prod", "costCenter": "cc-1003" },
+      "properties": { "publicNetworkAccess": "Enabled", "httpsOnly": true, "serverFarmId": "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-hcw-sample-prod/providers/Microsoft.Web/serverfarms/hcw-sample-asp-prod-01" }
+    }
+  ]
+}

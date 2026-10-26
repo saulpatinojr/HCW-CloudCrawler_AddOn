@@ -1,0 +1,85 @@
+{
+  "title": "Production platform baseline",
+  "context": "The production subscription hosts the customer-facing API and its data platform. The baseline the platform team agreed on for every production resource: no public network access on data and secret stores, private endpoints to reach them, workloads under managed identities, an owner tag, one region, and zone-redundant storage.",
+  "decision": "Production data and secret stores disable public network access and are reached over approved private endpoints; compute runs under a managed identity; every resource carries an owner tag; every resource lives in centralus; production storage accounts use a zone-redundant SKU.",
+  "decisionDrivers": ["Data exfiltration through public endpoints is the top threat in the platform threat model", "Secrets in app settings were the cause of the last two incidents", "Cost allocation needs an owner on every resource"],
+  "consequences": ["Private DNS zones and endpoints per data store", "Workload identities replace connection-string secrets", "A second region needs a new decision"],
+  "constraints": ["Region centralus only"],
+  "assumptions": ["Production resources carry the tag env=prod"],
+  "risks": ["Resources created outside the platform pipeline may drift"],
+  "scope": { "subscriptionIds": ["00000000-0000-0000-0000-000000000001"] },
+  "sourceType": "human",
+  "claims": [
+    {
+      "statement": "Production data and secret stores disable public network access",
+      "detectorId": "public-access-disabled",
+      "expectation": { "property": "publicNetworkAccessDisabled", "operator": "eq", "value": true },
+      "selector": {
+        "resourceTypes": [
+          "microsoft.storage/storageaccounts",
+          "microsoft.keyvault/vaults",
+          "microsoft.documentdb/databaseaccounts",
+          "microsoft.sql/servers",
+          "microsoft.web/sites"
+        ],
+        "tagSelectors": { "env": "prod" }
+      },
+      "severity": "high",
+      "maxAgeHours": 24
+    },
+    {
+      "statement": "Production data and secret stores are reached over an approved private endpoint",
+      "detectorId": "private-endpoint-present",
+      "expectation": { "property": "privateEndpointPresent", "operator": "eq", "value": true },
+      "selector": {
+        "resourceTypes": [
+          "microsoft.storage/storageaccounts",
+          "microsoft.keyvault/vaults",
+          "microsoft.documentdb/databaseaccounts",
+          "microsoft.sql/servers"
+        ],
+        "tagSelectors": { "env": "prod" }
+      },
+      "severity": "high",
+      "maxAgeHours": 24
+    },
+    {
+      "statement": "Production compute runs under a managed identity",
+      "detectorId": "managed-identity",
+      "expectation": { "property": "managedIdentityAssigned", "operator": "eq", "value": true },
+      "selector": {
+        "resourceTypes": [
+          "microsoft.web/sites",
+          "microsoft.containerservice/managedclusters",
+          "microsoft.compute/virtualmachines"
+        ],
+        "tagSelectors": { "env": "prod" }
+      },
+      "severity": "medium",
+      "maxAgeHours": 24
+    },
+    {
+      "statement": "Every resource carries an owner tag",
+      "detectorId": "tag-required",
+      "parameters": { "tag": "owner" },
+      "expectation": { "property": "tag", "operator": "exists" },
+      "severity": "low",
+      "maxAgeHours": 24
+    },
+    {
+      "statement": "Every resource lives in centralus",
+      "detectorId": "region-allowed",
+      "expectation": { "property": "location", "operator": "in", "value": ["centralus"] },
+      "severity": "medium",
+      "maxAgeHours": 24
+    },
+    {
+      "statement": "Production storage accounts use a zone-redundant SKU",
+      "detectorId": "sku-allowed",
+      "expectation": { "property": "skuName", "operator": "in", "value": ["Standard_ZRS", "Standard_GZRS", "Standard_RAGZRS", "Premium_ZRS"] },
+      "selector": { "resourceTypes": ["microsoft.storage/storageaccounts"], "tagSelectors": { "env": "prod" } },
+      "severity": "medium",
+      "maxAgeHours": 24
+    }
+  ]
+}
