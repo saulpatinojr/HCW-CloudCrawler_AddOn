@@ -11,7 +11,7 @@ tool and the Tools menu lists it, from the day the owner deploys the website (it
 route. The lab host has run it on `127.0.0.1:18084` since the owner's playbook run of 2026-10-26, and the website's status
 route then answered `configured: true, reachable: true`, version `0.2.0`, edition `lab`. The website's row does not promise
 Terraform: the engine this image runs (`cloud-crawler-core` 0.1.0) records a Terraform state or plan but does not read it,
-so the row's summary and technology list leave Terraform out until this repository ships an engine that does. Not verified by
+so the row's summary and technology list leave Terraform out until this repository ships an engine that does ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29) tracks restoring them). Not verified by
 any session when this was written: the pane inside the website's frame in a real browser, and one real upload with the human
 check (the owner's first checks after the website deploys). The website's page for this pair
 (`docs/architecture/app-to-addon/cloud-crawler.md`) holds the rest of the record.
