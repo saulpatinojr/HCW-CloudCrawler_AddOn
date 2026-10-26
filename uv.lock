@@ -156,7 +156,7 @@ requires-dist = [{ name = "pydantic", specifier = ">=2.14,<3" }]
 
 [[package]]
 name = "cloud-crawler-lab"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "cloud-crawler-core" },

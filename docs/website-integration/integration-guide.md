@@ -8,7 +8,8 @@ one page; nothing from this repository is installed into the site bundle.
 website pull request #1351 (merge commit `e4e53807`): `/tools/cloud-crawler` shows an explainer and frames nothing. That
 is deliberate. The App has released `v0.1.0` and this repository has adopted the engine from it. The first real image,
 `v0.1.0` (digest `sha256:1c63929a60414f530e76db431d78ed345feebb30e601115b81c0e1fffbec1506`, issue 17), is published but has
-no upload route. The upload route (issue 16) is built on `main` and is the content of the next release, `0.2.0`. The
+no upload route. The upload route (issue 16) is in release `0.2.0`, which is prepared on `main`; its tag `v0.2.0` is the
+owner's call (issue 17), so no image that contains the route is published yet. The
 website's row should flip to `available` only once an image that contains the upload route (`v0.2.0`) is published and on
 the lab host, because the row promises what the route does. Everything below that needs an image (the lab-host row, the port, the Function App setting, the
 frame-src entry) does not exist on the website yet. The checklist for the pull request that flips the row is on issue 17,
@@ -93,7 +94,7 @@ report" button), and it still never posts a `navigate` message, so when the row 
 
 ## What `/api/health` reports as capabilities
 
-The status proxy projects the `capabilities` list from health. The lab's list (only ever added to) is `health`, `pane`,
+The status proxy projects the `capabilities` list from health. The lab's list as of `0.2.0` (only ever added to) is `health`, `pane`,
 `upload-evidence`, `drift-findings`, `draft-decision-record`, `review-proposals`, `report-markdown`, `report-json`,
 `not-an-audit`, `sample-data` and `delete-now`. These are the lab's own names and are different from the sandbox
 capabilities of the row above. The MCP server surface and the trusted-caller session API are later releases and are not
