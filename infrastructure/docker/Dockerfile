@@ -39,6 +39,10 @@ PY
 FROM python:3.14.8-slim-trixie@sha256:fbecd461fc72d21b2143c6eaba25143738079154a6d0ea3da3aec724f50eed4a AS lab
 ARG EDITION=lab
 RUN test "$EDITION" = "lab"
+# The licence of this repository's LICENSE file, as an SPDX id. publish-images.yml sets the other labels at push time;
+# this one never changes between builds, so it lives with the image and every build carries it. ci.yml fails when the
+# built image lacks it or LICENSE stops being the MIT License.
+LABEL org.opencontainers.image.licenses="MIT"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8080 \
     CC_STATIC_DIR=/app/web CC_FRAME_ANCESTORS="'none'"
 RUN apt-get update \

@@ -13,6 +13,13 @@ once, merge one before rebasing the next.
 
 ### Changed
 
+- The lab image states its open-source licence in the form registries and scanners read.
+  `infrastructure/docker/Dockerfile` sets `org.opencontainers.image.licenses="MIT"` on the final stage (the SPDX id
+  of `LICENSE`, the MIT License). The `image` job in `ci.yml` fails when the built image lacks the label or `LICENSE`
+  stops being MIT, and the pre-publish check in `publish-images.yml` fails when the image about to be pushed lacks it.
+  The `labels:` input of `publish-images.yml` must not set this label: it would override the Dockerfile's. The image
+  tags on Docker Hub on 2026-10-26 (`v0.1.0` and `v0.1.0-rc.1`) were built without the
+  label and are not changed; the label reaches Docker Hub with the next tagged release.
 - `core-update.yml` opens its bump pull request with a short-lived GitHub App token (`actions/create-github-app-token`, pinned to v3.3.0; the HCW Portfolio Admin App, whose client ID and private key are the `APP_CLIENT_ID` variable and `APP_PRIVATE_KEY` secret of the `admin-ops` environment) instead of `GITHUB_TOKEN`, and the job runs in that environment. Why: a pull request opened with `GITHUB_TOKEN` starts no workflow, so the required checks of the `Protect main` ruleset would never run on it and it could not merge. The token is minted for this repository only, with Contents and Pull requests write, after the compatibility check and just before the pull request is opened; `GITHUB_TOKEN` is now `contents: read` only. Because the App's pull request starts this edition's own CI, the "do not trigger other workflows" comment is gone; the compatibility check in the run still decides the label and whether auto-merge is requested. Turning on auto-merge no longer fails the run when the repository setting "Allow auto-merge" is off (it is off here); it warns and leaves the pull request to merge by hand. A manual run with `probe=true` mints the token and makes one read-only API call, to prove the credential while the pin is already at the latest release and no pull request would open. `tests/security/test_core_update_app_token.py` pins all of it (no `GITHUB_TOKEN` passed to `create-pull-request`, the token step first, the `admin-ops` environment, the two permissions, SHA pins).
 
 ## [0.1.0] - 2026-10-26
