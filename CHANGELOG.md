@@ -65,7 +65,7 @@ session API for the website's chat path are still later releases.
   first).
 - Samples: `samples/` now holds the App's fictional export and two decisions (copied unchanged) and a new generic
   `decision-starter.json`; `samples/README.md` explains them and the decision file format. The image copies `samples/` to
-  `/app/samples` (`CC_SAMPLES_DIR`).
+  `/app/samples` (`CC_SAMPLES_DIR`), only the four `*.json` files, root-owned.
 - Tests: the upload API, the bounded reader, the decision and evidence checks, the store, the pane's static contract, the
   hardening suite (content-free logs, no disk writes, hostile documents, memory bounds) and an acceptance test that holds the
   lab to the App's golden verdicts on the sample estate.

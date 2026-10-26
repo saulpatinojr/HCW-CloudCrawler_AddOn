@@ -55,8 +55,11 @@ jobs:
             sleep 1
           done
           # a real round trip inside the hardened container: the pane, the four samples and an upload start to finish
-          if [ "${ok:-0}" = 1 ]; then docker exec -i "$cid" python - < infrastructure/docker/smoke.py || ok=0; fi
-          docker logs "$cid" | head -20; docker rm -f "$cid" >/dev/null
+          if [ "${ok:-0}" = 1 ]; then out="$(docker exec -i "$cid" python - < infrastructure/docker/smoke.py)" || ok=0
+            printf '%s\n' "$out"
+            printf '%s\n' "$out" | grep -qx 'upload round trip ok' || ok=0
+          fi
+          docker logs "$cid" 2>&1 | tail -n 20 || true; docker rm -f "$cid" >/dev/null
           test "${ok:-0}" = 1
       - name: Scan before publishing (HIGH/CRITICAL, fixed only)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0

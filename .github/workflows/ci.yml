@@ -76,8 +76,11 @@ jobs:
             if docker exec "$cid" python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3).status==200 else 1)" 2>/dev/null; then ok=1; break; fi
             sleep 1
           done
-          if [ "$ok" = 1 ]; then docker exec -i "$cid" python - < infrastructure/docker/smoke.py || ok=0; fi
-          docker logs "$cid" | head -20; docker rm -f "$cid" >/dev/null
+          if [ "$ok" = 1 ]; then out="$(docker exec -i "$cid" python - < infrastructure/docker/smoke.py)" || ok=0
+            printf '%s\n' "$out"
+            printf '%s\n' "$out" | grep -qx 'upload round trip ok' || ok=0
+          fi
+          docker logs "$cid" 2>&1 | tail -n 20 || true; docker rm -f "$cid" >/dev/null
           test "$ok" = 1
   test:
     runs-on: ubuntu-26.04

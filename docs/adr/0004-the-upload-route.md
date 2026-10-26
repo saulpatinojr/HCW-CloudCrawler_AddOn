@@ -70,6 +70,10 @@ body is verified, bounded and kept matters more than the route's shape.
   evaluating, the worst accepted document shape (95,000 tiny objects in one row) 55 MB, and three max-size uploads at
   once peaked at 269 MiB in a 512 MiB container.
 - A restart empties every result, which is the stated behaviour ("expires after two hours").
+- Only four uploads are held in memory at once (counted before the body is read), so four verified clients that send
+  their bodies as slowly as the 30 second deadline allows can make a fifth wait and be told to try again. That costs
+  each of them a human-verification token and a rate-limit token, and it protects memory; it is an availability
+  trade-off, accepted and recorded here.
 - The website's row still lists `navigate` and `downloads`; the pane now uses `downloads` and `clipboard-write` (a
   download and a copy button) and never `navigate`. That is the website's pull request when it flips the row. The pane
   asks twice on the delete button instead of opening a dialog, because the frame's sandbox has no `allow-modals`.

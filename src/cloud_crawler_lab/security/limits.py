@@ -60,6 +60,8 @@ def _bucket(address: str) -> str:
         ip = ipaddress.ip_address(address)
     except ValueError:
         return address[:64]
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped  # `::ffff:203.0.113.5` is the IPv4 client 203.0.113.5, not a member of one shared ::/64
     return str(ipaddress.ip_network(f"{ip}/64", strict=False)) if ip.version == 6 else str(ip)
 
 

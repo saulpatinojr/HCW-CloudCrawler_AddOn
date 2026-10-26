@@ -46,17 +46,17 @@ RUN apt-get update \
  && apt-get upgrade -y --no-install-recommends \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
- && python -m pip uninstall -y pip setuptools wheel >/dev/null 2>&1 || true \
+ && { python -m pip uninstall -y pip setuptools wheel >/dev/null 2>&1 || true; } \
  && rm -rf /usr/local/lib/python3.14/ensurepip /usr/local/lib/python3.14/site-packages/pip* \
            /usr/local/lib/python3.14/site-packages/setuptools* /usr/local/lib/python3.14/site-packages/wheel* \
            /usr/local/bin/pip* /usr/local/bin/wheel /root/.cache \
  && groupadd --gid 10001 app && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin app
 COPY --from=build /install /usr/local
-COPY --chown=10001:10001 web /app/web
+WORKDIR /app
+COPY web /app/web
 # The sample files stay root-owned and read-only to the app (it only reads them), and only the *.json files go in: the
 # lab serves four fixed names, and tests/unit/test_pane.py holds the folder to exactly those.
 COPY samples/*.json /app/samples/
-WORKDIR /app
 USER 10001:10001
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

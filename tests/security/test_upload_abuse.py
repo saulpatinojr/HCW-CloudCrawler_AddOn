@@ -207,6 +207,14 @@ def test_an_ipv6_client_is_one_client_per_64():
     assert client_address(fake_request(None, peer="2001:db8::1"), False) == "2001:db8::/64"
 
 
+def test_an_ipv4_client_seen_as_a_mapped_ipv6_address_keeps_its_own_key():
+    mapped = client_address(fake_request("::ffff:203.0.113.5"), True)
+    assert mapped == client_address(fake_request("203.0.113.5"), True) == "203.0.113.5"
+    assert client_address(fake_request("::ffff:203.0.113.6"), True) != mapped
+    assert client_address(fake_request(None, peer="::ffff:198.51.100.2"), False) == "198.51.100.2"
+    assert client_address(fake_request("::1"), True) == "::/64"
+
+
 def test_garbage_in_the_forwarded_header_does_not_buy_a_fresh_bucket():
     app = create_app(make_settings(rate_limit_posts=3, trust_proxy=True))
     with TestClient(app) as c:
