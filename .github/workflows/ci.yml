@@ -67,6 +67,13 @@ jobs:
             echo '::error::the image started under an identity endpoint'; exit 1
           fi
           test "$(docker run --rm --entrypoint id addon:ci -u)" = "10001"
+      - name: The image states its open-source licence (org.opencontainers.image.licenses is the SPDX id of LICENSE)
+        run: |
+          set -euo pipefail
+          head -n 1 LICENSE | tr -d '\r' | grep -qx 'MIT License' || { echo '::error file=LICENSE::LICENSE is not the MIT License; change the licence label in infrastructure/docker/Dockerfile, the two checks in ci.yml and publish-images.yml, and NOTICE and README with it'; exit 1; }
+          have="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' addon:ci)"
+          [ "$have" = "MIT" ] || { echo "::error file=infrastructure/docker/Dockerfile::org.opencontainers.image.licenses is '${have}' in the built image; it must be MIT (the SPDX id of LICENSE)"; exit 1; }
+          echo "image licence label: ${have}"
   test:
     runs-on: ubuntu-26.04
     steps:
