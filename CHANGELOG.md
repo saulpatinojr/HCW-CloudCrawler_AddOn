@@ -11,6 +11,7 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+- The base image digest follows the website's current pin again (`python:3.14.8-slim-trixie@sha256:fbecd461...`, same tag, newer build; `versions.env` and both `FROM` lines). The website rebuilt on it on 2026-10-21; `security.yml`'s `base-follows-website` job, which runs on `main` only, had been red on `main` since at least 2026-10-25 because of it. The first real image is built on the current base.
 ## [0.1.0] - 2026-10-26
 
 The first release that is not a release candidate. It is the lab application skeleton with the engine
