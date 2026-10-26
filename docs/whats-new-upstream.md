@@ -11,21 +11,30 @@ same change set (the App's `CLAUDE.md` asks for this too), and refresh the table
 
 ## Current upstream state
 
-Written on 2026-10-24 against the App's `main` at commit `9bad3d1` (merge of pull request
-[34](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/34), Microsoft Entra sign-in in the App host). The last
-commit that changed the engine package is unchanged from before: nothing under `packages/` differs from commit `4ba5add`.
+Written on 2026-10-26 against the App's release [v0.1.0](https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/tag/v0.1.0)
+(published 2026-10-26 04:00 UTC from commit `8142b69`). Before that, on 2026-10-24, the App's `main` was at commit `9bad3d1`
+(merge of pull request [34](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/34), Microsoft Entra sign-in in the App
+host); nothing under `packages/` had changed since commit `4ba5add`.
 
 | Question | Answer | How it was checked |
 | --- | --- | --- |
-| Has the App published a release? | **No.** There is no tag and no GitHub Release. `v0.1.0` was prepared on 2026-10-21 (changelog dated, workflows ready) but never tagged. | GitHub releases and tags lists for the App, both empty, 2026-10-24; App ticket [7](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/7) |
-| So what does `core-update.yml` do today? | **Nothing, by design.** It looks for a `# CORE_REF v<version>` line in `pyproject.toml`, finds none, and stops. Even after a release exists, it stays inert until that line is added by hand (see "First adoption"). | `.github/workflows/core-update.yml` in this repository |
-| Engine version in the App | `cloud-crawler-core` 0.1.0 (`packages/cloud-crawler-core/pyproject.toml`); the App edition is also 0.1.0 | Read from the App |
-| What this repository pins | **No engine yet.** `pyproject.toml` has no `cloud-crawler-core` line. A copy of the engine's redaction module lives in `src/cloud_crawler_lab/security/redaction.py` until adoption. | `pyproject.toml`, `security/redaction.py` header |
-| Has the engine's public surface changed since the release was prepared (2026-10-21)? | **No.** Nothing under `packages/`, `samples/`, `scripts/` or `tests/contract/` differs from commit `4ba5add`. The App's own host (`src/`) and its tests did change (Entra sign-in, pull request 34; test and coverage changes, pull request 33), but the engine does not use them. | `git diff --stat 4ba5add origin/main -- packages samples scripts tests/contract` printed nothing on 2026-10-24 |
-| Compatible with this repository's pins? | Yes. Both require Python `>=3.14.6,<3.15`. The engine requires only `pydantic>=2.14,<3`; this repository pins `pydantic==2.14.1`. Both use `fastapi==0.143.3`. | App `VALIDATION.md` (wheel row) and both `pyproject.toml` files |
+| Has the App published a release? | **Yes: `v0.1.0`** (2026-10-26). Three files: `cloud_crawler_core-0.1.0-py3-none-any.whl`, `cloud_crawler_core-0.1.0.tar.gz` and `cloud-crawler-core.cdx.json` (the software bill of materials). | `gh release view v0.1.0 --repo saulpatinojr/HCW-CloudCrawler_App`; App ticket [7](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/7) |
+| What does `core-update.yml` do today? | It reads the `# CORE_REF v0.1.0` line now in `pyproject.toml` and compares it with the App's latest release. At `v0.1.0` it reports "already at v0.1.0" and stops; when the App tags a newer release it opens the bump pull request. | `.github/workflows/core-update.yml`; the first adoption added the line by hand (see "First adoption", done) |
+| Engine version in the App | `cloud-crawler-core` 0.1.0; the App edition is also 0.1.0 | Read from the release |
+| What this repository pins | **`cloud-crawler-core` 0.1.0**, by release-asset URL on one line of `pyproject.toml`, with the wheel's sha256 `25a7abfcec50b0f85cb427145a1fd7fb57898bd09cfc3483edad8a042e5e7be3` recorded in `uv.lock`. The sha256 was computed from a fresh download of the release asset and equals GitHub's own digest for it; the build provenance verifies with `gh attestation verify` (signer: the App's `publish-core.yml` at `refs/tags/v0.1.0`, commit `8142b69`). | `gh release download`, `sha256sum`, `gh attestation verify ... --repo saulpatinojr/HCW-CloudCrawler_App` on 2026-10-26 |
+| Does the engine's log-word list match the lab's? | **No, and it is not copied any more.** The old copy of the engine's redaction module had drifted: ten words that only the lab logs (`session_opened`, `session_closed`, the five `turnstile_*` outcomes, `unsupported_media_type`, `arg-json`, `arg-csv`) are not in the engine's list. `security/redaction.py` is now a thin module: the engine's `scrub`, `VisitorDataError` and guard, plus those ten words. | `tests/security/test_engine_adoption.py` |
+| Compatible with this repository's pins? | Yes. Both require Python `>=3.14.6,<3.15`. The engine requires only `pydantic>=2.14,<3`; this repository pins `pydantic==2.14.1`. The engine imports no cloud SDK and nothing that opens a connection (checked here by walking its installed source). | `uv sync`, the tests above, and the full suite on 2026-10-26 |
 | Azure MCP Server | Pinned to 3.0.0 in the App (ADR 0001). **This repository never calls it.** | App ADR 0001 and 0003 |
 
 ## What changed
+
+### 2026-10-26: the App's first release, `v0.1.0`, adopted here
+
+- The App tagged `v0.1.0`: the engine `cloud-crawler-core` 0.1.0 (wheel, sdist, CycloneDX bill of materials, build
+  provenance), the App edition 0.1.0 and its optional Microsoft Entra sign-in (off by default, ADR 0004). The engine
+  itself is the same code that was prepared on 2026-10-21.
+- Reaches this repository? **Yes, adopted.** `pyproject.toml` pins the wheel by URL, `uv.lock` records its sha256, and the
+  redaction module is now a thin layer over the engine's. See "First adoption" for what was done and what was not.
 
 ### 2026-10-24: Microsoft Entra sign-in in the App host (App pull request 34, merged; ADR 0004, App ticket 8)
 
@@ -114,25 +123,32 @@ commit that changed the engine package is unchanged from before: nothing under `
   tool says `true`.
 - Reaches this repository? **Yes, at adoption.** Action: see "First adoption".
 
-## First adoption (when the App's `v0.1.0` exists)
+## First adoption (done 2026-10-26, engine `v0.1.0`)
 
-`core-update.yml` cannot do the first step; it needs an existing `CORE_REF` line. Do it by hand, once:
+`core-update.yml` could not do the first step; it needs an existing `CORE_REF` line. It was done by hand, once. What was
+done, and where it differed from the plan this file used to carry:
 
-1. Confirm the release exists and lists the three files above. If it does not, stop; nothing can be adopted.
-2. In `pyproject.toml`, add to `dependencies`, on one line (the workflow's `sed` expects exactly this shape):
+1. Confirmed the release exists and lists the three files. Downloaded them into a scratch folder, hashed them, and
+   checked the wheel's build provenance with `gh attestation verify` (the bill of materials is attested against the wheel).
+2. In `pyproject.toml`, added to `dependencies`, on one line (the workflow's `sed` expects exactly this shape):
    `"cloud-crawler-core @ https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.0/cloud_crawler_core-0.1.0-py3-none-any.whl",  # CORE_REF v0.1.0`
-3. Run `uv lock`. It records the wheel's sha256, and the image build's `pip install --require-hashes` then verifies it.
-4. Delete `src/cloud_crawler_lab/security/redaction.py` and point the two imports (in `security/logging.py` and
-   `__main__.py`) and the tests that import it at the engine's `cloud_crawler_core.redaction`, as that file's header
-   says. The two modules must be identical until then.
-5. Add the engine's capabilities to `edition.py` (`CAPABILITIES`, only ever added, never renamed), then build the
-   upload route, the MCP server and the trusted-caller session API on the engine. The pane's text "uploads open with
-   the App's first release" and `samples/README.md` change when this lands.
-6. Run `uv sync --all-packages`, `uv run ruff check . && uv run ruff format --check .` and
-   `uv run pytest -q --cov=src --cov-fail-under=85`. The edition boundary tests
-   (`tests/security/test_edition_boundary.py`) must still pass: the engine has no cloud SDK and no HTTP client (the
-   App's `scripts/verify-core-wheel.py` checks this before it attaches the wheel).
-7. Update `CHANGELOG.md`, `VALIDATION.md` and the "Current upstream state" table here.
+   **One more line was needed that the plan did not know about:** `[tool.hatch.metadata] allow-direct-references = true`.
+   Without it the build tool (hatchling) refuses a dependency that is a URL, and `uv sync` fails. It only matters for
+   building this project's own wheel, which is never published (the image copies the source tree).
+3. Ran `uv lock` (CI's uv, 0.11.32). It recorded the wheel's sha256 in `uv.lock`; the image build's
+   `pip install --require-hashes` verifies it, and a local image build proved that.
+4. **Did not delete `security/redaction.py`.** The plan said to delete it and import the engine's module, on the belief
+   that the two files were identical. They were not (see the table above), and using the engine's guard alone would
+   have made the lab refuse to log `turnstile_disabled` at startup. The file now re-exports the engine's `scrub`,
+   `VisitorDataError` and guard, and adds the ten lab-only words. If the App ever adds those words to the engine, remove
+   them from `LAB_ONLY_WORDS` (a test fails while a word is in both lists).
+5. **Not done, on purpose: the upload route, the MCP server and the trusted-caller session API.** `edition.py`'s
+   `CAPABILITIES` stays `("health", "pane")` because it must only list what exists. The pane still says uploads are not
+   open yet. This is feature work, not adoption, and it decides whether the website can honestly show the tool as
+   available (see the tracking issue for the first image).
+6. Ran `uv sync --all-packages`, `uv run ruff check . && uv run ruff format --check .` and
+   `uv run pytest -q --cov=src --cov-fail-under=85` (70 passed, 95 percent), and built the image locally.
+7. Updated `CHANGELOG.md`, `VALIDATION.md` and the "Current upstream state" table here.
 
 ## Upstream decisions you can cite (not copied here)
 
@@ -145,8 +161,8 @@ The App has published three decisions: [0001](https://github.com/saulpatinojr/HC
 
 | App ticket | What it is | Why it matters here |
 | --- | --- | --- |
-| [7](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/7): tag and release `v0.1.0` | Owner step; publishes artifacts | **Blocks everything above.** Until it happens there is no engine to adopt. |
+| [7](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/7): tag and release `v0.1.0` | Done 2026-10-26 | The engine is adopted here (see "First adoption"). |
 | [8](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/8): no sign-in on the App's `/api` and `/mcp` | The "human only" gate is a non-empty `actorId` today; an authentication model needs an owner decision | The caller classes and identity model it picks may change the tool contract this repository must match. Here, identity stays the website's job (asserted claims only); watch for a contract change. |
 | [9](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/9): protect `main` and tags | Partly done: pull request plus six checks, `v*` tags locked, but no approving review is required and `CODEOWNERS` still has placeholders | None directly. |
 | [13](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/13): GUID-scan false alarm | Fixed for bytecode; "scan only tracked files" is not done in the App | This repository already scans only files git lists. |
-| [16](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/16): release hygiene | Done in the workflows; unproven until the first tag | The first adoption is the first real test of the release assets. |
+| [16](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/16): release hygiene | Proven by the `v0.1.0` release: the three files are there and the wheel's provenance verifies | The first adoption used those files. |
