@@ -11,6 +11,16 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+### Changed
+- Documentation only: the website integration guide now says the website's row is `available` (website pull request
+  [1413](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1413), for website issue 1357) and gives the `v0.2.0` digest, the loopback port 18084 and the
+  settings the lab host sets. The catalogue-row copy in the guide equals the website's new row field by field: the summary no
+  longer says "or your Terraform" and the technology list no longer has `terraform`, because the engine this image runs does
+  not read Terraform yet (restore both here and on the website when it does, [issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)); `capabilities` is `downloads` and
+  `clipboard-write`, because the pane saves files and copies its report and never sends a `navigate` message. The
+  environment table now shows the real `CC_FRAME_ANCESTORS` (it includes `'self'`) and `CC_MAX_STORE_MB`. `README.md` and
+  `docs/website-integration/routes.md` no longer describe the row as waiting. Nothing in the application changes.
+
 ## [0.2.0] - 2026-10-26
 
 The upload route: the lab can now read what a visitor uploads and check it with the engine (issue
