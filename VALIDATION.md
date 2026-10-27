@@ -157,7 +157,9 @@ only; the upload route itself was validated in the run before this one.
   `tests/unit/test_follow_website_base.py`, `tests/unit/test_base_image_pin.py`, `tests/security/test_base_update_workflow.py`)
   were copied byte for byte from the version that was proved live in the Cloud Assessor AddOn on 2026-10-27
   ([the record](https://github.com/saulpatinojr/HCW-CloudAssessor_AddOn/pull/59)). **Verified here:** the copies are
-  identical (SHA-256 compared with the Cloud Assessor files), and this repository's lint and tests pass with them
+  identical (each file was written from the git blob of the Cloud Assessor file on `main` and `git hash-object --no-filters`
+  prints the same blob id for it; a first copy through the contents API's raw download changed one escape sequence in
+  `tests/unit/test_follow_website_base.py`, which the blob id caught), and this repository's lint and tests pass with them
   (`ruff check` and `ruff format --check` clean, `uv lock --check` clean, 477 tests passed with 97.59% coverage, 167 of them
   from the three new test files); `core-update.yml`'s probe runs on 2026-10-26 (for example
   [run 40322381612](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40322381612)) minted the App token for
