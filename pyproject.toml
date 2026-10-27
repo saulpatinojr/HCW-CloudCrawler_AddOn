@@ -7,7 +7,7 @@ license = "MIT"
 requires-python = ">=3.14.6,<3.15"
 dependencies = [
   "cloud-crawler-core @ https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.0/cloud_crawler_core-0.1.0-py3-none-any.whl",  # CORE_REF v0.1.0
-  "fastapi==0.156.8",
+  "fastapi==0.162.0",
   "uvicorn==0.54.0",
   "pydantic==2.14.1",
 ]
