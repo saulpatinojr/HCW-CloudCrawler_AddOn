@@ -290,10 +290,14 @@ Things that look like fixes and are not:
 **What you do when the engine moves.** Normally nothing. When the App tags a new release, `core-update.yml` opens a pull
 request ([open ones](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pulls?q=is%3Apr+is%3Aopen+label%3Acore-update))
 and moves the pin and the entry's `version` line (the one that ends in `# CORE_METADATA`) together. The entry's
-`requires-dist` list (what the engine depends on) is a copy, so the test `test_static_metadata_matches_the_installed_wheel`
-compares it with the wheel that really got installed. If the new release changed the engine's dependencies, that test
-fails, the compatibility check in the workflow run goes red and the pull request carries the label `needs-adaptation`.
-Then:
+`requires-dist` list (what the engine depends on) and its `provides-extra` list (the optional extras the engine offers, none
+today) are copies, so the test `test_static_metadata_matches_the_installed_wheel` compares them with the wheel that really
+got installed, extras and all (`pydantic[email]` is not `pydantic`: the image installs the lock without resolving anything,
+so an extra that is missing from the lock is missing from the image). Two more tests look at the new release:
+`test_engine_requires_only_pydantic` fails for any dependency other than a plain `pydantic`, and
+`test_wheel_accepts_every_python_the_project_allows` fails if the engine's `Requires-Python` refuses a Python version the
+project's own `requires-python` allows. If one of them fails, the compatibility check in the workflow run goes red and the
+pull request carries the label `needs-adaptation`. Then:
 
 1. Print the new wheel's metadata. These are two PowerShell commands, run one after the other in the same window from any
    folder; the first downloads the latest release's wheel into a new temporary folder, the second reads it. The latest
@@ -310,13 +314,29 @@ Then:
    Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [IO.Compression.ZipFile]::OpenRead((Get-ChildItem "$dir\*.whl").FullName); $entry = $zip.Entries | Where-Object { $_.FullName -like "*.dist-info/METADATA" }; (New-Object IO.StreamReader($entry.Open())).ReadToEnd() -split "`n" | Select-String "^(Name|Version|Requires-Python|Requires-Dist|Provides-Extra):"; $zip.Dispose()
    ```
 
-2. On the pull request's branch, edit the entry `[[tool.uv.dependency-metadata]]` in `pyproject.toml` so that its
-   `requires-dist` list says what step 1 printed on the `Requires-Dist:` lines. Python writes the same range in a different
-   order (`pydantic<3,>=2.14` and `pydantic>=2.14,<3` are the same range), and the test accepts either order. Leave
+2. Look at every `Requires-Dist:` line that is not a plain `pydantic`, and at every `Provides-Extra:` line. A new
+   dependency, or an extra on `pydantic` (for example `pydantic[email]`, which brings in more packages), is new code in the
+   image and needs a person's decision before the pull request is merged. Check it against the edition's rules: the
+   "Never weaken" bullet in [`CLAUDE.md`](../../CLAUDE.md) (no cloud SDK and no way to build a cloud credential, proved by
+   `tests/security/test_edition_boundary.py`; nothing that fetches evidence or opens connections), its licence, and whether
+   it is maintained. `security.yml` audits the locked packages with `pip-audit`. If it is not acceptable, do not merge; tell
+   the owner. If it is approved, change `test_engine_requires_only_pydantic` in `tests/security/test_engine_adoption.py`
+   in the same pull request so that it allows exactly that dependency (it fails on purpose for anything else), and write
+   who approved it in the pull request description.
+3. On the pull request's branch, edit the entry `[[tool.uv.dependency-metadata]]` in `pyproject.toml` so that its
+   `requires-dist` list says what step 1 printed on the `Requires-Dist:` lines (all of them, including any that end in
+   `; extra == "..."`) and, if step 1 printed `Provides-Extra:` lines, add `provides-extra = ["name", ...]` with those
+   names. Python writes the same range in a different order (`pydantic<3,>=2.14` and `pydantic>=2.14,<3` are the same
+   range), and the test accepts either order, but not a missing extra or a different spelling of the requirement. Leave
    `requires-python` out of the entry: Dependabot copies the first `requires-python` in `uv.lock` over every other one, so a
    different range there would break the lock of its pull requests (`test_static_metadata_does_not_set_requires_python`
    holds this).
-3. Rebuild the lock with the uv version `ci.yml` names in `UV_VERSION` (0.11.32 today; use the number that file shows). It
+4. Compare the `Requires-Python:` line from step 1 with the project's own `requires-python` in `pyproject.toml`
+   (`>=3.14.6,<3.15` today). The test `test_wheel_accepts_every_python_the_project_allows` tries every version from 3.0.0
+   to 3.40.99 that the project range allows and fails if the engine refuses any of them. If it fails, a person decides:
+   either raise the project's `requires-python` to what the engine accepts (and check `.python-version`, the Python in
+   `infrastructure/docker/Dockerfile` and `PYTHON_VERSION` in `ci.yml`), or do not adopt that release.
+5. Rebuild the lock with the uv version `ci.yml` names in `UV_VERSION` (0.11.32 today; use the number that file shows). It
    runs `uv` from a temporary environment, in the folder of the pull request's branch, and prints `Resolved` and a package
    count when it worked. Then push the change.
 

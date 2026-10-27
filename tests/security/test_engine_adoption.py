@@ -10,7 +10,9 @@ from pathlib import Path
 import cloud_crawler_core
 import pytest
 from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 from cloud_crawler_lab.security import redaction as lab_redaction
 
@@ -82,12 +84,41 @@ def _pyproject():
 
 
 def _requirements(lines):
-    """Requirement lines in a form that does not depend on how a tool ordered or spaced them."""
+    """Requirement lines in a form that does not depend on how a tool ordered or spaced them. The extras and a URL are
+    part of what is compared: the image installs the lock with `pip --no-deps`, so `pydantic[email]` and `pydantic` are
+    different locks, and a requirement that names a URL is a different file."""
     found = []
     for line in lines:
         requirement = Requirement(line)
-        found.append((canonicalize_name(requirement.name), str(requirement.specifier), str(requirement.marker)))
-    return sorted(found)
+        found.append(
+            (
+                canonicalize_name(requirement.name),
+                tuple(sorted(canonicalize_name(extra) for extra in requirement.extras)),
+                str(requirement.specifier),
+                requirement.url,
+                str(requirement.marker),
+            )
+        )
+    return sorted(found, key=repr)
+
+
+def _extras(values):
+    """Extras names as a set, in their normalised spelling."""
+    return {canonicalize_name(value) for value in values or []}
+
+
+# Every 3.X.Y from 3.0.0 to 3.40.99. packaging cannot say "this range lies inside that range", and a Requires-Python can
+# exclude a single patch release (`!=3.14.7`) or stop at one (`<3.14.9`), so checking only the two ends of the project
+# range would miss those. Testing each version the project range allows is simple and cannot be wrong for a range that
+# lies inside the grid; _python_versions_missing refuses a project range that reaches the grid's top.
+PYTHON_VERSIONS = [Version(f"3.{minor}.{patch}") for minor in range(41) for patch in range(100)]
+
+
+def _python_versions_missing(engine_range, project_range):
+    """The Python versions the project range allows and the engine's Requires-Python does not."""
+    engine, project = SpecifierSet(engine_range or ""), SpecifierSet(project_range)
+    assert PYTHON_VERSIONS[-1] not in project, "the project's requires-python reaches past the versions this test tries"
+    return [str(version) for version in PYTHON_VERSIONS if version in project and version not in engine]
 
 
 def test_engine_has_static_metadata_for_the_pinned_wheel():
@@ -131,6 +162,7 @@ def test_lock_manifest_records_the_same_static_metadata():
     assert wanted and entry, "uv.lock must record the engine's static metadata (run `uv lock`)"
     assert entry["version"] == wanted["version"]
     assert _requirements(entry["requires-dist"]) == _requirements(wanted["requires-dist"])
+    assert _extras(entry.get("provides-extra")) == _extras(wanted.get("provides-extra"))
 
 
 def test_static_metadata_does_not_set_requires_python():
@@ -161,9 +193,99 @@ def test_static_metadata_matches_the_installed_wheel():
     that does not list them."""
     entry = _static_metadata(_pyproject())[ENGINE]
     wheel = metadata.metadata(ENGINE)
-    assert wheel["Version"] == entry["version"]
-    assert _requirements(metadata.requires(ENGINE) or []) == _requirements(entry["requires-dist"])
-    assert not wheel.get_all("Provides-Extra"), "the entry lists no extras; add provides-extra if the wheel gains any"
+    differing = _entry_differences(entry, wheel["Version"], metadata.requires(ENGINE), wheel.get_all("Provides-Extra"))
+    assert not differing, f"the entry differs from the installed wheel in: {', '.join(differing)}"
+
+
+def _entry_differences(entry, wheel_version, wheel_requires, wheel_extras):
+    """Which of the entry's fields differ from what a wheel says. Extras are compared, not forbidden: a release that
+    gains an extra passes once the entry lists the same extra (`provides-extra`) and its requirements."""
+    found = []
+    if wheel_version != entry["version"]:
+        found.append("version")
+    if _requirements(wheel_requires or []) != _requirements(entry["requires-dist"]):
+        found.append("requires-dist")
+    if _extras(wheel_extras) != _extras(entry.get("provides-extra")):
+        found.append("provides-extra")
+    return found
+
+
+ADAPTED_ENTRY = {
+    "version": "0.2.0",
+    "requires-dist": ["pydantic>=2.14,<3", "email-validator>=2 ; extra == 'email'"],
+    "provides-extra": ["email"],
+}
+ADAPTED_REQUIRES = ["pydantic<3,>=2.14", 'email-validator>=2; extra == "email"']
+
+
+def test_entry_comparison_passes_a_correctly_adapted_bump_that_gains_an_extra():
+    assert _entry_differences(ADAPTED_ENTRY, "0.2.0", ADAPTED_REQUIRES, ["email"]) == []
+
+
+@pytest.mark.parametrize(
+    ("entry_change", "wheel_version", "wheel_requires", "wheel_extras", "expected"),
+    [
+        ({}, "0.3.0", ADAPTED_REQUIRES, ["email"], ["version"]),
+        ({"provides-extra": []}, "0.2.0", ADAPTED_REQUIRES, ["email"], ["provides-extra"]),
+        ({"provides-extra": ["email", "toml"]}, "0.2.0", ADAPTED_REQUIRES, ["email"], ["provides-extra"]),
+        ({}, "0.2.0", ADAPTED_REQUIRES[:1], ["email"], ["requires-dist"]),
+        ({}, "0.2.0", ADAPTED_REQUIRES + ["orjson>=3"], ["email"], ["requires-dist"]),
+        ({}, "0.2.0", ["pydantic[email]<3,>=2.14", ADAPTED_REQUIRES[1]], ["email"], ["requires-dist"]),
+    ],
+)
+def test_entry_comparison_names_every_field_that_differs(
+    entry_change, wheel_version, wheel_requires, wheel_extras, expected
+):
+    entry = {**ADAPTED_ENTRY, **entry_change}
+    assert _entry_differences(entry, wheel_version, wheel_requires, wheel_extras) == expected
+
+
+def test_wheel_accepts_every_python_the_project_allows():
+    """The entry leaves requires-python out on purpose (Dependabot copies the first requires-python in uv.lock over
+    every other one), so this is the only automatic check of the engine's Requires-Python. A release that narrows it,
+    say to >=3.14.8 while the project still allows 3.14.6, fails the bump pull request's compatibility check. What to
+    do then is a decision for a person: raise the project's requires-python, or do not adopt that release (runbook)."""
+    project = _pyproject()["project"]["requires-python"]
+    missing = _python_versions_missing(metadata.metadata(ENGINE).get("Requires-Python"), project)
+    assert not missing, f"requires-python {project} allows Python {missing[0]}..{missing[-1]}, which the engine refuses"
+
+
+@pytest.mark.parametrize(
+    ("engine_range", "first_missing"),
+    [
+        (">=3.14.8", "3.14.6"),
+        ("<3.14.9", "3.14.9"),
+        ("!=3.14.7", "3.14.7"),
+        (">=3.14.6,<3.14.12", "3.14.12"),
+        (">=3.15", "3.14.6"),
+    ],
+)
+def test_python_range_check_notices_a_narrower_engine(engine_range, first_missing):
+    assert _python_versions_missing(engine_range, ">=3.14.6,<3.15")[0] == first_missing
+
+
+@pytest.mark.parametrize("engine_range", ["<3.15,>=3.14.6", ">=3.14", ">=3.14.6,<3.16", "", None])
+def test_python_range_check_accepts_the_same_or_a_wider_engine(engine_range):
+    assert _python_versions_missing(engine_range, ">=3.14.6,<3.15") == []
+
+
+def test_python_range_check_refuses_a_project_range_it_cannot_cover():
+    with pytest.raises(AssertionError):
+        _python_versions_missing(">=3.14", ">=3.14.6")
+
+
+@pytest.mark.parametrize(
+    "changed",
+    ["pydantic [email]>=2.14,<3", "pydantic[email]>=2.14,<3", "pydantic @ https://example.invalid/p.whl", "orjson>=3"],
+)
+def test_requirement_comparison_notices_extras_urls_and_new_names(changed):
+    assert _requirements([changed]) != _requirements(["pydantic>=2.14,<3"])
+
+
+def test_requirement_comparison_ignores_order_spacing_and_name_spelling():
+    assert _requirements(["Pydantic [ Email ] >= 2.14 , < 3", "idna>=3"]) == _requirements(
+        ["idna>=3", "pydantic[email]<3,>=2.14"]
+    )
 
 
 def test_engine_is_not_a_second_source_of_cloud_access():
@@ -185,9 +307,34 @@ def test_engine_is_not_a_second_source_of_cloud_access():
                 assert top not in OUTBOUND_MODULES, f"{path.name} imports {name}"
 
 
+def _requires_only_plain_pydantic(lines):
+    """True when the requirement lines are exactly one `pydantic`, with no extras and no URL. The lines are parsed, not
+    split at the first space or operator, so `pydantic [email]>=2` is not mistaken for `pydantic`."""
+    parsed = [Requirement(line) for line in lines or []]
+    return [(canonicalize_name(r.name), set(r.extras), r.url) for r in parsed] == [("pydantic", set(), None)]
+
+
 def test_engine_requires_only_pydantic():
-    requirements = metadata.requires("cloud-crawler-core") or []
-    assert [re.split(r"[<>=!~ ;]", r, maxsplit=1)[0] for r in requirements] == ["pydantic"]
+    assert _requires_only_plain_pydantic(metadata.requires(ENGINE))
+
+
+@pytest.mark.parametrize(
+    "lines",
+    [
+        ["pydantic [email]>=2.14,<3"],
+        ["pydantic[email]>=2.14,<3"],
+        ["pydantic @ https://example.invalid/p.whl"],
+        ["pydantic>=2.14,<3", "orjson>=3"],
+        ["orjson>=3"],
+        [],
+    ],
+)
+def test_only_pydantic_check_rejects_extras_urls_other_packages_and_none(lines):
+    assert not _requires_only_plain_pydantic(lines)
+
+
+def test_only_pydantic_check_accepts_the_wheels_spelling():
+    assert _requires_only_plain_pydantic(["pydantic<3,>=2.14"])
 
 
 def test_lab_only_words_are_not_in_the_engine_list():

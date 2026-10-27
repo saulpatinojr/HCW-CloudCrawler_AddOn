@@ -68,8 +68,13 @@ once, merge one before rebasing the next.
   byte-identical. `core-update.yml` moves the entry's version together with the pin. `tests/security/test_engine_adoption.py`
   fails if a package pinned by address has no such entry, if the lock does not record it, if the entry sets
   `requires-python` (Dependabot rewrites every `requires-python` in the lock to the project's), if the bump step stops
-  moving the version before it locks, or if the entry's dependency list differs from the engine wheel that is installed (so
-  an upstream release that changes the engine's dependencies fails the bump pull request's compatibility check). Proof so
+  moving the version before it locks, if the entry's version, dependency list or extras differ from the engine wheel that is
+  installed (extras and URLs count: `pydantic[email]` is not `pydantic`, because the image installs the lock without
+  resolving anything; a release that gains an extra passes once the entry lists it under `provides-extra`), if the engine's
+  `Requires-Python` refuses a Python version that the project's `requires-python` allows, or if the engine depends on
+  anything but a plain `pydantic` (that test now parses the requirements instead of splitting the text). So an upstream
+  release that changes the engine's dependencies or Python range fails the bump pull request's compatibility check, and the
+  runbook tells the maintainer to review any new dependency against the edition's rules first. Proof so
   far: locking from an empty cache with uv 0.13.5 and 0.13.6 sent a HEAD and a GET to the address before the change and
   nothing after it. Not proved: a Dependabot run on `main`; the next scheduled one is Monday 2026-11-02 06:00 UTC, or use
   "Check for updates" on the repository's Dependabot page (runbook, "Keeping Dependabot's Python updates working").
