@@ -151,5 +151,23 @@ only; the upload route itself was validated in the run before this one.
 - The base-image digest is the website's current pin (moved on 2026-10-26; before that, the Cloud Assessor AddOn's pin of
   2026-10-16), and the uv-image digest is the Cloud Assessor AddOn's verified pin of 2026-10-16; CI
   re-resolves the uv digest on every run and the weekly job compares the base with the website's.
+- `base-update.yml` (issue [27](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/27)) moves the base image pin to the
+  website's pin by opening a pull request, with the same HCW Main Admin App credential as `core-update.yml`. It is a port, not a
+  new design: its five files (`.github/workflows/base-update.yml`, `scripts/follow_website_base.py`,
+  `tests/unit/test_follow_website_base.py`, `tests/unit/test_base_image_pin.py`, `tests/security/test_base_update_workflow.py`)
+  were copied byte for byte from the version that was proved live in the Cloud Assessor AddOn on 2026-10-27
+  ([the record](https://github.com/saulpatinojr/HCW-CloudAssessor_AddOn/pull/59)). **Verified here:** the copies are
+  identical (SHA-256 compared with the Cloud Assessor files), and this repository's lint and tests pass with them
+  (`ruff check` and `ruff format --check` clean, `uv lock --check` clean, 477 tests passed with 97.59% coverage, 167 of them
+  from the three new test files); `core-update.yml`'s probe runs on 2026-10-26 (for example
+  [run 40322381612](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40322381612)) minted the App token for
+  this repository. **Not verified here until this repository's own proof has run** (`docs/operations/runbook.md`, "Keeping the
+  base image on the website's pin"): that `base-update` runs at all here (it cannot be started until it is on `main`); the first
+  scheduled run (07:37 UTC); that the pull request is pushed and opened with that token here (`core-update.yml` has not opened a
+  real pull request in this repository either); what the ruleset option "require extra approval for unattributed changes" does to
+  a pull request into `main` (the Cloud Assessor proof's pull requests went into a throwaway branch, so it did not show this);
+  and that the runner's own `docker buildx` and `python3` behave here as they did there (same runner label, not looked at
+  here). The `ci.yml` `lint` job still checks the pin against every `FROM`, and the weekly `base-follows-website` job still
+  compares it with the website's, so a failure of `base-update` shows up as the same red check as before.
 - The labels in `.github/labels.json` and the repository Discussions were not created (the initializer ran with
   `--skip-github`, having no signed-in `gh` here); the owner runs the template's GitHub step once.

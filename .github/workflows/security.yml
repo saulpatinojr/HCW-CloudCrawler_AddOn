@@ -34,6 +34,8 @@ jobs:
   base-follows-website:
     # The base is the website's current pin. Weekly and on main, not on pull requests, so a website bump is a signal
     # to move versions.env and every FROM together, not a red mark on unrelated work.
+    # base-update.yml opens the pull request that makes that move, once a day. This job is the second line of defence:
+    # if it is red on main, that pull request is waiting for a review or the base-update run failed; look there first.
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-26.04
     steps:

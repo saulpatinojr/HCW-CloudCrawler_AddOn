@@ -11,6 +11,34 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+### Added
+- The base image now follows the website's pin by itself, so nobody has to remember to move it (issue
+  [27](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/27)). `.github/workflows/base-update.yml` runs once a day (and on demand),
+  compares `infrastructure/docker/versions.env` with the website's `lab-image/versions.env` and, when they differ, opens one
+  pull request that moves `versions.env` and every external `FROM` line together. A person still reviews and merges that pull
+  request; nothing is merged automatically. How it works: the run reads the website's file at one recorded commit;
+  `scripts/follow_website_base.py` (tests: `tests/unit/test_follow_website_base.py`) checks each value against a strict
+  pattern, refuses a key that appears twice, and edits only those two files; before the pull request is opened, the run asks
+  the registry whether the new digest is an index (one entry that lists every platform) with every platform the old digest
+  had, and the pull request says whether that comparison could be made (it cannot when the registry no longer shows the old
+  digest; then only `linux/amd64` is checked). While a pull request from the run is open and its branch already holds the
+  website's pin, the daily run leaves it alone, so a fix a person pushed to it is not overwritten; when the website moves
+  again the branch is rebuilt, and when the pin is no longer needed the run closes the pull request by deleting its branch.
+  The script stops, and the run goes red with nothing opened, for a different image repository, a different Python minor
+  line (3.14 to 3.15) or a Dockerfile it cannot move completely, because those need a person's decision;
+  `docs/operations/runbook.md` says what to do for each. The pull request is opened by the HCW Main Admin GitHub App exactly
+  as `core-update.yml` does it (repository variable `HCW_MAIN_ADMIN_CLIENT_ID`, repository secret
+  `HCW_MAIN_ADMIN_PRIVATE_KEY`, no environment), so this repository's required checks run on it, and its commit is credited
+  to the App's bot user. `tests/security/test_base_update_workflow.py` pins that credential handling down and runs the two
+  decision scripts against stand-ins for `docker` and `gh`; these are checks made before the first real run, which is the
+  live proof (runbook, "Keeping the base image on the website's pin", and `VALIDATION.md`).
+  `tests/unit/test_base_image_pin.py` fails if `versions.env` and a `FROM` line ever disagree, in the regular `pytest` run as
+  well as in the `lint` job of `ci.yml`. `versions.env` no longer names a Python version in its header comment, because an
+  automatic move would leave that sentence out of date. Background: the website bumped its pin on 2026-10-21 and this
+  repository's `base-follows-website` check then sat red on `main` until a person fixed it by hand
+  ([saulpatinojr/HCW-HybridCloudWorks#1386](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1386), here
+  [pull request 19](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pull/19)); that job stays as the second line of defence.
+
 ### Changed
 - Documentation only: the website integration guide now says the website's row is `available` (website pull request
   [1413](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1413), for website issue 1357) and gives the `v0.2.0` digest, the loopback port 18084 and the
