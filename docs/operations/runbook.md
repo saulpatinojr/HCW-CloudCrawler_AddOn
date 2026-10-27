@@ -325,8 +325,9 @@ pull request carries the label `needs-adaptation`. Then:
    who approved it in the pull request description.
 3. On the pull request's branch, edit the entry `[[tool.uv.dependency-metadata]]` in `pyproject.toml` so that its
    `requires-dist` list says what step 1 printed on the `Requires-Dist:` lines (all of them, including any that end in
-   `; extra == "..."`) and, if step 1 printed `Provides-Extra:` lines, add `provides-extra = ["name", ...]` with those
-   names. Python writes the same range in a different order (`pydantic<3,>=2.14` and `pydantic>=2.14,<3` are the same
+   `; extra == "..."`) and, if step 1 printed `Provides-Extra:` lines, set `provides-extra = ["name", ...]` to exactly
+   those names (replace the old list; if step 1 printed no `Provides-Extra:` line, remove the `provides-extra` field, or
+   the tests will find a stale one). Python writes the same range in a different order (`pydantic<3,>=2.14` and `pydantic>=2.14,<3` are the same
    range), and the test accepts either order, but not a missing extra or a different spelling of the requirement. Leave
    `requires-python` out of the entry: Dependabot copies the first `requires-python` in `uv.lock` over every other one, so a
    different range there would break the lock of its pull requests (`test_static_metadata_does_not_set_requires_python`
@@ -334,8 +335,10 @@ pull request carries the label `needs-adaptation`. Then:
 4. Compare the `Requires-Python:` line from step 1 with the project's own `requires-python` in `pyproject.toml`
    (`>=3.14.6,<3.15` today). The test `test_wheel_accepts_every_python_the_project_allows` tries every version from 3.0.0
    to 3.40.99 that the project range allows and fails if the engine refuses any of them. If it fails, a person decides:
-   either raise the project's `requires-python` to what the engine accepts (and check `.python-version`, the Python in
-   `infrastructure/docker/Dockerfile` and `PYTHON_VERSION` in `ci.yml`), or do not adopt that release.
+   either raise the project's `requires-python` to what the engine accepts (and change every place that names a Python
+   version: `.python-version`, the Python in `infrastructure/docker/Dockerfile`, `PYTHON_VERSION` in `ci.yml`, and the
+   `python-version: "3.14"` lines in `.github/workflows/core-update.yml` and `.github/workflows/security.yml`; search
+   for `python-version` and `3.14` to catch any added later), or do not adopt that release.
 5. Rebuild the lock with the uv version `ci.yml` names in `UV_VERSION` (0.11.32 today; use the number that file shows). It
    runs `uv` from a temporary environment, in the folder of the pull request's branch, and prints `Resolved` and a package
    count when it worked. Then push the change.
