@@ -1,0 +1,229 @@
+# Actions are pinned to full commit SHAs (version in the trailing comment); Dependabot (github-actions ecosystem) proposes updates.
+# What this does, in plain words. The website (saulpatinojr/HCW-HybridCloudWorks, file lab-image/versions.env) decides which
+# base image (the image this one is built on top of) every Python add-on uses. This repository keeps a copy of that choice in
+# infrastructure/docker/versions.env and repeats it on every FROM line (the line that names the image a build starts from)
+# of infrastructure/docker/Dockerfile. The website moves its own pin, and nothing used to move this copy, so the
+# base-follows-website job in security.yml went red on main and stayed red until a person noticed
+# (saulpatinojr/HCW-HybridCloudWorks#1386). This workflow closes that gap: once a day it compares the two and, when they
+# differ, opens ONE pull request that moves versions.env and every external FROM together. The move is automatic; a person
+# still reviews and merges the pull request. scripts/follow_website_base.py does the editing and
+# tests/unit/test_follow_website_base.py covers it. Run it by hand with: gh workflow run base-update.yml --ref main
+# What to do when it is red, and how to prove it after a change: docs/operations/runbook.md, "Keeping the base image on the
+# website's pin".
+#
+# Two jobs. `plan` holds no credential: it reads the website's file at one recorded commit (never "main" twice, so the plan
+# and the move see the same text), runs the script in check mode and, when the pin moved, asks the registry whether the new
+# digest is an index (one entry that lists every platform) with every platform the old digest had. It also looks at the
+# pull request branch: when a pull request is already open and its versions.env already holds the website's pin, nothing is
+# done, so a fix a person pushed to that branch is not overwritten (create-pull-request would rebuild the branch every day).
+# When the website moves again, the branch is rebuilt from main with the new move. When main already has the website's pin
+# but a pull request is still open, the second job runs only so that create-pull-request finds nothing to change and, with
+# its delete-branch option on, deletes the branch, which closes the obsolete pull request (it never deletes a branch that
+# holds a move).
+# When the two already agree and no pull request is open, the run ends in `plan`. `open-pr` applies the same move to the
+# same website commit and opens the pull request. The script refuses, for a person to decide, a different image repository,
+# a different Python minor line (3.14 to 3.15) and a Dockerfile it cannot move completely; the run is then red and nothing
+# is opened. Nothing is merged automatically, and no file but versions.env and the Dockerfile is touched.
+#
+# The pull request is opened with a short-lived GitHub App token (actions/create-github-app-token), not with GITHUB_TOKEN:
+# a pull request opened with GITHUB_TOKEN starts no workflow, so the required checks of the "Protect main" ruleset would
+# never run on it and it could never merge. The credential is the HCW Main Admin App, exactly as core-update.yml uses it:
+# its client ID is the repository variable HCW_MAIN_ADMIN_CLIENT_ID (not a secret) and its private key is the repository
+# secret HCW_MAIN_ADMIN_PRIVATE_KEY, which is never printed. The job runs in no environment. Only the token step is given
+# the key, it asks for this repository only with Contents and Pull requests write, and the action revokes the token when
+# the job ends. core-update.yml's manual probe run (gh workflow run core-update.yml --ref main -f probe=true) proves the
+# App can be used in this repository; to rotate the key, see VALIDATION.md.
+# The one branch, base-update/website-base, is reused. A manual run from a branch other than main (the proof in the runbook)
+# opens its pull request into that branch from the same head branch: close that pull request and delete the head branch
+# afterwards, and do not do it while a real pull request is open.
+name: base-update
+on:
+  schedule: [{ cron: "37 7 * * *" }]
+  workflow_dispatch:
+permissions: {}
+concurrency: { group: base-update, cancel-in-progress: false }
+jobs:
+  plan:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      changed: ${{ steps.plan.outputs.changed }}
+      old: ${{ steps.plan.outputs.old }}
+      new: ${{ steps.plan.outputs.new }}
+      short: ${{ steps.plan.outputs.short }}
+      python: ${{ steps.plan.outputs.python }}
+      old_python: ${{ steps.plan.outputs.old_python }}
+      website_sha: ${{ steps.website.outputs.sha }}
+      compared: ${{ steps.registry.outputs.compared }}
+      open_pr: ${{ steps.pr.outputs.open_pr }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      - id: website
+        name: Read the website's current pin at one recorded commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          sha="$(gh api repos/saulpatinojr/HCW-HybridCloudWorks/commits/main --jq .sha)"
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::could not read the website's main commit"; exit 1; }
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL --retry 3 --max-time 30 --max-filesize 1048576 \
+            "https://raw.githubusercontent.com/saulpatinojr/HCW-HybridCloudWorks/${sha}/lab-image/versions.env" \
+            -o "${RUNNER_TEMP}/website-versions.env"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+      - id: plan
+        name: Compare this repository's base image with the website's pin (writes nothing)
+        run: python3 -I scripts/follow_website_base.py --website-env "${RUNNER_TEMP}/website-versions.env" --check
+      - id: registry
+        if: steps.plan.outputs.changed == 'true'
+        name: The website's digest is a real index with every platform the old digest had
+        env:
+          OLD_REF: ${{ steps.plan.outputs.old }}
+          NEW_REF: ${{ steps.plan.outputs.new }}
+        run: |
+          set -euo pipefail
+          platforms() { sed -n 's/^[[:space:]]*Platform:[[:space:]]*//p' | { grep -v '^unknown/unknown$' || true; } | sort -u; }
+          new_text="$(docker buildx imagetools inspect "$NEW_REF")" \
+            || { echo "::error::the registry did not show ${NEW_REF}: the digest is wrong, or the registry did not answer (run again later)"; exit 1; }
+          new="$(printf '%s\n' "$new_text" | platforms)"
+          grep -qx 'linux/amd64' <<< "$new" || { echo "::error::${NEW_REF} is not an index the registry shows with linux/amd64"; exit 1; }
+          old_text="$(docker buildx imagetools inspect "$OLD_REF" 2>/dev/null)" || old_text=""
+          old="$(printf '%s\n' "$old_text" | platforms)"
+          compared=false
+          if [ -z "$old" ]; then
+            echo "::warning::the registry could not show the platforms of ${OLD_REF}; only checked that the new digest has linux/amd64"
+          else
+            missing="$(comm -13 <(printf '%s\n' "$new") <(printf '%s\n' "$old"))"
+            if [ -n "$missing" ]; then
+              echo "::error::${NEW_REF} lacks platforms that ${OLD_REF} has: $(printf '%s' "$missing" | tr '\n' ' ')"
+              exit 1
+            fi
+            compared=true
+          fi
+          echo "compared=${compared}" >> "$GITHUB_OUTPUT"
+          echo "platforms of the new digest:"; printf '%s\n' "$new"
+      - id: pr
+        name: Decide whether the pull request job has anything to do (a pull request that is already right is left alone)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          BASE: ${{ github.ref_name }}
+          CHANGED: ${{ steps.plan.outputs.changed }}
+        run: |
+          set -euo pipefail
+          count="$(gh api "repos/${REPO}/pulls?state=open&head=${OWNER}:base-update/website-base&per_page=100" --jq '[.[] | select(.base.ref == env.BASE)] | length')"
+          [[ "$count" =~ ^[0-9]+$ ]] || { echo "::error::could not count the open pull requests of base-update/website-base"; exit 1; }
+          open_pr=false
+          if [ "$CHANGED" = "true" ]; then
+            current=false
+            if [ "$count" -gt 0 ]; then
+              gh api "repos/${REPO}/contents/infrastructure/docker/versions.env?ref=base-update/website-base" \
+                -H "Accept: application/vnd.github.raw+json" > "${RUNNER_TEMP}/branch-versions.env"
+              compare_out="$(python3 -I scripts/follow_website_base.py --website-env "${RUNNER_TEMP}/website-versions.env" --compare-env "${RUNNER_TEMP}/branch-versions.env")" \
+                || { printf '%s\n' "$compare_out"; exit 1; }
+              current="$(sed -n 's/^branch_current=//p' <<< "$compare_out")"
+            fi
+            if [ "$current" = "true" ]; then
+              echo "::notice::a pull request is open and its branch already holds the website's pin: left alone, so nothing a person pushed to it is overwritten"
+            else
+              open_pr=true
+            fi
+          elif [ "$count" -gt 0 ]; then
+            echo "::notice::main already has the website's pin but a pull request is open: the pull request step will close it as obsolete"
+            open_pr=true
+          fi
+          echo "open_pr=${open_pr}" >> "$GITHUB_OUTPUT"
+  open-pr:
+    needs: plan
+    if: needs.plan.outputs.open_pr == 'true'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      # persist-credentials: false - create-pull-request sets its own Authorization header for the push; with the
+      # checkout's persisted header beside it, git sends two and GitHub answers 400 (seen in the Migrate App's rules-refresh).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      - name: Apply the move (the same website commit the plan read)
+        env:
+          WEBSITE_SHA: ${{ needs.plan.outputs.website_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$WEBSITE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::the plan did not record a website commit"; exit 1; }
+          curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL --retry 3 --max-time 30 --max-filesize 1048576 \
+            "https://raw.githubusercontent.com/saulpatinojr/HCW-HybridCloudWorks/${WEBSITE_SHA}/lab-image/versions.env" \
+            -o "${RUNNER_TEMP}/website-versions.env"
+          python3 -I scripts/follow_website_base.py --website-env "${RUNNER_TEMP}/website-versions.env"
+      # The token is minted late, after the files are edited, as in core-update.yml.
+      - id: app-token
+        name: GitHub App token (this repository only; Contents and Pull requests write)
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.HCW_MAIN_ADMIN_CLIENT_ID }}
+          private-key: ${{ secrets.HCW_MAIN_ADMIN_PRIVATE_KEY }}
+          repositories: ${{ github.repository }}
+          permission-contents: write
+          permission-pull-requests: write
+      # The commit is signed off as the App's bot user, in the form the token action's README documents
+      # (<numeric id>+<slug>[bot]@users.noreply.github.com). The id is public; GitHub then credits the commit to the bot
+      # account, which the ruleset's "extra approval for unattributed changes" option looks for.
+      - id: bot
+        name: The App's commit identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          [[ "$APP_SLUG" =~ ^[a-z0-9-]+$ ]] || { echo "::error::the App's slug is not what was expected"; exit 1; }
+          id="$(gh api "users/${APP_SLUG}[bot]" --jq .id)"
+          [[ "$id" =~ ^[0-9]+$ ]] || { echo "::error::could not read the App's bot user id"; exit 1; }
+          echo "identity=${APP_SLUG}[bot] <${id}+${APP_SLUG}[bot]@users.noreply.github.com>" >> "$GITHUB_OUTPUT"
+      - name: Open the pull request (ready for review), or close it when it has become unnecessary
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          branch: base-update/website-base
+          delete-branch: true
+          author: ${{ steps.bot.outputs.identity }}
+          committer: ${{ steps.bot.outputs.identity }}
+          title: "CI: the base image follows the website's current digest (${{ needs.plan.outputs.short }})"
+          commit-message: "CI: the base image follows the website's current digest (${{ needs.plan.outputs.short }})"
+          add-paths: |
+            infrastructure/docker/versions.env
+            infrastructure/docker/Dockerfile
+          body: |
+            ## Summary
+
+            The website's base image pin moved and this repository's copy did not, so this pull request moves it.
+
+            - Was: `${{ needs.plan.outputs.old }}` (Python ${{ needs.plan.outputs.old_python }})
+            - Now: `${{ needs.plan.outputs.new }}` (Python ${{ needs.plan.outputs.python }})
+            - Read from the website at commit [`${{ needs.plan.outputs.website_sha }}`](https://github.com/saulpatinojr/HCW-HybridCloudWorks/blob/${{ needs.plan.outputs.website_sha }}/lab-image/versions.env)
+
+            `infrastructure/docker/versions.env` and every external `FROM` in `infrastructure/docker/Dockerfile` moved together, which is what the `lint` job in `ci.yml` and the `base-follows-website` job in `security.yml` check. Nothing else changed.
+
+            ## Verification
+
+            - [x] The run read the website's file at the commit above, checked each value against a strict pattern, and changed only the two files.
+            - [${{ needs.plan.outputs.compared == 'true' && 'x' || ' ' }}] The new digest is an index in the registry with every platform the old one had. If this box is unticked, the registry could not show the old digest, so the run only checked that the new one has `linux/amd64` (the `plan` job's log says which).
+            - [ ] This repository's CI builds the image on this pull request (the `image` job): read its result before merging.
+            - [ ] After the merge, `base-follows-website` in `security.yml` must be green on `main`.
+            - Not run by the workflow: unit tests, lint and browser tests. They do not depend on the base image pin and run as this pull request's own checks.
+
+            ## Infrastructure
+
+            - [x] `versions.env` and every `FROM` agree (the script refuses to write unless it can move all of them).
+            - Nothing is published by this change: an image built from the next tag uses the new base. Rollback: revert this pull request.
+
+            ## Security and data review
+
+            - [x] Nothing but the base image reference moved, so no safeguard is weakened and no tenant, subscription or resource identifier is involved.
+
+            ## AI provenance
+
+            Opened by `.github/workflows/base-update.yml`, not written by an AI coding partner: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. The branch `base-update/website-base` is reused. A commit a person pushes here is kept until the website moves again (or the commit changes the three pin lines of `versions.env`); then the branch is rebuilt from `main` and the commit is replaced. To change something that must last, close this pull request and make the change on your own branch.

@@ -28,8 +28,9 @@ updates:
       # pydantic pins pydantic-core to one exact version, so the two must move in one pull request; a pydantic-core
       # bump on its own cannot resolve against the pinned pydantic.
       pydantic: { patterns: ["pydantic", "pydantic-core"] }
-  # No docker entry. The base image follows the website's pin (infrastructure/docker/versions.env) and the uv image
-  # used to export follows UV_VERSION in ci.yml, which CI checks against the Dockerfile.
+  # No docker entry. The base image follows the website's pin (infrastructure/docker/versions.env;
+  # .github/workflows/base-update.yml opens the pull request that moves it) and the uv image used to export follows
+  # UV_VERSION in ci.yml, which CI checks against the Dockerfile.
   # GitHub Actions under .github/workflows.
   - package-ecosystem: "github-actions"
     directory: "/"

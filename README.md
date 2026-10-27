@@ -100,6 +100,14 @@ Then open `http://127.0.0.1:8080/`. The image is
 lab host runs it behind the site's reverse proxy at
 `https://cloud-crawler.lab.hybridcloudworks.com`.
 
+The image is built on a base image (the image a build starts from), pinned by digest (a fingerprint) in
+`infrastructure/docker/versions.env` and on every `FROM` line of the Dockerfile. The website decides which one, and this
+repository follows it by itself: `.github/workflows/base-update.yml` and `scripts/follow_website_base.py` open a pull
+request that moves the pin when the website's pin changes, and a person reviews and merges it. The `lint` job in
+`ci.yml` and `tests/unit/test_base_image_pin.py` fail if the file and a `FROM` line ever disagree, and the
+`base-follows-website` job in `security.yml` stays as the second check. What to do when the run is red:
+[`docs/operations/runbook.md`](docs/operations/runbook.md).
+
 ## Integration with the website
 
 | Contract | Value |

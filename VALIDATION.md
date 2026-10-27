@@ -143,7 +143,19 @@ only; the upload route itself was validated in the run before this one.
   https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/settings/secrets/actions; the App is installed on the four
   add-on repositories, so check the other three), then delete the old key on the settings page of the App.
   The settings page can hold several keys, so a separate key per repository lets you revoke one without
-  touching the others. Auto-merge of a
+  touching the others.
+  **Accepted risk, so nobody has to rediscover it.** A repository secret can be read by any workflow that runs from a branch
+  someone with write access can push, so `base-update.yml` is a second reader of the key beside `core-update.yml` (both can
+  be started by hand with `workflow_dispatch`), and the base-update proof depends on that: it runs the workflow from a
+  throwaway branch. Today only the owner can push here. The App is installed on the four add-on repositories, and both
+  workflows ask the token action for this repository only (`repositories: ${{ github.repository }}`) with Contents and Pull
+  requests write; a token lasts one hour. A modified workflow on another branch could ask for more: the limit is then whatever
+  the App was granted when it was installed (that list is on the App's settings page, https://github.com/settings/apps, and is
+  not repeated here because a session cannot read it), which is why the key is a risk. The owner decided on 2026-10-26 to leave the key as a repository secret
+  ([HCW-HybridCloudWorks#1410](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1410)); the stronger options
+  (an environment limited to `main`, one key per repository) can be reopened if the key is ever suspected leaked. An
+  environment limited to `main` would also stop the base-update proof, which needs a run from a branch.
+  Auto-merge of a
   compatible bump needs the repository setting "Allow auto-merge" and the variable `CORE_AUTOMERGE=true`; on 2026-10-26 (UTC) neither was set here. "Allow auto-merge" has since been turned on,
   but `CORE_AUTOMERGE` is still not set, so a compatible bump waits for a person to merge it.
 - Human verification is wired to the upload route and tested with a stand-in verifier; it has not been exercised against a
@@ -151,5 +163,28 @@ only; the upload route itself was validated in the run before this one.
 - The base-image digest is the website's current pin (moved on 2026-10-26; before that, the Cloud Assessor AddOn's pin of
   2026-10-16), and the uv-image digest is the Cloud Assessor AddOn's verified pin of 2026-10-16; CI
   re-resolves the uv digest on every run and the weekly job compares the base with the website's.
+- `base-update.yml` (issue [27](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/27)) moves the base image pin to the
+  website's pin by opening a pull request, with the same HCW Main Admin App credential as `core-update.yml`. It is a port, not a
+  new design: its five files (`.github/workflows/base-update.yml`, `scripts/follow_website_base.py`,
+  `tests/unit/test_follow_website_base.py`, `tests/unit/test_base_image_pin.py`, `tests/security/test_base_update_workflow.py`)
+  were copied byte for byte from the version that was proved live in the Cloud Assessor AddOn on 2026-10-27
+  ([the record](https://github.com/saulpatinojr/HCW-CloudAssessor_AddOn/pull/59)). **Verified here:** the copies are
+  identical (each file was written from the git blob of the Cloud Assessor file on `main` and `git hash-object --no-filters`
+  prints the same blob id for it; a first copy through the contents API's raw download changed one escape sequence in
+  `tests/unit/test_follow_website_base.py`, which the blob id caught), and this repository's lint and tests pass with them
+  (`ruff check` and `ruff format --check` clean, `uv lock --check` clean, 477 tests passed with 97.59% coverage, 167 of them
+  from the three new test files); `core-update.yml`'s probe runs on 2026-10-26 (for example
+  [run 40322381612](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40322381612)) minted the App token for
+  this repository. **Not verified here until this repository's own proof has run** (`docs/operations/runbook.md`, "Keeping the
+  base image on the website's pin"): that `base-update` runs at all here (it cannot be started until it is on `main`); the first
+  scheduled run (07:37 UTC); that the pull request is pushed and opened with that token here (`core-update.yml` has not opened a
+  real pull request in this repository either); what the ruleset option "require extra approval for unattributed changes" does to
+  a pull request into `main` (the Cloud Assessor proof's pull requests went into a throwaway branch, so it did not show this);
+  and that the runner's own `docker buildx` and `python3` behave here as they did there (same runner label, not looked at
+  here). The `ci.yml` `lint` job still checks the pin against every `FROM`, and the weekly `base-follows-website` job still
+  compares the image and its digest with the website's. That job does not look at the Python version, so it is not a
+  full second check: if the website changes only `BASE_PYTHON_VERSION` to another minor line, `base-update` refuses and
+  goes red while the weekly job stays green. Watch for failed `base-update` runs on their own
+  (`docs/operations/runbook.md`, "When the run is red").
 - The labels in `.github/labels.json` and the repository Discussions were not created (the initializer ran with
   `--skip-github`, having no signed-in `gh` here); the owner runs the template's GitHub step once.
