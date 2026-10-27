@@ -11,10 +11,10 @@ updates:
   # The engine (cloud-crawler-core) is pinned by the address of its release file. uv rebuilds the whole lock for every
   # package Dependabot updates, and a failed request to that address made every update fail with "private source"
   # (issue 33). The fix is in pyproject.toml: the engine's metadata is given to uv in
-  # [[tool.uv.dependency-metadata]], so uv never asks the address. Do not add a `registries` entry (the repository is
-  # public; no credential is needed or wanted) or an `ignore` entry for the engine (it does not stop the failure). The
-  # engine itself is moved only by .github/workflows/core-update.yml. Runbook: "Keeping Dependabot's Python updates
-  # working" in docs/operations/runbook.md.
+  # [[tool.uv.dependency-metadata]], so uv 0.13.5 and later (what Dependabot runs) does not ask the address. Do not add
+  # a `registries` entry (the repository is public; no credential is needed or wanted) or an `ignore` entry for the
+  # engine (it does not stop the failure). The engine itself is moved only by .github/workflows/core-update.yml.
+  # Runbook: "Keeping Dependabot's Python updates working" in docs/operations/runbook.md.
   - package-ecosystem: "uv"
     directory: "/"
     schedule:

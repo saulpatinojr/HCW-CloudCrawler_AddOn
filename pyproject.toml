@@ -30,18 +30,19 @@ build-backend = "hatchling.build"
 [tool.hatch.metadata]
 allow-direct-references = true
 
-# The engine's own metadata, copied from the wheel (the METADATA file inside it). Why it is here: whenever uv has to
-# re-resolve the lock, as Dependabot's uv job does for every update it tries, uv asks the wheel's address for the wheel's
-# metadata, and its first request is a HEAD. GitHub answers that address with a redirect to a signed download link; in
-# Dependabot's runs the signed link answered the HEAD with 401, which Dependabot reports as a "private source" failure
-# before it stops the whole job (issue 33). With the metadata given here uv never asks the address. The version must be
-# the pinned wheel's: core-update.yml moves it with the pin (the CORE_METADATA marker), and
-# tests/security/test_engine_adoption.py compares every field with the installed wheel. Runbook: "Keeping Dependabot's
-# Python updates working".
+# What the engine (the wheel pinned above) depends on, copied from the METADATA file inside the wheel. Why it is here:
+# whenever uv has to rebuild the lock, as Dependabot's uv job does for every update it tries, uv asks the wheel's
+# address for the wheel's metadata, and its first request is a HEAD (a request for the file's headers only). GitHub
+# answers that address with a redirect to a signed download link; in Dependabot's runs the signed link answered the HEAD
+# with 401 (not authorised), which Dependabot reports as a "private source" failure for every package (issue 33). With
+# this entry, uv 0.13.5 and later (the uv Dependabot ran) do not ask the address. Older uv versions still fetch the
+# wheel before they use the entry; that is harmless here. The version must be the pinned wheel's: core-update.yml moves
+# it with the pin (the CORE_METADATA marker), and tests/security/test_engine_adoption.py compares the entry with the
+# installed wheel. Do not add requires-python here: Dependabot rewrites every requires-python in the lock to the
+# project's. Runbook: "Keeping Dependabot's Python updates working".
 [[tool.uv.dependency-metadata]]
 name = "cloud-crawler-core"
 version = "0.1.0"  # CORE_METADATA
-requires-python = ">=3.14.6,<3.15"
 requires-dist = ["pydantic>=2.14,<3"]
 
 [tool.hatch.build.targets.wheel]

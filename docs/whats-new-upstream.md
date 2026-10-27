@@ -19,7 +19,7 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 | Question | Answer | How it was checked |
 | --- | --- | --- |
 | Has the App published a release? | **Yes: `v0.1.0`** (2026-10-26). Three files: `cloud_crawler_core-0.1.0-py3-none-any.whl`, `cloud_crawler_core-0.1.0.tar.gz` and `cloud-crawler-core.cdx.json` (the software bill of materials). | `gh release view v0.1.0 --repo saulpatinojr/HCW-CloudCrawler_App`; App ticket [7](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/7) |
-| What does `core-update.yml` do today? | It reads the `# CORE_REF v0.1.0` line now in `pyproject.toml` and compares it with the App's latest release. At `v0.1.0` it reports "already at v0.1.0" and stops; when the App tags a newer release it opens the bump pull request, moving the pin and the version line of the engine's static metadata (marker `# CORE_METADATA`, see "First adoption" item 6) together. | `.github/workflows/core-update.yml`; the first adoption added the line by hand (see "First adoption", done) |
+| What does `core-update.yml` do today? | It reads the `# CORE_REF v0.1.0` line now in `pyproject.toml` and compares it with the App's latest release. At `v0.1.0` it reports "already at v0.1.0" and stops; when the App tags a newer release it opens the bump pull request, moving the pin and the version line of the engine's static metadata (marker `# CORE_METADATA`, see "First adoption", the paragraph after item 7) together. | `.github/workflows/core-update.yml`; the first adoption added the line by hand (see "First adoption", done) |
 | Engine version in the App | `cloud-crawler-core` 0.1.0; the App edition is also 0.1.0 | Read from the release |
 | What this repository pins | **`cloud-crawler-core` 0.1.0**, by release-asset URL on one line of `pyproject.toml`, with the wheel's sha256 `25a7abfcec50b0f85cb427145a1fd7fb57898bd09cfc3483edad8a042e5e7be3` recorded in `uv.lock`. The sha256 was computed from a fresh download of the release asset and equals GitHub's own digest for it; the build provenance verifies with `gh attestation verify` (signer: the App's `publish-core.yml` at `refs/tags/v0.1.0`, commit `8142b69`). | `gh release download`, `sha256sum`, `gh attestation verify ... --repo saulpatinojr/HCW-CloudCrawler_App` on 2026-10-26 |
 | Does the engine's log-word list match the lab's? | **No, and it is not copied any more.** The old copy of the engine's redaction module had drifted: ten words that only the lab logs (`session_opened`, `session_closed`, the five `turnstile_*` outcomes, `unsupported_media_type`, `arg-json`, `arg-csv`) are not in the engine's list. `security/redaction.py` is now a thin module: the engine's `scrub`, `VisitorDataError` and guard, plus those ten words. | `tests/security/test_engine_adoption.py` |
@@ -145,13 +145,6 @@ done, and where it differed from the plan this file used to carry:
 5. **Not done at adoption, on purpose: the upload route, the MCP server and the trusted-caller session API.** `edition.py`'s
    `CAPABILITIES` stayed `("health", "pane")` because it must only list what exists. This is feature work, not adoption,
    and it decides whether the website can honestly show the tool as available.
-6. **Missed at adoption, added 2026-10-27 ([issue 33](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/33)): the
-   engine's metadata.** Pinning the wheel by address made Dependabot's Python job fail for every package, because uv asked
-   that address for the wheel's metadata each time it rebuilt the lock. `pyproject.toml` now carries a
-   `[[tool.uv.dependency-metadata]]` entry for the engine (its version line ends in `# CORE_METADATA`), `core-update.yml`
-   moves that version with the pin, and a test compares the entry's other fields with the installed wheel. So an engine
-   release that changes the engine's dependencies or Python range turns the bump pull request red until the entry is
-   updated by hand. Runbook: "Keeping Dependabot's Python updates working" in `docs/operations/runbook.md`.
    **Update, 2026-10-26: the upload route is built** ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16),
    [ADR 0004](adr/0004-the-upload-route.md), [`docs/api.md`](api.md)); it is the content of release `0.2.0`, and
    `CAPABILITIES` now lists it. It calls the engine's `ingest` and `evaluate_decision` and `bundle` as published, and builds
@@ -161,6 +154,14 @@ done, and where it differed from the plan this file used to carry:
 6. Ran `uv sync --all-packages`, `uv run ruff check . && uv run ruff format --check .` and
    `uv run pytest -q --cov=src --cov-fail-under=85` (70 passed, 95 percent), and built the image locally.
 7. Updated `CHANGELOG.md`, `VALIDATION.md` and the "Current upstream state" table here.
+
+**Missed at adoption, added 2026-10-27 ([issue 33](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/33)): the
+engine's metadata.** Pinning the wheel (the Python package file) by address made Dependabot's Python job fail for every
+package, because uv asked that address for the wheel's metadata each time it rebuilt the lock. `pyproject.toml` now
+carries a `[[tool.uv.dependency-metadata]]` entry for the engine (its version line ends in `# CORE_METADATA`),
+`core-update.yml` moves that version with the pin, and a test compares the entry's dependency list with the installed
+wheel. So an engine release that changes the engine's dependencies turns the bump pull request red until the list is
+updated by hand. Runbook: "Keeping Dependabot's Python updates working" in `docs/operations/runbook.md`.
 
 ## Upstream decisions you can cite (not copied here)
 

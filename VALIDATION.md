@@ -122,28 +122,36 @@ only; the upload route itself was validated in the run before this one.
 
 ## Run 2026-10-27 (Dependabot's uv job; issue 33)
 
-Windows host. uv 0.12.0 locally for `uv run`; three more uv versions were installed with `pip` into throwaway virtual
-environments outside the repository, only to reproduce: 0.13.5 (the version the failed Dependabot job reports using), 0.11.32
-(the version CI pins). Nothing was installed globally.
+Windows host. uv 0.12.0 locally for `uv run`. To reproduce, three more uv versions were installed with `pip` into throwaway
+virtual environments outside the repository: 0.13.5 (the version the failed Dependabot job reports using), 0.13.6 (the
+newest) and 0.11.32 (the version CI pins; `uvx uv@0.11.32` was also used). Nothing was installed globally. An independent
+read-only review of the first version of this change (`infrastructure-pr-reviewer`, which had not seen the author's
+conclusions) repeated most of the measurements below and found the problems fixed in the second commit: the metadata entry
+no longer sets `requires-python`, the workflow test is scoped to the bump step, the PowerShell commands work in Windows
+PowerShell 5.1, the claims about uv versions are qualified, and the wording is plainer.
 
 | Check | Executed here | Result |
 | --- | --- | --- |
-| The failed Dependabot job's log ([run 40499840932](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40499840932), read with `gh run view --log`) | yes | for `ruff`, `fastapi`, `certifi` and `coverage` the updater ran `uv lock --upgrade-package <package>`; each time the proxy log shows `HEAD` of the engine's release address, `302`, then `HEAD` of a signed `objects.githubusercontent.com` link answered `401`; each ends `private_source_authentication_failure` naming the release address. The engine is not the package being updated in any of them |
+| The failed Dependabot job's log ([run 40499840932](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40499840932), read with `gh run view --log`) | yes | for `ruff`, `fastapi`, `certifi` and `coverage` (the four errors the job reports) the updater ran `uv lock --upgrade-package <package>`; each time the proxy log shows `HEAD` of the engine's release address, `302`, then `HEAD` of a signed `objects.githubusercontent.com` link answered `401`; each ends `private_source_authentication_failure` naming the release address. The engine is not the package being updated in any of them. The job log names uv 0.13.5 |
 | The release address from this machine (`curl`) | yes | `HEAD` gives 302 to `release-assets.githubusercontent.com`, which answers `HEAD` and `GET` with 200; `GET` through the redirect downloads 37,822 bytes. **The 401 was not reproduced**; why the signed link refused the `HEAD` is an inference |
 | Dependabot's error mapping, read in `dependabot-core` (`uv/lib/dependabot/uv/file_updater/lock_file_error_handler.rb`, on 2026-10-27) | yes | a uv error matching `authentication`, `unauthorized`, `forbidden` or `HTTP status code: 401/403` becomes `PrivateSourceAuthenticationFailure`; the source is never checked for privacy. uv's own error text is not printed in the job log, so that it matched is inferred |
-| Cold-cache `uv lock --upgrade-package ruff==0.17.2` with uv 0.13.5, before the change | yes | uv logs `Sending fresh HEAD request` for the engine's address (the first half of the failure, seen locally; here the HEAD answers 200 and uv carries on) |
-| The same with the metadata entry in `pyproject.toml`, lock without the entry | yes | no `HEAD` and no `GET` of the engine's address |
-| The same with the entry in `pyproject.toml` and in `uv.lock` (the state after this change), from a cold cache | yes | no `HEAD` and no `GET` of the engine's address; the engine's `source` and sha256 in the lock are unchanged |
-| `uv lock` and `uv lock --check` with uv 0.11.32 | yes | the lock gains only the `[manifest]` block (8 lines); `--check` passes |
+| Cold-cache `uv lock --upgrade-package ruff==0.17.2` on the original `pyproject.toml` and `uv.lock`, four uv versions | yes | 0.13.5 and 0.13.6: one `HEAD` and one `GET` of the engine's address. 0.12.0 and 0.11.32: one `GET`, no `HEAD`. Every run exits 0 from this network, where the `HEAD` answers 200 |
+| The same on the files of this change (entry in `pyproject.toml` and in `uv.lock`) | yes | 0.13.5 and 0.13.6: no request to the engine's address. 0.12.0 and 0.11.32: one `GET`. The engine's `source` and sha256 in the lock are unchanged after a re-lock by 0.13.5 |
+| `uv lock` and `uv lock --check` with uv 0.11.32 | yes | the lock gains only the `[manifest]` block (7 lines); `--check` passes. A lock written by uv 0.13.5 (`revision = 5`) also passes `--check` under 0.11.32 (the reviewer's run; the sibling add-ons merge such locks) |
 | `uv export` with the Dockerfile's flags (`--frozen --format requirements-txt --no-dev --no-emit-project --no-header`) on the old and the new files, uv 0.11.32 | yes | byte-identical (sha256 `e14b95f7e45b3190eb46...` for both; 100 lines, 59 hashes) |
-| The wheel's metadata against the entry | yes | the wheel from the release (sha256 equals the one in the lock) says `Requires-Python: <3.15,>=3.14.6` and `Requires-Dist: pydantic<3,>=2.14`; the entry says the same |
-| The bump lines of `core-update.yml` (extracted from the file) run on a scratch copy of `pyproject.toml` with a pretend `v0.2.0` | yes | only three things move: the address, the `CORE_REF` marker and the entry's `version`. The real bump (`uv lock` for a real `v0.2.0` wheel) was **not** run: no such release exists |
-| The new tests on the old `pyproject.toml` and `uv.lock` | yes | 5 of the 6 new tests fail (the sixth reads the workflow, which already has the change); with a wrong `requires-dist` in the entry the installed-wheel comparison and the lock comparison fail |
+| The wheel's metadata against the entry | yes | the wheel from the release (sha256 equals the one in the lock) says `Requires-Dist: pydantic<3,>=2.14`; the entry says the same. The wheel also says `Requires-Python: <3.15,>=3.14.6`; the entry leaves it out on purpose (Dependabot rewrites every `requires-python` in the lock to the first one, read in `lock_file_updater.rb`) |
+| The bump lines of `core-update.yml` (extracted from the file) run on a scratch copy of `pyproject.toml` with a pretend `v0.2.0` | yes | only three things move: the address, the `CORE_REF` marker and the entry's `version`. The reviewer also ran them against a fake `v0.2.0` wheel with an extra dependency served from localhost: `uv lock` recorded the new sha256 and the installed-wheel test went red, as designed. The real bump (a real `v0.2.0` release) was **not** run: none exists |
+| The new tests on the original `pyproject.toml` and `uv.lock` | yes | 6 of the 7 new tests fail; the seventh reads only the workflow. With a wrong `requires-dist` in the entry the installed-wheel and lock comparisons fail |
+| The workflow test on three versions of `core-update.yml` | yes | passes as written; fails when the `sed` and `grep` lines are deleted; fails when they are moved after `uv lock` (the first version of this test passed in all three) |
+| The PowerShell commands in the runbook, in Windows PowerShell 5.1.26100 | yes | the run-list command prints empty values without the outer brackets and the right values with them; the wheel-metadata commands work twice in a row (each run has its own folder). An attempt to run a script file with `-ExecutionPolicy Bypass` was refused by the session's safety check and was not repeated; the commands were run inline instead |
+| `uvx uv@0.11.32 lock --check` | yes | prints `Resolved 52 packages`, exit 0 (the runbook gives `uvx uv@0.11.32 lock` for the real run) |
 | `uv run --frozen ruff check .` and `ruff format --check .` | yes | clean (73 files) |
-| `uv run --frozen pytest -q --cov=src --cov-report=term --cov-fail-under=85` | yes | 483 passed, coverage 97.59% |
+| `uv run --frozen pytest -q --cov=src --cov-report=term --cov-fail-under=85` | yes | 484 passed, coverage 97.59% |
 | `git diff --check`; line endings (`git ls-files --eol`) | yes | clean; every changed file is `i/lf w/lf`, no carriage returns |
 | **A Dependabot run on `main` after the change** | **no** | Dependabot version updates run only from the default branch and there is no API to start one from a branch. The next scheduled run is Monday 2026-11-02 06:00 UTC; after the merge, **Check for updates** on the repository's Dependabot page starts one (runbook). Issue 33's last box (a green run, a dependency pull request opened) stays open until that run is seen |
-| A `GET` of the signed link from inside Dependabot's network | **no** | not testable here. With the entry, `uv lock` for an ordinary update asks for nothing at the address; `core-update.yml` (which does download the wheel, from an Actions runner as it did for the first adoption) is unchanged in that respect |
+| A `GET` of the signed link from inside Dependabot's network | **no** | not testable here. With the entry, uv 0.13.5 and later asks for nothing at the address while updating an ordinary package; `core-update.yml` (which does download the wheel, from an Actions runner as it did for the first adoption) is unchanged in that respect |
+| The Dependabot page's layout ("Check for updates") | **no** | the page needs a sign-in; the steps come from GitHub's documentation |
+| Whether Dependabot's image carries the `dependabot-core` code on `main` that was read | **no** | the error mapping and the `requires-python` rewrite were read on `main` on 2026-10-27 |
 | CI on the pull request, CodeQL, CodeRabbit | **no** | run on the pull request |
 
 ## Limitations recorded

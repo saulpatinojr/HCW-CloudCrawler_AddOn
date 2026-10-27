@@ -10,7 +10,6 @@ from pathlib import Path
 import cloud_crawler_core
 import pytest
 from packaging.requirements import Requirement
-from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
 from cloud_crawler_lab.security import redaction as lab_redaction
@@ -106,11 +105,22 @@ def test_static_metadata_carries_the_marker_core_update_moves():
     assert found == [_pin()["ver"]], "exactly one `version = ...  # CORE_METADATA` line, equal to the pinned version"
 
 
+def _bump_step(workflow):
+    """The step of core-update.yml that rewrites the pin and re-locks: from its name to the next step."""
+    start = workflow.index("name: Bump CORE_REF and re-lock")
+    following = re.search(r"(?m)^      - ", workflow[start:])
+    return workflow[start : start + following.start()] if following else workflow[start:]
+
+
 def test_core_update_moves_the_static_metadata_before_it_locks():
-    workflow = (ROOT / ".github" / "workflows" / "core-update.yml").read_text(encoding="utf-8")
-    moved = workflow.find("CORE_METADATA")
-    locked = workflow.find("uv lock --upgrade-package cloud-crawler-core")
-    assert 0 <= moved < locked, "the bump must change the metadata version before `uv lock` runs"
+    """Inside the bump step only: the file's header comment also says CORE_METADATA, so a search of the whole file
+    would pass even if the `sed` and its `grep` were deleted or moved after `uv lock`."""
+    step = _bump_step((ROOT / ".github" / "workflows" / "core-update.yml").read_text(encoding="utf-8"))
+    moved = re.search(r'(?m)^\s*sed -i -E ".*CORE_METADATA.*" pyproject\.toml\s*$', step)
+    checked = re.search(r'(?m)^\s*grep -qE ".*CORE_METADATA.*" pyproject\.toml\s*$', step)
+    locked = step.find("uv lock --upgrade-package cloud-crawler-core")
+    assert moved and checked and locked >= 0, "the bump step must sed the CORE_METADATA version, grep it, then lock"
+    assert moved.start() < checked.start() < locked, "the version must be changed and checked before `uv lock` runs"
 
 
 def test_lock_manifest_records_the_same_static_metadata():
@@ -121,7 +131,13 @@ def test_lock_manifest_records_the_same_static_metadata():
     assert wanted and entry, "uv.lock must record the engine's static metadata (run `uv lock`)"
     assert entry["version"] == wanted["version"]
     assert _requirements(entry["requires-dist"]) == _requirements(wanted["requires-dist"])
-    assert SpecifierSet(entry.get("requires-python", "")) == SpecifierSet(wanted.get("requires-python", ""))
+
+
+def test_static_metadata_does_not_set_requires_python():
+    """Dependabot copies the first `requires-python` in uv.lock over every other one (dependabot-core,
+    lock_file_updater.rb), so a different range in this entry would make the lock of every Dependabot pull request fail
+    `uv lock --check`. The project's own range already limits where the engine can be installed."""
+    assert "requires-python" not in _static_metadata(_pyproject())[ENGINE]
 
 
 def test_every_direct_url_package_in_the_lock_has_static_metadata():
@@ -147,7 +163,6 @@ def test_static_metadata_matches_the_installed_wheel():
     wheel = metadata.metadata(ENGINE)
     assert wheel["Version"] == entry["version"]
     assert _requirements(metadata.requires(ENGINE) or []) == _requirements(entry["requires-dist"])
-    assert SpecifierSet(wheel["Requires-Python"]) == SpecifierSet(entry["requires-python"])
     assert not wheel.get_all("Provides-Extra"), "the entry lists no extras; add provides-extra if the wheel gains any"
 
 

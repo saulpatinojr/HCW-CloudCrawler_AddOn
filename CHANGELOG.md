@@ -50,23 +50,29 @@ once, merge one before rebasing the next.
   `docs/website-integration/routes.md` no longer describe the row as waiting. Nothing in the application changes.
 
 ### Fixed
-- Dependabot's Python (`uv`) update job works again (issue [33](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/33);
-  not yet proved live, see below). Since the engine was pinned by the address of its release file
+
+- Dependabot's Python (`uv`) update job should work again (issue [33](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/33);
+  not yet proved live, see the end of this entry). Since the engine was pinned by the address of its release file
   ([pull request 15](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pull/15)), every run of that job failed with
   `private_source_authentication_failure` and opened no pull request ([run of 2026-10-27](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40499840932)).
-  The cause, read from that run's log: to update any package, Dependabot asks uv to rebuild `uv.lock`; uv asks the engine's
-  address for the engine's metadata, starting with a HEAD request (a request that only asks for a file's headers); GitHub
-  redirects that address to a signed download link, and in Dependabot's run the signed link answered the HEAD with 401;
-  Dependabot's uv code turns an authentication-type uv error (401, 403, "unauthorized", "forbidden") into "private source"
-  without checking. The repository the engine comes from is public, so nothing is private. `pyproject.toml` now carries the engine's metadata itself (`[[tool.uv.dependency-metadata]]`, copied from the
-  wheel), so uv never asks that address while rebuilding the lock; `uv.lock` records it in a new `[manifest]` block and
-  nothing else in the lock changes, and the image build's `uv export` output is byte-identical. `core-update.yml` moves the
-  entry's version together with the pin. `tests/security/test_engine_adoption.py` fails if a package pinned by address has no
-  such entry, if the lock does not record it, or if it differs from the engine wheel that is installed (so an upstream
-  release that changes the engine's dependencies fails the bump pull request's compatibility check). Proof so far: uv 0.13.5,
-  the version Dependabot ran, sent the HEAD in a local cold-cache run before the change and sent no request to the address
-  after it. Not proved: a Dependabot run on `main`; the next scheduled one is Monday 2026-11-02 06:00 UTC, or use "Check for
-  updates" on the repository's Dependabot page (runbook, "Keeping Dependabot's Python updates working").
+  The cause, read from that run's log: to update a package, Dependabot asks uv to rebuild `uv.lock` (the file that records
+  the exact version and checksum of every package); uv asks the engine's address for the engine's metadata, starting with a
+  HEAD request (a request that only asks for a file's headers); GitHub redirects that address to a signed download link, and
+  in Dependabot's run the signed link answered the HEAD with 401 (HTTP's "not authorised"); Dependabot's uv code turns an
+  authentication-type uv error (401, 403, "unauthorized", "forbidden") into "private source" without checking. The
+  repository the engine comes from is public, so nothing is private. `pyproject.toml` now carries the engine's dependency
+  list itself (`[[tool.uv.dependency-metadata]]`, copied from the wheel, the Python package file), so uv 0.13.5 and later,
+  which is what Dependabot ran, does not ask that address while rebuilding the lock. Older uv versions (0.12.0, and 0.11.32
+  which CI pins) still download the wheel; they never sent the HEAD, so this does not matter to them. `uv.lock` records the
+  entry in a new `[manifest]` block and nothing else in the lock changes; the image build's `uv export` output is
+  byte-identical. `core-update.yml` moves the entry's version together with the pin. `tests/security/test_engine_adoption.py`
+  fails if a package pinned by address has no such entry, if the lock does not record it, if the entry sets
+  `requires-python` (Dependabot rewrites every `requires-python` in the lock to the project's), if the bump step stops
+  moving the version before it locks, or if the entry's dependency list differs from the engine wheel that is installed (so
+  an upstream release that changes the engine's dependencies fails the bump pull request's compatibility check). Proof so
+  far: locking from an empty cache with uv 0.13.5 and 0.13.6 sent a HEAD and a GET to the address before the change and
+  nothing after it. Not proved: a Dependabot run on `main`; the next scheduled one is Monday 2026-11-02 06:00 UTC, or use
+  "Check for updates" on the repository's Dependabot page (runbook, "Keeping Dependabot's Python updates working").
 
 ## [0.2.0] - 2026-10-26
 
