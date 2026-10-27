@@ -236,7 +236,7 @@ HOSTILE = [
     "a%0Ab",
     "[x](https://example.invalid)",
     "a\u2028b",
-    "a^Eb",
+    "a\u0085b",
     "a\x0bb",
     "a\x00b",
     "a\rb",
