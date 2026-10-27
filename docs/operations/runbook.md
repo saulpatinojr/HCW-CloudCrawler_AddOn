@@ -1,6 +1,7 @@
 # Operations runbook (lab edition)
 
-This page holds the procedures this repository owns; the lab host that runs the container belongs to the website repository (see `infrastructure/README.md`), so there is one procedure so far.
+This page holds the procedures this repository owns; the lab host that runs the container belongs to the website repository (see `infrastructure/README.md`), so there are two procedures so far: the base image
+(next) and Dependabot's Python updates (the last section).
 
 ## Keeping the base image on the website's pin (`base-update`)
 
@@ -214,3 +215,163 @@ step 3: `git -C $wt fetch origin; git -C $wt reset --hard origin/proof/base-upda
     ```
 
 Record the run links, the pull request link and what steps 7 to 11 showed in `VALIDATION.md`.
+
+## Keeping Dependabot's Python updates working (the engine's static metadata)
+
+Dependabot is GitHub's service that opens a pull request when a dependency has a newer version. Every Monday at 06:00 UTC
+it looks at this repository (settings: [`dependabot.yml`](../../.github/dependabot.yml)). For Python it works through `uv`
+(the tool that installs Python packages here). It edits `pyproject.toml` (the file that lists what the project needs), then
+asks uv to rebuild `uv.lock` (the file that records the exact version and checksum of every package), once for each package
+it wants to update. If that rebuild fails, that package gets no pull request; on 2026-10-27 it failed for all four packages
+Dependabot tried (`ruff`, `fastapi`, `certifi`, `coverage`), so the job finished red and no Python pull request was opened. The job's runs are listed on the
+repository's [Dependabot page](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/network/updates).
+Until a Dependabot run after this change has been seen green and recorded in `VALIDATION.md`, this section describes what the
+change is built to do, not what has been seen happening.
+
+**What went wrong (2026-10-26 and 2026-10-27, issue [33](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/33)).**
+The engine (`cloud-crawler-core`, the detector library written in the App repository) is pinned by the address of its release
+file, a wheel (the Python package file, ending `.whl`). The Python job then failed for every package it tried with
+`private_source_authentication_failure`, which Dependabot's
+[error list](https://docs.github.com/en/code-security/reference/supply-chain-security/troubleshoot-dependabot/dependabot-errors)
+describes as "can't authenticate to a private package registry". That wording is misleading here: the App repository is
+public. What the [log of the failed run](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/40499840932)
+shows, in order:
+
+1. Dependabot runs `uv lock --upgrade-package <the package it wants to update>`.
+2. uv needs the engine's metadata (its name, version and what it depends on) and, for a file at an address, its first
+   request is a HEAD (a request that asks only for the file's headers, not the file;
+   [uv issue 18998](https://github.com/astral-sh/uv/issues/18998) describes this habit).
+3. GitHub answers the release address with a redirect (HTTP 302) to a short-lived signed download link on
+   `objects.githubusercontent.com`.
+4. The signed link answered uv's HEAD with `401` (HTTP's "not authorised"; the job log shows the 302 and then the 401,
+   for every package it tried).
+   Dependabot's uv code
+   ([`lock_file_error_handler.rb`](https://github.com/dependabot/dependabot-core/blob/main/uv/lib/dependabot/uv/file_updater/lock_file_error_handler.rb),
+   read on 2026-10-27) turns a uv error that mentions "authentication", "unauthorized", "forbidden" or an HTTP status of
+   401 or 403 into `PrivateSourceAuthenticationFailure`, without checking that anything is private. The job log does not
+   print uv's own error text, so that uv's message matched that pattern is inferred from the result.
+
+Why the signed link refused the HEAD is also an inference (a link signed for downloading may not accept a HEAD). It was not
+reproduced: from the machine used on 2026-10-27 GitHub redirected to a different host, `release-assets.githubusercontent.com`,
+and that host answered both HEAD and GET with 200. A local run of the same uv version (0.13.5) did send the HEAD, so the
+first half of the chain was seen on both sides. The fix does not depend on the reason for the 401.
+
+**The fix.** `pyproject.toml` holds the engine's dependency list itself, in the entry `[[tool.uv.dependency-metadata]]`
+([uv's description](https://docs.astral.sh/uv/concepts/resolution/)), copied from the wheel's own `METADATA` file (the
+description file inside the wheel). With it, uv has nothing to ask the address. `uv.lock` records the entry in its
+`[manifest]` block. The wheel's address and its sha256 in the lock are unchanged, so the image build still checks the
+engine's checksum, and the image build's `uv export` output is byte-identical.
+
+**Which uv versions this works for.** Measured on 2026-10-27 by locking from an empty cache and counting requests to the
+engine's address (the entry is meant for packages that do not declare their metadata, so skipping the fetch is what uv
+does today, not something its documentation promises):
+
+| uv version | Requests to the engine's address before the change | With the entry |
+|---|---|---|
+| 0.13.5 (what Dependabot ran: the line `Package manager uv, Info : uv 0.13.5` in its job log) and 0.13.6 (the newest at the time) | a HEAD, then a GET | none |
+| 0.12.0 and 0.11.32 (the version `ci.yml` pins) | one GET (a full download); never a HEAD | one GET |
+
+So only the newer uv sends the HEAD, and the entry is what keeps it away from the address. CI's uv still downloads the
+wheel, which is harmless. If Dependabot's image moves to a uv that behaves differently, the job could fail again; the log
+line above tells you which uv it used.
+
+Things that look like fixes and are not:
+
+- **Telling Dependabot to ignore `cloud-crawler-core`.** The failures were raised while updating `ruff`, `fastapi`,
+  `certifi` and `coverage`, not the engine: uv re-reads the engine's metadata whatever package is being updated. An
+  `ignore` entry changes which pull requests Dependabot wants, not what uv does while it rebuilds the lock.
+- **A `registries` entry in `dependabot.yml`.** That setting gives Dependabot a login for a private package index or
+  private repository. The App repository is public, so there is nothing to log in to, and it would mean keeping a secret for
+  no gain.
+- **Pinning the engine with `git+https://`.** A git pin has no checksum, and the image build installs with
+  `pip --require-hashes`, so it would break the build (the header of `core-update.yml` says the same).
+- **Publishing the engine to a package index** would work but is a separate decision about where the engine is published.
+
+**What you do when the engine moves.** Normally nothing. When the App tags a new release, `core-update.yml` opens a pull
+request ([open ones](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pulls?q=is%3Apr+is%3Aopen+label%3Acore-update))
+and moves the pin and the entry's `version` line (the one that ends in `# CORE_METADATA`) together. The entry's
+`requires-dist` list (what the engine depends on) and its `provides-extra` list (the optional extras the engine offers, none
+today) are copies, so the test `test_static_metadata_matches_the_installed_wheel` compares them with the wheel that really
+got installed, extras and all (`pydantic[email]` is not `pydantic`: the image installs the lock without resolving anything,
+so an extra that is missing from the lock is missing from the image). Two more tests look at the new release:
+`test_engine_requires_only_pydantic` fails for any dependency other than a plain `pydantic`, and
+`test_wheel_accepts_every_python_the_project_allows` fails if the engine's `Requires-Python` refuses a Python version the
+project's own `requires-python` allows. If one of them fails, the compatibility check in the workflow run goes red and the
+pull request carries the label `needs-adaptation`. Then:
+
+1. Print the new wheel's metadata. These are two PowerShell commands, run one after the other in the same window from any
+   folder; the first downloads the latest release's wheel into a new temporary folder, the second reads it. The latest
+   release is the one the pull request adopts unless the App has tagged another since, so check that the `Version:` line
+   equals the version in the pull request's title. Success: the second prints lines starting `Name:`, `Version:`,
+   `Requires-Python:` and `Requires-Dist:` (one `Requires-Dist:` line per dependency, and a `Provides-Extra:` line only if
+   the engine gained extras).
+
+   ```powershell
+   $dir = Join-Path $env:TEMP ("engine-wheel-" + (Get-Date -Format "yyyyMMdd-HHmmss")); gh release download -R saulpatinojr/HCW-CloudCrawler_App --pattern "*.whl" --dir $dir
+   ```
+
+   ```powershell
+   Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [IO.Compression.ZipFile]::OpenRead((Get-ChildItem "$dir\*.whl").FullName); $entry = $zip.Entries | Where-Object { $_.FullName -like "*.dist-info/METADATA" }; (New-Object IO.StreamReader($entry.Open())).ReadToEnd() -split "`n" | Select-String "^(Name|Version|Requires-Python|Requires-Dist|Provides-Extra):"; $zip.Dispose()
+   ```
+
+2. Look at every `Requires-Dist:` line that is not a plain `pydantic`, and at every `Provides-Extra:` line. A new
+   dependency, or an extra on `pydantic` (for example `pydantic[email]`, which brings in more packages), is new code in the
+   image and needs a person's decision before the pull request is merged. Check it against the edition's rules: the
+   "Never weaken" bullet in [`CLAUDE.md`](../../CLAUDE.md) (no cloud SDK and no way to build a cloud credential, proved by
+   `tests/security/test_edition_boundary.py`; nothing that fetches evidence or opens connections), its licence, and whether
+   it is maintained. `security.yml` audits the locked packages with `pip-audit`. If it is not acceptable, do not merge; tell
+   the owner. If it is approved, change `test_engine_requires_only_pydantic` in `tests/security/test_engine_adoption.py`
+   in the same pull request so that it allows exactly that dependency (it fails on purpose for anything else), and write
+   who approved it in the pull request description.
+3. On the pull request's branch, edit the entry `[[tool.uv.dependency-metadata]]` in `pyproject.toml` so that its
+   `requires-dist` list says what step 1 printed on the `Requires-Dist:` lines (all of them, including any that end in
+   `; extra == "..."`) and, if step 1 printed `Provides-Extra:` lines, set `provides-extra = ["name", ...]` to exactly
+   those names (replace the old list; if step 1 printed no `Provides-Extra:` line, remove the `provides-extra` field, or
+   the tests will find a stale one). Python writes the same range in a different order (`pydantic<3,>=2.14` and `pydantic>=2.14,<3` are the same
+   range), and the test accepts either order, but not a missing extra or a different spelling of the requirement. Leave
+   `requires-python` out of the entry: Dependabot copies the first `requires-python` in `uv.lock` over every other one, so a
+   different range there would break the lock of its pull requests (`test_static_metadata_does_not_set_requires_python`
+   holds this).
+4. Compare the `Requires-Python:` line from step 1 with the project's own `requires-python` in `pyproject.toml`
+   (`>=3.14.6,<3.15` today). The test `test_wheel_accepts_every_python_the_project_allows` tries every version from 3.0.0
+   to 3.40.99 that the project range allows and fails if the engine refuses any of them. If it fails, a person decides:
+   either raise the project's `requires-python` to what the engine accepts (and change every place that names a Python
+   version: `.python-version`, the Python in `infrastructure/docker/Dockerfile`, `PYTHON_VERSION` in `ci.yml`, and the
+   `python-version: "3.14"` lines in `.github/workflows/core-update.yml` and `.github/workflows/security.yml`; search
+   for `python-version` and `3.14` to catch any added later), or do not adopt that release.
+5. Rebuild the lock with the uv version `ci.yml` names in `UV_VERSION` (0.11.32 today; use the number that file shows). It
+   runs `uv` from a temporary environment, in the folder of the pull request's branch, and prints `Resolved` and a package
+   count when it worked. Then push the change.
+
+   ```powershell
+   uvx uv@0.11.32 lock
+   ```
+
+   Success: the pull request's `lint` and `test` checks go green, including `test_static_metadata_matches_the_installed_wheel`.
+
+**How to check that Dependabot is healthy.** Success is a run called `uv in /. - Update` with the result `success`. This
+PowerShell command lists the latest runs (the outer brackets matter in Windows PowerShell 5.1, which otherwise prints
+empty values). A failed run of the old kind has `private_source_authentication_failure` in its log, naming the engine's
+release address.
+
+```powershell
+(gh run list -R saulpatinojr/HCW-CloudCrawler_AddOn --workflow "Dependabot Updates" --limit 6 --json displayTitle,conclusion,createdAt,url | ConvertFrom-Json) | Select-Object createdAt, conclusion, displayTitle, url | Format-List
+```
+
+To make Dependabot look now instead of waiting for Monday, open the
+[Dependabot page](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/network/updates), find the row for the `uv`
+manifest (`/pyproject.toml`) and click **Check for updates**
+([GitHub's steps](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/re-run-dependabot-jobs);
+the page needs a sign-in, so its exact layout was not checked when this was written).
+Success: a new `uv in /. - Update` run appears and ends in `success`, and pull requests for the outdated packages open
+(at the time of writing: `fastapi`, `certifi`, `coverage` and the `dev` group). If the run is red again and still names
+the engine's release address, open its log and look for two things. First, the line `Package manager uv, Info : uv ...`:
+the table above says which uv versions were measured. Second, a line such as
+`HEAD https://github.com:443/saulpatinojr/HCW-CloudCrawler_App/releases/download/...`: it means uv is still asking the
+address, usually because the entry's `version` is not the pinned wheel's version (the test
+`test_static_metadata_carries_the_marker_core_update_moves` and `uv lock --check` in `ci.yml` should have said so).
+
+**When another engine is adopted the same way.** The Cloud Assessor and Network Eyes add-ons keep their engines inside the
+repository today, so their Dependabot jobs pass. The day one of them pins its engine's release file by address, this same
+failure will start there. Copy the entry, the `CORE_METADATA` marker, the `core-update.yml` line and the tests, not a
+workaround.

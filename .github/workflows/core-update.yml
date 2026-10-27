@@ -6,6 +6,12 @@
 # `uv lock` records the wheel's sha256 and the image build's `uv export --frozen` carries it, so the image's
 # `pip install --require-hashes` keeps verifying every third-party file (a git+https pin cannot be hash-checked and would
 # break that build). If the CORE_REF line were ever removed, the comparison below finds nothing and exits cleanly.
+# pyproject.toml also holds the engine's static metadata (the [[tool.uv.dependency-metadata]] entry; its version line
+# carries the marker CORE_METADATA). It exists so that uv, and Dependabot's uv job, never ask the wheel's address for
+# the wheel's metadata (issue 33). The bump moves its version with the pin. Its requires-dist list is a copy of the
+# wheel's own: tests/security/test_engine_adoption.py compares it with the installed wheel, so a release that changes
+# the engine's dependencies makes the compatibility check below fail and the pull request carries needs-adaptation;
+# someone then copies the new list in by hand (runbook, "Keeping Dependabot's Python updates working").
 #
 # The pull request is opened with a short-lived GitHub App token (actions/create-github-app-token), not with
 # GITHUB_TOKEN. A pull request opened with GITHUB_TOKEN starts no workflow, so the required checks of the
@@ -82,6 +88,9 @@ jobs:
           cur_ver="${CURRENT#v}"; new_ver="${LATEST#v}"
           sed -i -E "s|releases/download/${CURRENT}/cloud_crawler_core-${cur_ver}-py3-none-any\.whl(\",?[[:space:]]*#[[:space:]]*CORE_REF[[:space:]]+)${CURRENT}|releases/download/${LATEST}/cloud_crawler_core-${new_ver}-py3-none-any.whl\1${LATEST}|" pyproject.toml
           grep -q "CORE_REF ${LATEST}" pyproject.toml
+          # The static metadata's version moves with the pin, or uv would not use it for the new wheel.
+          sed -i -E "s|^(version = \")[^\"]*(\"[[:space:]]*#[[:space:]]*CORE_METADATA[[:space:]]*)$|\1${new_ver}\2|" pyproject.toml
+          grep -qE "^version = \"${new_ver}\"[[:space:]]*#[[:space:]]*CORE_METADATA" pyproject.toml
           uv lock --upgrade-package cloud-crawler-core
           git --no-pager diff --stat
       - if: steps.refs.outputs.changed == 'true'

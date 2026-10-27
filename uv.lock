@@ -2,6 +2,13 @@ version = 1
 revision = 3
 requires-python = ">=3.14.6, <3.15"
 
+[manifest]
+
+[[manifest.dependency-metadata]]
+name = "cloud-crawler-core"
+version = "0.1.0"
+requires-dist = ["pydantic>=2.14,<3"]
+
 [[package]]
 name = "annotated-doc"
 version = "0.0.5"
