@@ -24,12 +24,14 @@ is rebuilt from `main` and your commit is replaced. For a change that has to las
 change on your own branch. If the website moves back (or someone moves `main` to the website's pin by hand) while a pull
 request is open, the next run closes it as no longer needed.
 
-**When the run is red.** Open the run and read the line that starts with `::error::`. Do not rely on the weekly
+**When the run is red.** Open the failed step's log and look for a line that starts with `::error::`. The refusals in
+the table below print one; a network failure while the website's file is being read may print only the tool's own message,
+so read the log even when there is no such line. Do not rely on the weekly
 `base-follows-website` job to show it: that job compares only the image and its digest (`BASE_IMAGE` and `BASE_DIGEST`), not
 the Python version. It usually goes red as well when the website moves, but if the website changes only
 `BASE_PYTHON_VERSION` to another minor line (for example 3.14 to 3.15), `base-update` refuses and goes red while the weekly
-job stays green. So watch for failed `base-update` runs on their own (GitHub emails a failed scheduled run to the person who
-last changed the workflow's `cron` line, and the Actions tab lists every run). What the run left behind depends on where it stopped:
+job stays green. So watch for failed `base-update` runs on their own (GitHub can notify the person who last changed the
+workflow's `cron` line, as their notification settings allow, so do not count on an email; the Actions tab lists every run). What the run left behind depends on where it stopped:
 
 - If the red step is in the first job, `plan`, or is the step called "Apply the move" in the second, nothing was pushed and
   no pull request was opened: those steps only read and edit files on the runner.
