@@ -17,7 +17,7 @@
 # Build:  docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab -t img-cc-lab-addon:dev .
 # Run:    docker compose up   (docker-compose.yml: hardened, loopback-only, CC_ALLOW_NO_TURNSTILE=1 for local use)
 
-FROM python:3.14.8-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS build
+FROM python:3.14.8-slim-trixie@sha256:fbecd461fc72d21b2143c6eaba25143738079154a6d0ea3da3aec724f50eed4a AS build
 ARG EDITION=lab
 RUN test "$EDITION" = "lab" || { echo "this Dockerfile builds the lab edition only (EDITION=$EDITION)"; exit 1; }
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1
@@ -37,7 +37,7 @@ for forbidden in ("azure", "msal", "boto3"):
 print("edition boundary: no cloud SDK in /install")
 PY
 
-FROM python:3.14.8-slim-trixie@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS lab
+FROM python:3.14.8-slim-trixie@sha256:fbecd461fc72d21b2143c6eaba25143738079154a6d0ea3da3aec724f50eed4a AS lab
 ARG EDITION=lab
 RUN test "$EDITION" = "lab"
 # The licence of this repository's LICENSE file, as an SPDX id. publish-images.yml sets the other labels at push time;
