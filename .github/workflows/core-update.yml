@@ -72,6 +72,12 @@ jobs:
           fi
           latest="${REQUESTED:-$(gh api "repos/${UPSTREAM}/releases/latest" --jq .tag_name 2>/dev/null || true)}"
           if [ -z "$latest" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "::notice::upstream has no release yet"; exit 0; fi
+          case "$latest" in *$'\n'*|*$'\r'*) echo "::error::the upstream tag is not a single line"; exit 1;; esac
+          # The tag is pasted into sed and into GITHUB_OUTPUT below, so refuse anything that is not a plain release tag,
+          # vMAJOR.MINOR.PATCH, the only form the upstream release workflow publishes: a tag such as `v9|;e…` would
+          # otherwise run a shell command through sed's `e`, in the job that later holds the App token, and a `+` would
+          # be read as a regex operator by the next run's sed. tests/security pin this guard.
+          [[ "$latest" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected upstream tag: not vMAJOR.MINOR.PATCH"; exit 1; }
           echo "latest=$latest" >> "$GITHUB_OUTPUT"; echo "current=$current" >> "$GITHUB_OUTPUT"
           if [ "$latest" = "$current" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "already at $current"; else echo "changed=true" >> "$GITHUB_OUTPUT"; echo "$current -> $latest"; fi
       - if: steps.refs.outputs.changed == 'true'
