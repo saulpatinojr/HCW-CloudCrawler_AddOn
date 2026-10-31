@@ -160,6 +160,24 @@ say to review a new dependency first.
 | Whether Dependabot's image carries the `dependabot-core` code on `main` that was read | **no** | the error mapping and the `requires-python` rewrite were read on `main` on 2026-10-27 |
 | CI on the pull request, CodeQL, CodeRabbit | **no** | run on the pull request |
 
+## Run 2026-10-31 (the image's Python matches `BASE_PYTHON_VERSION`)
+
+Linux cloud session, Docker available, uv from `uv sync --all-packages`. The change adds one step to the `image` job of
+`ci.yml` ("The image runs the Python that versions.env names (BASE_PYTHON_VERSION)") and a test file for it
+(`tests/security/test_ci_image_python_version.py`). Background: the `lint` job proves the `FROM` lines use the pinned
+digest, but not which Python that digest carries
+([saulpatinojr/HCW-HybridCloudWorks#1386](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1386)).
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| `uv run ruff check .` and `uv run ruff format --check .` | yes | clean (74 files) |
+| `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 527 passed, coverage 97.59%; 12 of them are the new file's |
+| `uv lock --check` | yes | `Resolved 52 packages`, exit 0 |
+| actionlint 1.7.7 on `ci.yml` | yes | the only findings are `runs-on: ubuntu-26.04` being an unknown label to that actionlint version, the same findings as on `main`. shellcheck was not installed, so actionlint did not lint the shell inside the steps |
+| The step's script, taken from `ci.yml` by the test's own parser, run with bash against a real image tagged `addon:ci` | yes | prints `the built image runs Python 3.14.8, the version BASE_PYTHON_VERSION names`, exit 0. With a copy of `versions.env` that says `3.14.7` it prints `::error file=infrastructure/docker/versions.env::the built image runs Python 3.14.8, but BASE_PYTHON_VERSION in versions.env is 3.14.7; ...`, exit 1. `docker run --entrypoint python` on the pinned base digest itself also prints `Python 3.14.8` |
+| The full lab image build (`docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab -t addon:ci .`) | **no** | this session's outbound proxy is not trusted inside a build container, and it refuses plain-HTTP requests, which the runtime stage's `apt-get update` uses (405 from the proxy). The `addon:ci` image above is the Dockerfile's `build` stage (`--target build`), built from a scratch copy of the Dockerfile that only adds the proxy's certificate to that stage. Both stages start from the same pinned digest and Python lives in `/usr/local` from that base, not from apt, so the version it reports is the one the full image runs; the full build and the step itself are proved by CI on the pull request |
+| CI on the pull request, CodeQL, CodeRabbit | **no** | run on the pull request |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they

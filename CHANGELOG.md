@@ -12,6 +12,16 @@ once, merge one before rebasing the next.
 ## [Unreleased]
 
 ### Added
+- CI now checks that the base image really carries the Python version that `infrastructure/docker/versions.env` names.
+  Until now the `lint` job proved that every `FROM` line uses the pinned digest (`BASE_IMAGE@BASE_DIGEST`), but a digest is
+  only a checksum, so nothing proved that the image behind it runs the Python that `BASE_PYTHON_VERSION` says. The `image`
+  job in `.github/workflows/ci.yml` has a new step, "The image runs the Python that versions.env names
+  (BASE_PYTHON_VERSION)", which runs `python --version` in the image it has just built and fails with a message naming both
+  versions when they differ (it also fails when `BASE_PYTHON_VERSION` is missing, appears twice or is not
+  major.minor.patch). `tests/security/test_ci_image_python_version.py` fails if the step is removed, moved before the build
+  or made conditional, and runs the step's own script against a stand-in for `docker` to test both outcomes. No action,
+  permission or pin changed. Found on the way in
+  [saulpatinojr/HCW-HybridCloudWorks#1386](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1386).
 - The base image now follows the website's pin by itself, so nobody has to remember to move it (issue
   [27](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/27)). `.github/workflows/base-update.yml` runs once a day (and on demand),
   compares `infrastructure/docker/versions.env` with the website's `lab-image/versions.env` and, when they differ, opens one
