@@ -64,9 +64,10 @@ once, merge one before rebasing the next.
     installed by version and sha256), checks that the new lock changes nothing but the engine, and refuses the artifact
     unless its two files are byte-identical to the ones it made and the outcome is exactly `success` or `failure`. A
     refusal resets the checkout and stops. Only then does it mint the App token (this repository only, Contents and Pull
-    requests write) and open the pull request. The outcome only chooses the label; auto-merge needs the repository
-    variable `CORE_AUTOMERGE` to be `true` and waits for GitHub's required checks on the pull request (since the
-    main-only entry under Fixed, it no longer reads the outcome at all).
+    requests write) and open the pull request. The outcome chooses the label, the title, the body text and the
+    not-compatible warning; auto-merge needs the repository variable `CORE_AUTOMERGE` to be `true` and waits for
+    GitHub's required checks on the pull request (since the main-only entry under Fixed, it no longer reads the outcome
+    at all).
   - The pin and the `CORE_METADATA` version line are now moved by `scripts/bump_core_pin.py`, an exact string replacement,
     instead of `sed`; both tags, and the pinned `CORE_REF`, must be `vMAJOR.MINOR.PATCH`. A manual probe run
     (`probe=true`) now runs no project code at all.
@@ -89,7 +90,7 @@ once, merge one before rebasing the next.
   ([its pull request 57](https://github.com/saulpatinojr/HCW-MigrateOrchestrator_AddOn/pull/57#discussion_r4430793870));
   pull request 43 here merged before they were fixed.
   - Main only. A person with write access could start the workflow by hand on another branch
-    (`gh workflow run core-update.yml --ref` with any branch name other
+    (a manual run of `core-update.yml` with `--ref` set to any branch other
     than `main`), and the `pull-request` job would then run that branch's
     `scripts/bump_core_pin.py` before minting the App token. Now the first step of each job stops the run with an error
     that names the branch unless it was started on `refs/heads/main`, the `pull-request` job's `if:` also requires
