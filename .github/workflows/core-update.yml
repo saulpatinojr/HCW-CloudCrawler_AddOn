@@ -38,9 +38,10 @@
 # (docs/whats-new-upstream.md).
 #
 # Main only. The pull-request job runs this checkout's scripts/bump_core_pin.py before it mints the App token, so the
-# checkout must be main. A manual run started on any branch other than main is refused by the
-# first step of each job with an error naming the branch, and the pull-request job's `if:` skips it as well; both
-# checkouts take the exact commit the run was started for (github.sha), so the two jobs read the same main.
+# checkout must be main. A manual run started on any branch other than main fails at the bump job's first step with an
+# error naming the branch, and the pull-request job's `if:` then skips that job. The pull-request job's own first step
+# makes the same check, as a backstop in case that `if:` is ever loosened. On main, both checkouts take the exact
+# commit the run was started for (github.sha), so the two jobs read the same main.
 #
 # Start a manual run from main with this complete line (the probe line below adds `-f probe=true`):
 #   gh workflow run core-update.yml --ref main
