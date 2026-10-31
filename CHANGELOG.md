@@ -101,10 +101,10 @@ once, merge one before rebasing the next.
     `success`. Auto-merge now needs the repository variable `CORE_AUTOMERGE` to be `true`, a run that is not a probe,
     and the `pull-request` job's own byte-for-byte check; it never reads the outcome. GitHub merges only after the
     "Protect main" ruleset's required checks (`lint`, `test`, `image`, `pip-audit`, `secret-scan`,
-    `dependency-review`) pass on the bump pull request itself. The outcome still picks the label, the title and the body
-    text, so when `CORE_AUTOMERGE` is `true` a `needs-adaptation` bump also has auto-merge turned on and merges once its
-    checks pass (normally after someone fixes it on its branch); select **Disable auto-merge** on the pull request to
-    hold one.
+    `dependency-review`) pass on the bump pull request itself. The outcome still picks the label, the title, the body
+    text and the not-compatible warning, so when `CORE_AUTOMERGE` is `true` a `needs-adaptation` bump also has
+    auto-merge turned on and merges once its checks pass (normally after someone fixes it on its branch); select
+    **Disable auto-merge** on the pull request to hold one.
   - `tests/security/test_core_update_app_token.py` checks both guards. `VALIDATION.md` and the workflow's own comments
     now say the same: only a bump whose required checks pass merges, and the outcome picks only the label, the title,
     the body text and the not-compatible warning. Not run on GitHub yet; see `VALIDATION.md`.
