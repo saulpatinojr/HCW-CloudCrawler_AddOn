@@ -178,6 +178,31 @@ digest, but not which Python that digest carries
 | The full lab image build (`docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab -t addon:ci .`) | **no** | this session's outbound proxy is not trusted inside a build container, and it refuses plain-HTTP requests, which the runtime stage's `apt-get update` uses (405 from the proxy). The `addon:ci` image above is the Dockerfile's `build` stage (`--target build`), built from a scratch copy of the Dockerfile that only adds the proxy's certificate to that stage. Both stages start from the same pinned digest and Python lives in `/usr/local` from that base, not from apt, so the version it reports is the one the full image runs; the full build and the step itself are proved by CI on the pull request |
 | CI on the pull request, CodeQL, CodeRabbit | **no** | run on the pull request |
 
+## Run 2026-10-31 (`core-update.yml` split into a bump job and a pull-request job)
+
+Linux cloud session, uv 0.11.32, Python 3.14.6 from `uv sync --all-packages`. The change splits `core-update.yml` so the
+engine's code never runs in the job that holds the HCW Main Admin App key, adds `scripts/bump_core_pin.py` (moves the pin
+and the `CORE_METADATA` line; checks the regenerated lock) and `tests/unit/test_bump_core_pin.py`, and rewrites
+`tests/security/test_core_update_app_token.py` and `tests/security/test_core_update_tag_shape.py` for two jobs. It is a
+port of the split merged in the Cloud Assessor add-on
+([pull request 67](https://github.com/saulpatinojr/HCW-CloudAssessor_AddOn/pull/67)) and the Network Eyes add-on
+([pull request 66](https://github.com/saulpatinojr/HCW-NetworkEyes_AddOn/pull/66)), adapted to what this repository bumps
+(two lines of `pyproject.toml` and `uv.lock`; nothing here is generated from the engine, so no file is taken from the
+artifact at all).
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| `uv sync --all-packages`, `uv run ruff check .`, `uv run ruff format --check .`, `uv lock --check` | yes | clean (77 files); lock current |
+| `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 646 passed (541 on `main` before the change), coverage 97.59% |
+| The pull-request job's apply step, taken from the workflow and run with bash against artifacts the bump job's own steps produced (stand-in `uv`, no network) | yes, in the tests | a matching artifact is taken (`outcome=success`, only `pyproject.toml` and `uv.lock` modified); 17 tampered artifacts are refused with the checkout unchanged and nothing written to `GITHUB_OUTPUT` (an extra line or another dependency in `pyproject.toml`, a changed `uv.lock` or wheel hash, a missing file, an extra file, a generated docs file, an empty folder, a link, seven bad outcome files, no artifact); a lock that moves another package, loses the wheel's sha256 or gains a dependency is refused by `check-lock` even when both jobs wrote the same lock; malformed tags, a bump from another pin and an artifact for another release are refused |
+| The whole flow with the real uv 0.11.32 and the real `v0.1.0` wheel downloaded from GitHub | yes, in a scratch copy | a scratch "main" pinned to a pretend `v0.0.9`; the bump job's refs, bump, compatibility and collect steps and the pull-request job's expect and apply steps, as written, with a stand-in `gh` answering `v0.1.0`. The apply step regenerated both files, `check-lock` printed `only cloud-crawler-core moved ... with sha256:25a7abfc...7be3` (the hash recorded for `v0.1.0` in "Current upstream state"), the artifact matched byte for byte and the step exited 0. (The compatibility step reported two ruff findings in the new script at that moment; they were fixed before commit.) |
+| Mutation check: 21 deliberate breakages of the workflow, one at a time | yes | every one makes the tests fail, for example `uv run pytest` added to the pull-request job, `uv lock` without `--no-build` in either job, either `cmp` removed, `check-lock` removed, no reset on a refusal, any outcome accepted, the file-set or link check removed, `uv.lock` copied from the artifact, the token not gated on the apply step, auto-merge without `CORE_AUTOMERGE` or on the untrusted outcome alone, a token or the App key given to a bump-job step, the tags taken from the bump job, the `CORE_REF` shape check removed, an unhashed uv install, the compatibility step running on a probe, `sed` back in the bump step. The 11 that touch the apply step's behaviour are also caught by the apply-step tests on their own |
+| The uv hash in the pull-request job | yes | `pip download --require-hashes --no-deps` of `uv==0.11.32` on this Linux x86_64 machine picks `uv-0.11.32-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl`, whose sha256 is the pinned `3da76cd4...a6c4`, as PyPI's JSON also lists |
+| The workflow parses as YAML, and every `run:` block passes `bash -n` | yes | both jobs present, `pull-request` needs `bump` |
+| actionlint and zizmor | **no** | running actionlint was refused by this session's safety check, so it was not run; zizmor was not tried for the same reason. shellcheck is not installed |
+| A real run on GitHub (a bump pull request opened by the two-job layout) | **no** | no engine release newer than `v0.1.0` exists, so the scheduled run reports "already at v0.1.0" and stops. The artifact upload and download between jobs, the hashed uv install on the runner and the App token in the second job have not run on GitHub. A probe run (`gh workflow run core-update.yml -R saulpatinojr/HCW-CloudCrawler_AddOn --ref main -f probe=true`) proves the token step after merge |
+| CI on the pull request, CodeQL, CodeRabbit | **no** | run on the pull request |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
@@ -194,7 +219,9 @@ digest, but not which Python that digest carries
 - When a newer release exists, `core-update.yml` opens the pull request with a GitHub App token (the HCW Main Admin App: its client ID is the repository variable
   `HCW_MAIN_ADMIN_CLIENT_ID`, its private key the repository secret `HCW_MAIN_ADMIN_PRIVATE_KEY`), not `GITHUB_TOKEN`, so the required checks run on the pull request itself. That path is
   covered by `tests/security/test_core_update_app_token.py` (static) and was linted with actionlint and zizmor; it has not
-  yet opened a real bump pull request here. To prove the credential without a release to adopt:
+  yet opened a real bump pull request here. Since 2026-10-31 the workflow has two jobs and the key is only in the second,
+  which runs no project or engine code (run of 2026-10-31 above); that layout has not run on GitHub yet, and actionlint
+  was not run on it. To prove the credential without a release to adopt:
   `gh workflow run core-update.yml -R saulpatinojr/HCW-CloudCrawler_AddOn --ref main -f probe=true`.
   The App key lives only as the repository secret `HCW_MAIN_ADMIN_PRIVATE_KEY` and is never printed. To rotate it,
   generate a new private key on the settings page of the App (https://github.com/settings/apps), replace the secret in every repository that holds the key (this one:

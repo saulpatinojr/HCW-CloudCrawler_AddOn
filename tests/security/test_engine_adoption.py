@@ -136,22 +136,25 @@ def test_static_metadata_carries_the_marker_core_update_moves():
     assert found == [_pin()["ver"]], "exactly one `version = ...  # CORE_METADATA` line, equal to the pinned version"
 
 
-def _bump_step(workflow):
-    """The step of core-update.yml that rewrites the pin and re-locks: from its name to the next step."""
-    start = workflow.index("name: Bump CORE_REF and re-lock")
+def _step(workflow, header):
+    """The step of core-update.yml whose header holds `header`: from that line to the next step."""
+    start = workflow.index(header)
     following = re.search(r"(?m)^      - ", workflow[start:])
     return workflow[start : start + following.start()] if following else workflow[start:]
 
 
-def test_core_update_moves_the_static_metadata_before_it_locks():
-    """Inside the bump step only: the file's header comment also says CORE_METADATA, so a search of the whole file
-    would pass even if the `sed` and its `grep` were deleted or moved after `uv lock`."""
-    step = _bump_step((ROOT / ".github" / "workflows" / "core-update.yml").read_text(encoding="utf-8"))
-    moved = re.search(r'(?m)^\s*sed -i -E ".*CORE_METADATA.*" pyproject\.toml\s*$', step)
-    checked = re.search(r'(?m)^\s*grep -qE ".*CORE_METADATA.*" pyproject\.toml\s*$', step)
-    locked = step.find("uv lock --upgrade-package cloud-crawler-core")
-    assert moved and checked and locked >= 0, "the bump step must sed the CORE_METADATA version, grep it, then lock"
-    assert moved.start() < checked.start() < locked, "the version must be changed and checked before `uv lock` runs"
+@pytest.mark.parametrize("header", ["name: Bump CORE_REF and re-lock", "id: apply"])
+def test_core_update_moves_the_static_metadata_before_it_locks(header):
+    """Inside the bump job's bump step and the pull-request job's apply step: the file's header comment also says
+    CORE_METADATA, so a search of the whole file would pass even if the move were deleted or moved after `uv lock`.
+    scripts/bump_core_pin.py moves the CORE_REF and CORE_METADATA lines together (tests/unit/test_bump_core_pin.py)."""
+    step = _step((ROOT / ".github" / "workflows" / "core-update.yml").read_text(encoding="utf-8"), header)
+    move = r'(?m)^\s*python (?:-I )?scripts/bump_core_pin\.py bump --from "\$CURRENT" --tag "\$LATEST"'
+    moved = re.search(move, step)
+    locked = step.find("uv lock --no-build --upgrade-package cloud-crawler-core")
+    assert moved and locked >= 0, "the step must move the pin and the CORE_METADATA version, then lock"
+    assert moved.start() < locked, "the version must be changed before `uv lock` runs"
+    assert not re.search(r"(?m)^\s*sed\s", step), "the pin is moved by an exact replacement, never a sed script"
 
 
 def test_lock_manifest_records_the_same_static_metadata():

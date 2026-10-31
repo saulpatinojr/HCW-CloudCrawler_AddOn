@@ -12,25 +12,48 @@
 # wheel's own: tests/security/test_engine_adoption.py compares it with the installed wheel, so a release that changes
 # the engine's dependencies makes the compatibility check below fail and the pull request carries needs-adaptation;
 # someone then copies the new list in by hand (runbook, "Keeping Dependabot's Python updates working").
+# Both lines are moved by scripts/bump_core_pin.py, an exact string replacement built from the two tags (no sed), and
+# both tags are refused unless they are v<major>.<minor>.<patch> before anything else uses them.
+#
+# Two jobs, so the upstream engine's code never shares a runner with the App's key. Code that runs in a step can reach
+# the later steps of the same job (it can append to $GITHUB_ENV, rewrite the checkout, or rewrite a downloaded action),
+# so the key must never be in a job that ran upstream code:
+#   bump          No secret; GITHUB_TOKEN may only read, and only the refs step (which runs no project code) gets it.
+#                 It moves the pin, re-locks and runs this edition's lint and tests against the new engine (the
+#                 compatibility check). It uploads one artifact: pyproject.toml, uv.lock and `outcome`.
+#   pull-request  A fresh runner that runs no project or engine code: no tests, no install of the project, no build.
+#                 It works out both tags again itself, regenerates pyproject.toml and uv.lock from its own clean
+#                 checkout with this checkout's scripts/bump_core_pin.py and `uv lock --no-build` (uv installed by
+#                 version and sha256; resolving the wheel reads its metadata and never imports it), checks that the new
+#                 lock differs from the old one only in the engine (bump_core_pin.py check-lock), and refuses the
+#                 artifact unless its two files are byte-identical to the regenerated ones and `outcome` is exactly
+#                 `success` or `failure`. On a refusal it resets the checkout and stops. No file is taken from the
+#                 artifact: nothing in this bump needs the engine to generate. Only then does it mint the App token.
+# The outcome comes from the job that ran upstream code, so it is untrusted: it picks the label and the title, and it is
+# never enough on its own to merge. Auto-merge is asked for only when this job's own checks passed, the outcome says
+# success and the repository variable CORE_AUTOMERGE is `true`; GitHub then merges only after the repository's required
+# checks pass on the pull request. Those checks run the same upstream code, so turning CORE_AUTOMERGE on means trusting
+# the App's releases (docs/whats-new-upstream.md).
 #
 # The pull request is opened with a short-lived GitHub App token (actions/create-github-app-token), not with
 # GITHUB_TOKEN. A pull request opened with GITHUB_TOKEN starts no workflow, so the required checks of the
 # "Protect main" ruleset never ran on it and it could never merge. One opened with the App token does start
 # them, so this edition's own CI (ci, security) also runs on the bump pull request; the compatibility check
-# below still runs first, in this run, and decides the compatible / needs-adaptation label and whether
+# in the bump job still runs first and decides the compatible / needs-adaptation label and whether
 # auto-merge is asked for.
 # The credential is the HCW Main Admin App (a GitHub App owned by the repository owner, installed on this
 # repository). Its client ID is the repository variable HCW_MAIN_ADMIN_CLIENT_ID (not a secret) and its private
 # key is the repository secret HCW_MAIN_ADMIN_PRIVATE_KEY. The key lives only as that secret and is never printed.
 # To rotate it: generate a new key on the App's settings page (https://github.com/settings/apps), replace the
 # secret in every repository that holds the key (the App is installed on the four add-on
-# repositories), then delete the old key there. Only the token step is given the key. That step comes late (after uv and
-# the tests have run), mints a token for this repository only with Contents and Pull requests write, and the
-# action revokes the token when the job ends.
-# GITHUB_TOKEN is read-only here.
-# A manual run with probe=true mints the token and makes two read-only API calls (the repository, and the list of
-# repositories the token covers, which must be this one only) and nothing else that writes,
-# to prove the credential on a day when there is no release to adopt:
+# repositories), then delete the old key there. Only the token step of the pull-request job is given the key. It mints
+# a token for this repository only with Contents and Pull requests write, and the action revokes the token when the job
+# ends. The App token has no `workflows` permission, so a bump pull request can never change a file under
+# .github/workflows.
+# GITHUB_TOKEN is read-only in both jobs.
+# A manual run with probe=true runs no project code: the pull-request job mints the token and makes two read-only API
+# calls (the repository, and the list of repositories the token covers, which must be this one only) and nothing else
+# that writes, to prove the credential on a day when there is no release to adopt:
 #   gh workflow run core-update.yml --ref main -f probe=true
 name: core-update
 on:
@@ -48,15 +71,16 @@ permissions: {}
 env:
   UPSTREAM: saulpatinojr/HCW-CloudCrawler_App
 jobs:
-  check-and-bump:
+  # Job 1 of 2. Runs this repository's code and the new engine's code (uv sync, ruff, pytest), so it gets no secret at
+  # all. What it produces leaves as an artifact.
+  bump:
     runs-on: ubuntu-26.04
-    # GITHUB_TOKEN may only read here (checkout, and the public releases API of the upstream repository).
-    # Everything that writes uses the App token.
     permissions:
       contents: read
+    outputs:
+      changed: ${{ steps.refs.outputs.changed }}
     steps:
-      # persist-credentials: false — create-pull-request sets its own Authorization header for the push; with the
-      # checkout's persisted header beside it, git sends two and GitHub answers 400.
+      # persist-credentials: false: no token is left in the git config for the project code below.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { persist-credentials: false }
       - id: refs
@@ -73,33 +97,29 @@ jobs:
           latest="${REQUESTED:-$(gh api "repos/${UPSTREAM}/releases/latest" --jq .tag_name 2>/dev/null || true)}"
           if [ -z "$latest" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "::notice::upstream has no release yet"; exit 0; fi
           case "$latest" in *$'\n'*|*$'\r'*) echo "::error::the upstream tag is not a single line"; exit 1;; esac
-          # The tag is pasted into sed and into GITHUB_OUTPUT below, so refuse anything that is not a plain release tag,
-          # vMAJOR.MINOR.PATCH, the only form the upstream release workflow publishes: a tag such as `v9|;e…` would
-          # otherwise run a shell command through sed's `e`, in the job that later holds the App token, and a `+` would
-          # be read as a regex operator by the next run's sed. tests/security pin this guard.
+          # The tag goes into GITHUB_OUTPUT, a URL and the bump script's arguments, so refuse anything that is not a plain
+          # release tag, vMAJOR.MINOR.PATCH, the only form the upstream release workflow publishes: a line break would add
+          # an output line, and other characters could reach a shell or a file name. tests/security pin this guard.
           [[ "$latest" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected upstream tag: not vMAJOR.MINOR.PATCH"; exit 1; }
+          [[ "$current" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected CORE_REF in pyproject.toml: not vMAJOR.MINOR.PATCH"; exit 1; }
           echo "latest=$latest" >> "$GITHUB_OUTPUT"; echo "current=$current" >> "$GITHUB_OUTPUT"
           if [ "$latest" = "$current" ]; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "already at $current"; else echo "changed=true" >> "$GITHUB_OUTPUT"; echo "$current -> $latest"; fi
-      - if: steps.refs.outputs.changed == 'true'
+      # From here on the job runs project and upstream code; no step below is given a token.
+      - if: steps.refs.outputs.changed == 'true' && !inputs.probe
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with: { python-version: "3.14" }
-      - if: steps.refs.outputs.changed == 'true'
+      - if: steps.refs.outputs.changed == 'true' && !inputs.probe
         run: python -m pip install "uv==0.11.32"
-      - if: steps.refs.outputs.changed == 'true'
+      - if: steps.refs.outputs.changed == 'true' && !inputs.probe
         name: Bump CORE_REF and re-lock
         env: { LATEST: "${{ steps.refs.outputs.latest }}", CURRENT: "${{ steps.refs.outputs.current }}" }
         run: |
           set -euo pipefail
-          # One line carries the release tag, the wheel file name (version without the v) and the CORE_REF marker; all move together.
-          cur_ver="${CURRENT#v}"; new_ver="${LATEST#v}"
-          sed -i -E "s|releases/download/${CURRENT}/cloud_crawler_core-${cur_ver}-py3-none-any\.whl(\",?[[:space:]]*#[[:space:]]*CORE_REF[[:space:]]+)${CURRENT}|releases/download/${LATEST}/cloud_crawler_core-${new_ver}-py3-none-any.whl\1${LATEST}|" pyproject.toml
-          grep -q "CORE_REF ${LATEST}" pyproject.toml
-          # The static metadata's version moves with the pin, or uv would not use it for the new wheel.
-          sed -i -E "s|^(version = \")[^\"]*(\"[[:space:]]*#[[:space:]]*CORE_METADATA[[:space:]]*)$|\1${new_ver}\2|" pyproject.toml
-          grep -qE "^version = \"${new_ver}\"[[:space:]]*#[[:space:]]*CORE_METADATA" pyproject.toml
-          uv lock --upgrade-package cloud-crawler-core
+          # The pin line and the CORE_METADATA version line move together, by exact replacement (no sed script).
+          python scripts/bump_core_pin.py bump --from "$CURRENT" --tag "$LATEST"
+          uv lock --no-build --upgrade-package cloud-crawler-core
           git --no-pager diff --stat
-      - if: steps.refs.outputs.changed == 'true'
+      - if: steps.refs.outputs.changed == 'true' && !inputs.probe
         id: compat
         name: Compatibility check (lint, tests)
         continue-on-error: true
@@ -107,7 +127,103 @@ jobs:
           set -euo pipefail
           uv sync --frozen --all-packages
           uv run ruff check . && uv run pytest -q
-      - if: steps.refs.outputs.changed == 'true' || inputs.probe
+      - if: steps.refs.outputs.changed == 'true' && !inputs.probe
+        name: Collect the bump for the pull-request job
+        env: { COMPAT: "${{ steps.compat.outcome }}" }
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/bump"
+          rm -rf "$dir"; mkdir -p "$dir"
+          cp -- pyproject.toml uv.lock "$dir/"
+          printf '%s\n' "$COMPAT" > "$dir/outcome"
+          ls -A "$dir"
+      - if: steps.refs.outputs.changed == 'true' && !inputs.probe
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: core-bump
+          path: ${{ runner.temp }}/bump
+          if-no-files-found: error
+          retention-days: 1
+
+  # Job 2 of 2. A fresh runner with a clean checkout of the same commit. It runs none of the new engine's code and none
+  # of this repository's code except scripts/bump_core_pin.py (from this checkout) and `uv lock --no-build`.
+  pull-request:
+    needs: bump
+    if: needs.bump.outputs.changed == 'true' || inputs.probe
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+    steps:
+      # persist-credentials: false — create-pull-request sets its own Authorization header for the push; with the
+      # checkout's persisted header beside it, git sends two and GitHub answers 400.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { persist-credentials: false }
+      # The tags again, from this checkout and the upstream releases API, not from the bump job (which ran upstream
+      # code): the same reading and the same guard as the refs step.
+      - if: ${{ !inputs.probe }}
+        id: expect
+        name: Work out both tags again, independently of the bump job
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}", REQUESTED: "${{ inputs.ref }}" }
+        run: |
+          set -euo pipefail
+          current="$(grep -oE "#[[:space:]]*CORE_REF[[:space:]]+v[0-9][0-9A-Za-z.+-]*" pyproject.toml | head -1 | awk '{print $NF}' || true)"
+          latest="${REQUESTED:-$(gh api "repos/${UPSTREAM}/releases/latest" --jq .tag_name 2>/dev/null || true)}"
+          case "$latest" in *$'\n'*|*$'\r'*) echo "::error::the upstream tag is not a single line"; exit 1;; esac
+          [[ "$latest" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected upstream tag: not vMAJOR.MINOR.PATCH"; exit 1; }
+          [[ "$current" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::unexpected CORE_REF in pyproject.toml: not vMAJOR.MINOR.PATCH"; exit 1; }
+          [ "$latest" != "$current" ] || { echo "::error::nothing to adopt: already at ${current}"; exit 1; }
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"; echo "current=$current" >> "$GITHUB_OUTPUT"
+      - if: ${{ !inputs.probe }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: core-bump
+          path: ${{ runner.temp }}/bump
+      - if: ${{ !inputs.probe }}
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with: { python-version: "3.14" }
+      # The same uv as the bump job, verified by its sha256 (the manylinux x86_64 wheel of uv 0.11.32 on PyPI). When
+      # the uv version moves, this hash moves with it (tests/security/test_core_update_app_token.py checks the version).
+      - if: ${{ !inputs.probe }}
+        name: uv, hash-checked
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'uv==0.11.32 --hash=sha256:3da76cd4e2697de30928b8a8524bd39183ac1e08cb7e72833807c022b7cba6c4' > "${RUNNER_TEMP}/uv-requirements.txt"
+          python -m pip install --require-hashes --no-deps -r "${RUNNER_TEMP}/uv-requirements.txt"
+      - if: ${{ !inputs.probe }}
+        id: apply
+        name: Regenerate the bump here and refuse an artifact that differs
+        env: { LATEST: "${{ steps.expect.outputs.latest }}", CURRENT: "${{ steps.expect.outputs.current }}" }
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/bump"
+          refuse() { echo "::error::the bump artifact is refused: $1"; git reset -q --hard HEAD; git clean -qfd; exit 1; }
+          [[ "$LATEST" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || refuse "the upstream tag is not v<major>.<minor>.<patch>"
+          [[ "$CURRENT" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || refuse "the pinned CORE_REF is not v<major>.<minor>.<patch>"
+          [ -d "$dir" ] || refuse "the artifact is missing"
+          [ -z "$(find "$dir" -mindepth 1 ! -type f -print -quit)" ] || refuse "it holds a folder, a link or a special file"
+          [ "$(cd "$dir" && find . -type f -printf '%P\n' | LC_ALL=C sort | paste -sd, -)" = "outcome,pyproject.toml,uv.lock" ] \
+            || refuse "it must hold exactly outcome, pyproject.toml and uv.lock"
+          # The outcome file must be exactly one of two lines, byte for byte.
+          if cmp -s "$dir/outcome" <(printf 'success\n'); then outcome=success
+          elif cmp -s "$dir/outcome" <(printf 'failure\n'); then outcome=failure
+          else refuse "the outcome is neither success nor failure"; fi
+          # Regenerate with this checkout's own code. `uv lock --no-build` reads this project's static pyproject.toml and
+          # the engine's static metadata, downloads the wheel only to record its sha256, builds nothing and imports
+          # nothing, so no engine code runs.
+          git show HEAD:uv.lock > "${RUNNER_TEMP}/main-uv.lock"
+          python -I scripts/bump_core_pin.py bump --from "$CURRENT" --tag "$LATEST" || refuse "the bump does not apply to this checkout"
+          UV_PYTHON_DOWNLOADS=never uv lock --no-build --upgrade-package cloud-crawler-core || refuse "uv lock failed"
+          python -I scripts/bump_core_pin.py check-lock --old "${RUNNER_TEMP}/main-uv.lock" --new uv.lock --tag "$LATEST" \
+            || refuse "the regenerated uv.lock moves more than the engine"
+          # The bump job ran upstream code, so its copies are not used, only compared: a difference means they were changed.
+          cmp -s pyproject.toml "$dir/pyproject.toml" || refuse "pyproject.toml differs from the one regenerated here"
+          cmp -s uv.lock "$dir/uv.lock" || refuse "uv.lock differs from the one regenerated here"
+          [ "$(git status --porcelain | LC_ALL=C sort | paste -sd, -)" = " M pyproject.toml, M uv.lock" ] \
+            || refuse "the checkout changed beyond pyproject.toml and uv.lock"
+          git --no-pager diff --stat
+          # Untrusted (the bump job ran upstream code): used for the label and the title only.
+          echo "outcome=${outcome}" >> "$GITHUB_OUTPUT"
+      - if: inputs.probe || steps.apply.outcome == 'success'
         id: app-token
         name: GitHub App token (this repository only; Contents and Pull requests write)
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -130,31 +246,32 @@ jobs:
           covered="$(gh api installation/repositories --jq '[.repositories[].full_name] | join(",")')"
           echo "The token covers these repositories: ${covered}"
           test "${covered}" = "${REPO}" || { echo "::error::The token must cover ${REPO} and nothing else"; exit 1; }
-      - if: steps.refs.outputs.changed == 'true' && !inputs.probe
+      - if: steps.apply.outcome == 'success' && !inputs.probe
         id: pr
         name: Open the bump pull request (ready for review)
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ steps.app-token.outputs.token }}
-          branch: core-update/${{ steps.refs.outputs.latest }}
-          title: "core: adopt upstream ${{ steps.refs.outputs.latest }} (${{ steps.compat.outcome == 'success' && 'compatible' || 'needs adaptation' }})"
-          commit-message: "core: bump cloud-crawler-core ${{ steps.refs.outputs.current }} -> ${{ steps.refs.outputs.latest }}"
-          labels: core-update,${{ steps.compat.outcome == 'success' && 'compatible' || 'needs-adaptation' }}
+          branch: core-update/${{ steps.expect.outputs.latest }}
+          title: "core: adopt upstream ${{ steps.expect.outputs.latest }} (${{ steps.apply.outputs.outcome == 'success' && 'compatible' || 'needs adaptation' }})"
+          commit-message: "core: bump cloud-crawler-core ${{ steps.expect.outputs.current }} -> ${{ steps.expect.outputs.latest }}"
+          labels: core-update,${{ steps.apply.outputs.outcome == 'success' && 'compatible' || 'needs-adaptation' }}
           add-paths: |
             pyproject.toml
             uv.lock
           body: |
-            Upstream `saulpatinojr/HCW-CloudCrawler_App` released **${{ steps.refs.outputs.latest }}** (this edition pinned `${{ steps.refs.outputs.current }}`).
+            Upstream `saulpatinojr/HCW-CloudCrawler_App` released **${{ steps.expect.outputs.latest }}** (this edition pinned `${{ steps.expect.outputs.current }}`).
 
-            Compatibility check in this workflow run (lint, unit, contract, security): **${{ steps.compat.outcome }}**.
+            Compatibility check reported by this run's `bump` job (lint, unit, contract, security): **${{ steps.apply.outputs.outcome }}**. That job ran the new engine and holds no secret, so its report is a signal, not proof; this pull request's own checks are the gate.
+            This pull request was opened by the run's `pull-request` job, which ran no project code: it regenerated `pyproject.toml` and `uv.lock` itself, checked that only the engine's pin, its static-metadata version and its entry in `uv.lock` changed, and that the `bump` job's copies were identical.
             Logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-            - compatible: merge (automatic if the repository variable `CORE_AUTOMERGE` is `true`).
-            - needs adaptation: fix this edition on this branch, then merge.
+            - compatible: merge (automatic if the repository variable `CORE_AUTOMERGE` is `true`, after the required checks pass).
+            - needs adaptation: fix this edition on this branch, then merge. A difference in the engine itself is fixed upstream and arrives as the next release.
 
             ADR 0001 (the engine is adopted from the App unchanged).
-      - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome == 'success' && vars.CORE_AUTOMERGE == 'true' && steps.pr.outputs.pull-request-number != '' && !inputs.probe
-        name: Auto-merge the compatible bump
+      - if: steps.apply.outcome == 'success' && steps.apply.outputs.outcome == 'success' && vars.CORE_AUTOMERGE == 'true' && steps.pr.outputs.pull-request-number != '' && !inputs.probe
+        name: Auto-merge the compatible bump (after the required checks pass)
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
@@ -165,6 +282,6 @@ jobs:
             echo "::warning::Auto-merge was not turned on for pull request #${PR_NUMBER}; merge it by hand."
             echo "Auto-merge needs the repository setting Allow auto-merge to be on."
           fi
-      - if: steps.refs.outputs.changed == 'true' && steps.compat.outcome != 'success'
-        env: { LATEST: "${{ steps.refs.outputs.latest }}" }
+      - if: steps.apply.outcome == 'success' && steps.apply.outputs.outcome != 'success' && !inputs.probe
+        env: { LATEST: "${{ steps.expect.outputs.latest }}" }
         run: echo "::warning::Upstream ${LATEST} is not compatible with this edition; see the pull request."
