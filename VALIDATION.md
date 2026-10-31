@@ -203,6 +203,27 @@ artifact at all).
 | A real run on GitHub (a bump pull request opened by the two-job layout) | **no** | no engine release newer than `v0.1.0` exists, so the scheduled run reports "already at v0.1.0" and stops. The artifact upload and download between jobs, the hashed uv install on the runner and the App token in the second job have not run on GitHub. A probe run (`gh workflow run core-update.yml -R saulpatinojr/HCW-CloudCrawler_AddOn --ref main -f probe=true`) proves the token step after merge |
 | CI on the pull request, CodeQL, CodeRabbit | **no** | run on the pull request |
 
+## Run 2026-10-31 (`core-update.yml` runs from `main` only; auto-merge ignores the bump job's report)
+
+The first step of both jobs refuses a run whose `github.ref` is not `refs/heads/main`, the `pull-request` job's `if:`
+also requires it, both checkouts take `github.sha`, and `create-pull-request` gets `base: main`. The auto-merge step's
+condition is now the apply step's success, `CORE_AUTOMERGE == 'true'`, a pull request number and not a probe; it no
+longer reads the untrusted outcome.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| `uv sync --all-packages`, `uv run ruff check .`, `uv run ruff format --check .` | yes | clean |
+| `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 648 passed, coverage 97.59% |
+| `tests/security/test_core_update_app_token.py` | yes | 27 passed, with three new or rewritten tests: the refusal is the first step of each job, has no `if:`, reads the ref through `env` and names it in an `::error::`; the `bump` job has no job-level `if:` and the `pull-request` job's requires `main`; both checkouts use `github.sha` and the pull request step names `base: main`; the auto-merge condition holds the variable, the apply step and `!inputs.probe` and nothing that reads the outcome, and only the pull request step and a token-free warning read it |
+| Mutation check: six breakages, one at a time | yes | each made at least one test fail: either job's refusal step removed, the `main` condition removed from the job's `if:`, the refusal's `exit 1` replaced with `true`, `ref: github.sha` removed from a checkout, `steps.apply.outputs.outcome == 'success'` added back to the auto-merge condition; the workflow was restored byte for byte |
+| `actionlint` 1.7.12 on `core-update.yml` (shellcheck off, not installed) | yes | no findings apart from `ubuntu-26.04` being unknown to this actionlint version (both jobs, already so on `main`) |
+| Required checks on `main`, read-only (`gh api repos/saulpatinojr/HCW-CloudCrawler_AddOn/rules/branches/main`) | yes | the active "Protect main" ruleset (id 25825151) requires `lint`, `test`, `image`, `pip-audit`, `secret-scan`, `dependency-review`, which covers the bump job's compatibility check (lint and tests) |
+| The workflow on GitHub, including a refused run from a branch | no | not run; the value of `CORE_AUTOMERGE` could not be read from this session |
+
+Known limitation: a manual run takes the workflow file itself from the branch it was started on, so a branch that also
+edits `core-update.yml` can delete these guards. Closing that needs the App key moved to an environment whose
+deployment branches are `main` only (a settings change, not made here).
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
