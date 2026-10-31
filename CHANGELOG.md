@@ -50,6 +50,29 @@ once, merge one before rebasing the next.
   [pull request 19](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pull/19)); that job stays as the second line of defence.
 
 ### Changed
+- **The engine-update workflow now keeps the GitHub App key away from the engine's code.** `.github/workflows/core-update.yml`
+  checks for a newer engine release (`cloud-crawler-core`, from the App's GitHub Releases), moves the pin, tests this
+  edition against it and opens a pull request. Until now all of that ran in one job, so the new engine's code (run by the
+  tests) shared a runner with the step that later held the HCW Main Admin App token, and a compromised release could have
+  changed the files or taken the token. It is now two jobs, the same split the Cloud Assessor and Network Eyes add-ons
+  merged on 2026-10-31:
+  - `bump` has no secret and a read-only `GITHUB_TOKEN` (given only to the step that reads the releases list, before any
+    project code runs). It moves the pin, re-locks, runs lint and tests, and uploads `pyproject.toml`, `uv.lock` and the
+    test outcome as an artifact (a file handed from one job to the next).
+  - `pull-request` starts on a fresh runner and runs no project or engine code. It works out both tags again itself,
+    regenerates the two files from its own clean checkout with `scripts/bump_core_pin.py` and `uv lock --no-build` (uv
+    installed by version and sha256), checks that the new lock changes nothing but the engine, and refuses the artifact
+    unless its two files are byte-identical to the ones it made and the outcome is exactly `success` or `failure`. A
+    refusal resets the checkout and stops. Only then does it mint the App token (this repository only, Contents and Pull
+    requests write) and open the pull request. The outcome only chooses the label; auto-merge still also needs the
+    repository variable `CORE_AUTOMERGE` to be `true`, and GitHub's required checks on the pull request.
+  - The pin and the `CORE_METADATA` version line are now moved by `scripts/bump_core_pin.py`, an exact string replacement,
+    instead of `sed`; both tags, and the pinned `CORE_REF`, must be `vMAJOR.MINOR.PATCH`. A manual probe run
+    (`probe=true`) now runs no project code at all.
+  - Tests: `tests/security/test_core_update_app_token.py` checks the two-job layout (it used to require exactly one job)
+    and keeps every earlier guarantee; `tests/security/test_core_update_tag_shape.py` covers both jobs' tag checks;
+    `tests/unit/test_bump_core_pin.py` runs the pull-request job's real apply step against good and tampered artifacts.
+    The new layout has not run on GitHub yet (no newer engine release exists).
 - Documentation only: the website integration guide now says the website's row is `available` (website pull request
   [1413](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1413), for website issue 1357) and gives the `v0.2.0` digest, the loopback port 18084 and the
   settings the lab host sets. The catalogue-row copy in the guide equals the website's new row field by field: the summary no

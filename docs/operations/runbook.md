@@ -289,7 +289,10 @@ Things that look like fixes and are not:
 
 **What you do when the engine moves.** Normally nothing. When the App tags a new release, `core-update.yml` opens a pull
 request ([open ones](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pulls?q=is%3Apr+is%3Aopen+label%3Acore-update))
-and moves the pin and the entry's `version` line (the one that ends in `# CORE_METADATA`) together. The entry's
+and moves the pin and the entry's `version` line (the one that ends in `# CORE_METADATA`) together, with
+`scripts/bump_core_pin.py`. The run has two jobs: `bump` runs the tests against the new engine with no secret, and
+`pull-request` checks `bump`'s files against ones it makes itself before it uses the App key. If `pull-request` stops with
+"the bump artifact is refused", the two did not match: read that job's log and do not simply re-run it. The entry's
 `requires-dist` list (what the engine depends on) and its `provides-extra` list (the optional extras the engine offers, none
 today) are copies, so the test `test_static_metadata_matches_the_installed_wheel` compares them with the wheel that really
 got installed, extras and all (`pydantic[email]` is not `pydantic`: the image installs the lock without resolving anything,

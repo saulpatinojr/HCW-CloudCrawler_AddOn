@@ -19,7 +19,7 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 | Question | Answer | How it was checked |
 | --- | --- | --- |
 | Has the App published a release? | **Yes: `v0.1.0`** (2026-10-26). Three files: `cloud_crawler_core-0.1.0-py3-none-any.whl`, `cloud_crawler_core-0.1.0.tar.gz` and `cloud-crawler-core.cdx.json` (the software bill of materials). | `gh release view v0.1.0 --repo saulpatinojr/HCW-CloudCrawler_App`; App ticket [7](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/7) |
-| What does `core-update.yml` do today? | It reads the `# CORE_REF v0.1.0` line now in `pyproject.toml` and compares it with the App's latest release. At `v0.1.0` it reports "already at v0.1.0" and stops; when the App tags a newer release it opens the bump pull request, moving the pin and the version line of the engine's static metadata (marker `# CORE_METADATA`, see "First adoption", the paragraph after item 7) together. | `.github/workflows/core-update.yml`; the first adoption added the line by hand (see "First adoption", done) |
+| What does `core-update.yml` do today? | It reads the `# CORE_REF v0.1.0` line now in `pyproject.toml` and compares it with the App's latest release. At `v0.1.0` it reports "already at v0.1.0" and stops; when the App tags a newer release it opens the bump pull request, moving the pin and the version line of the engine's static metadata (marker `# CORE_METADATA`, see "First adoption", the paragraph after item 7) together. Since 2026-10-31 it does this in **two jobs**: `bump` runs the new engine through this edition's lint and tests with no secret; `pull-request` runs no project or engine code, regenerates `pyproject.toml` and `uv.lock` itself, refuses the first job's files unless they match exactly, and only then uses the App key (see the entry of 2026-10-31 below). | `.github/workflows/core-update.yml`; the first adoption added the line by hand (see "First adoption", done) |
 | Engine version in the App | `cloud-crawler-core` 0.1.0; the App edition is also 0.1.0 | Read from the release |
 | What this repository pins | **`cloud-crawler-core` 0.1.0**, by release-asset URL on one line of `pyproject.toml`, with the wheel's sha256 `25a7abfcec50b0f85cb427145a1fd7fb57898bd09cfc3483edad8a042e5e7be3` recorded in `uv.lock`. The sha256 was computed from a fresh download of the release asset and equals GitHub's own digest for it; the build provenance verifies with `gh attestation verify` (signer: the App's `publish-core.yml` at `refs/tags/v0.1.0`, commit `8142b69`). | `gh release download`, `sha256sum`, `gh attestation verify ... --repo saulpatinojr/HCW-CloudCrawler_App` on 2026-10-26 |
 | Does the engine's log-word list match the lab's? | **No, and it is not copied any more.** The old copy of the engine's redaction module had drifted: ten words that only the lab logs (`session_opened`, `session_closed`, the five `turnstile_*` outcomes, `unsupported_media_type`, `arg-json`, `arg-csv`) are not in the engine's list. `security/redaction.py` is now a thin module: the engine's `scrub`, `VisitorDataError` and guard, plus those ten words. | `tests/security/test_engine_adoption.py` |
@@ -27,6 +27,22 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 | Azure MCP Server | Pinned to 3.0.0 in the App (ADR 0001). **This repository never calls it.** | App ADR 0001 and 0003 |
 
 ## What changed
+
+### 2026-10-31: `core-update.yml` split into two jobs (this repository's change, not the App's)
+
+- Nothing changed upstream. This repository changed how it adopts the next upstream release: the job that runs the new
+  engine's code (the compatibility check) no longer holds the GitHub App key. The second job checks the first job's
+  `pyproject.toml` and `uv.lock` against ones it made itself, without running any engine code, and only then opens the
+  pull request. The same split was merged in the Cloud Assessor and Network Eyes add-ons on 2026-10-31.
+- What it means for the next release: the bump pull request looks the same (it changes `pyproject.toml` and `uv.lock`
+  only, labelled `compatible` or `needs-adaptation`). If the run goes red in the `pull-request` job with "the bump
+  artifact is refused", the two jobs disagreed; read that job's log before anything else, and do not re-run it
+  hoping for green. The pin and the `CORE_METADATA` line are now moved by `scripts/bump_core_pin.py` (an exact
+  replacement) instead of `sed`, so the two lines must keep exactly the shape shown in "First adoption", item 2, and the
+  metadata line `version = "<version>"  # CORE_METADATA` (two spaces before the `#`).
+- Not yet proven: the two-job layout has not run on GitHub, because no release newer than `v0.1.0` exists. Keep the
+  repository variable `CORE_AUTOMERGE` unset (or `false`) until it has opened one bump pull request that a person has
+  looked at.
 
 ### 2026-10-26: the App's first release, `v0.1.0`, adopted here
 
@@ -130,7 +146,7 @@ done, and where it differed from the plan this file used to carry:
 
 1. Confirmed the release exists and lists the three files. Downloaded them into a scratch folder, hashed them, and
    checked the wheel's build provenance with `gh attestation verify` (the bill of materials is attested against the wheel).
-2. In `pyproject.toml`, added to `dependencies`, on one line (the workflow's `sed` expects exactly this shape):
+2. In `pyproject.toml`, added to `dependencies`, on one line (`scripts/bump_core_pin.py`, which moves it, expects exactly this shape; until 2026-10-31 the workflow used `sed`):
    `"cloud-crawler-core @ https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.0/cloud_crawler_core-0.1.0-py3-none-any.whl",  # CORE_REF v0.1.0`
    **One more line was needed that the plan did not know about:** `[tool.hatch.metadata] allow-direct-references = true`.
    Without it the build tool (hatchling) refuses a dependency that is a URL, and `uv sync` fails. It only matters for
