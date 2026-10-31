@@ -64,8 +64,9 @@ once, merge one before rebasing the next.
     installed by version and sha256), checks that the new lock changes nothing but the engine, and refuses the artifact
     unless its two files are byte-identical to the ones it made and the outcome is exactly `success` or `failure`. A
     refusal resets the checkout and stops. Only then does it mint the App token (this repository only, Contents and Pull
-    requests write) and open the pull request. The outcome only chooses the label; auto-merge still also needs the
-    repository variable `CORE_AUTOMERGE` to be `true`, and GitHub's required checks on the pull request.
+    requests write) and open the pull request. The outcome only chooses the label; auto-merge needs the repository
+    variable `CORE_AUTOMERGE` to be `true` and waits for GitHub's required checks on the pull request (since the
+    main-only entry under Fixed, it no longer reads the outcome at all).
   - The pin and the `CORE_METADATA` version line are now moved by `scripts/bump_core_pin.py`, an exact string replacement,
     instead of `sed`; both tags, and the pinned `CORE_REF`, must be `vMAJOR.MINOR.PATCH`. A manual probe run
     (`probe=true`) now runs no project code at all.
@@ -88,7 +89,8 @@ once, merge one before rebasing the next.
   ([its pull request 57](https://github.com/saulpatinojr/HCW-MigrateOrchestrator_AddOn/pull/57#discussion_r4430793870));
   pull request 43 here merged before they were fixed.
   - Main only. A person with write access could start the workflow by hand on another branch
-    (`gh workflow run --ref <branch>`), and the `pull-request` job would then run that branch's
+    (`gh workflow run core-update.yml --ref` with any branch name other
+    than `main`), and the `pull-request` job would then run that branch's
     `scripts/bump_core_pin.py` before minting the App token. Now the first step of each job stops the run with an error
     that names the branch unless it was started on `refs/heads/main`, the `pull-request` job's `if:` also requires
     `main`, and both checkouts take the exact commit the run was started for (`github.sha`). `create-pull-request` is
@@ -102,7 +104,9 @@ once, merge one before rebasing the next.
     text, so when `CORE_AUTOMERGE` is `true` a `needs-adaptation` bump also has auto-merge turned on and merges once its
     checks pass (normally after someone fixes it on its branch); select **Disable auto-merge** on the pull request to
     hold one.
-  - `tests/security/test_core_update_app_token.py` checks both guards. Not run on GitHub yet; see `VALIDATION.md`.
+  - `tests/security/test_core_update_app_token.py` checks both guards. `VALIDATION.md` and the workflow's own comments
+    now say the same: only a bump whose required checks pass merges, and the outcome picks only the label, the title,
+    the body text and the not-compatible warning. Not run on GitHub yet; see `VALIDATION.md`.
 
 - `core-update.yml` now refuses an upstream release tag that is not a plain version (`vMAJOR.MINOR.PATCH`, the only form the upstream release workflow publishes) or that spans more than one line. The tag is pasted into a `sed` command and into the step outputs, and GNU `sed` runs a shell command for a crafted tag such as `v9|;e…`, in the job that later holds the App token. A test now runs the guard's own lines against good and hostile tags. Found by an independent review of the same workflow in the Cloud Assessor add-on.
 

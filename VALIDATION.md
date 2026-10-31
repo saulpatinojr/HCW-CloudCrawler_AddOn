@@ -265,8 +265,9 @@ deployment branches are `main` only (a settings change, not made here).
   same App, and that App is installed on all four add-on repositories. An environment limited to `main` would also stop the
   base-update proof, which needs a run from a branch.
   Auto-merge of a
-  compatible bump needs the repository setting "Allow auto-merge" and the variable `CORE_AUTOMERGE=true`; on 2026-10-26 (UTC) neither was set here. "Allow auto-merge" has since been turned on,
-  but `CORE_AUTOMERGE` is still not set, so a compatible bump waits for a person to merge it.
+  bump needs the repository setting "Allow auto-merge" and the variable `CORE_AUTOMERGE=true`; on 2026-10-26 (UTC) neither was set here. "Allow auto-merge" has since been turned on,
+  but `CORE_AUTOMERGE` is still not set, so a bump waits for a person to merge it. Since pull request 44, auto-merge
+  (once the variable is `true`) is turned on for every bump, `compatible` or not, and waits for the required checks.
 - Human verification is wired to the upload route and tested with a stand-in verifier; it has not been exercised against a
   real site key and secret (see the 2026-10-26 run).
 - The base-image digest is the website's current pin (moved on 2026-10-26; before that, the Cloud Assessor AddOn's pin of
