@@ -82,6 +82,22 @@ jobs:
           fi
           docker logs "$cid" 2>&1 | tail -n 20 || true; docker rm -f "$cid" >/dev/null
           test "$ok" = 1
+      # The lint job proves every FROM is BASE_IMAGE@BASE_DIGEST, but only the image itself can say which Python that
+      # digest carries. This asks the built image and compares the answer with BASE_PYTHON_VERSION, so a digest moved
+      # without its version (or the other way round) fails here. tests/security/test_ci_image_python_version.py runs it.
+      - name: The image runs the Python that versions.env names (BASE_PYTHON_VERSION)
+        run: |
+          set -euo pipefail
+          want="$(sed -n 's/^BASE_PYTHON_VERSION=//p' infrastructure/docker/versions.env | tr -d '\r')"
+          if ! [[ "$want" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error file=infrastructure/docker/versions.env::BASE_PYTHON_VERSION must appear once as major.minor.patch; it reads '${want}'"; exit 1
+          fi
+          have="$(docker run --rm --entrypoint python addon:ci --version 2>&1)" || { echo "::error::could not run python --version in the built image: ${have}"; exit 1; }
+          have="${have#Python }"
+          if [ "$have" != "$want" ]; then
+            echo "::error file=infrastructure/docker/versions.env::the built image runs Python ${have}, but BASE_PYTHON_VERSION in versions.env is ${want}; BASE_DIGEST and BASE_PYTHON_VERSION must name the same Python"; exit 1
+          fi
+          echo "the built image runs Python ${have}, the version BASE_PYTHON_VERSION names"
       - name: The image states its open-source licence (org.opencontainers.image.licenses is the SPDX id of LICENSE)
         run: |
           set -euo pipefail
