@@ -148,9 +148,10 @@ def test_the_step_fails_when_the_image_cannot_be_run(tmp_path):
         "BASE_IMAGE=python:3.14.8-slim-trixie\n",
         "BASE_PYTHON_VERSION=3.14\n",
         "BASE_PYTHON_VERSION=3.14.8\nBASE_PYTHON_VERSION=3.14.9\n",
+        "BASE_PYTHON_VERSION=3.14.8\nBASE_PYTHON_VERSION=\n",
         "BASE_PYTHON_VERSION=$(id)\n",
     ],
-    ids=["missing", "not-major-minor-patch", "twice", "not-a-version"],
+    ids=["missing", "not-major-minor-patch", "twice", "twice-second-empty", "not-a-version"],
 )
 def test_the_step_fails_on_a_versions_env_without_one_clean_version(tmp_path, env_text):
     code, log = _run(tmp_path, OWN_VERSION, versions_env=env_text)

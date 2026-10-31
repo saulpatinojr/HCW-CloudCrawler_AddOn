@@ -88,8 +88,9 @@ jobs:
       - name: The image runs the Python that versions.env names (BASE_PYTHON_VERSION)
         run: |
           set -euo pipefail
+          lines="$(grep -c '^BASE_PYTHON_VERSION=' infrastructure/docker/versions.env || true)"
           want="$(sed -n 's/^BASE_PYTHON_VERSION=//p' infrastructure/docker/versions.env | tr -d '\r')"
-          if ! [[ "$want" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [ "$lines" != 1 ] || ! [[ "$want" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error file=infrastructure/docker/versions.env::BASE_PYTHON_VERSION must appear once as major.minor.patch; it reads '${want}'"; exit 1
           fi
           have="$(docker run --rm --entrypoint python addon:ci --version 2>&1)" || { echo "::error::could not run python --version in the built image: ${have}"; exit 1; }
