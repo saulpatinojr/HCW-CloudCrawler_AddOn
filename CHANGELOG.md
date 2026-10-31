@@ -61,7 +61,7 @@ once, merge one before rebasing the next.
 
 ### Fixed
 
-- `core-update.yml` now refuses an upstream release tag that is not a plain version (`vMAJOR.MINOR.PATCH`, optionally `-pre` or `+build`) or that spans more than one line. The tag is pasted into a `sed` command and into the step outputs, and GNU `sed` runs a shell command for a crafted tag such as `v9|;e…`, in the job that later holds the App token. Found by an independent review of the same workflow in the Cloud Assessor add-on.
+- `core-update.yml` now refuses an upstream release tag that is not a plain version (`vMAJOR.MINOR.PATCH`, the only form the upstream release workflow publishes) or that spans more than one line. The tag is pasted into a `sed` command and into the step outputs, and GNU `sed` runs a shell command for a crafted tag such as `v9|;e…`, in the job that later holds the App token. A test now runs the guard's own lines against good and hostile tags. Found by an independent review of the same workflow in the Cloud Assessor add-on.
 
 - Dependabot's Python (`uv`) update job should work again (issue [33](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/33);
   not yet proved live, see the end of this entry). Since the engine was pinned by the address of its release file
