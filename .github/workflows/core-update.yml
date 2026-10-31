@@ -29,23 +29,29 @@
 #                 artifact unless its two files are byte-identical to the regenerated ones and `outcome` is exactly
 #                 `success` or `failure`. On a refusal it resets the checkout and stops. No file is taken from the
 #                 artifact: nothing in this bump needs the engine to generate. Only then does it mint the App token.
-# The outcome comes from the job that ran upstream code, so it is untrusted: it picks the label, the title and the body
-# text, and nothing else. Auto-merge never reads it: it is turned on when the repository variable CORE_AUTOMERGE is
-# `true` and this job's own byte-for-byte check passed, and GitHub then merges only after the "Protect main" ruleset's
+# The outcome comes from the job that ran upstream code, so it is untrusted: it picks the label, the title, the body
+# text and the not-compatible warning, and nothing else. Auto-merge never reads it: it is turned on when the
+# repository variable CORE_AUTOMERGE is `true` and this job's own byte-for-byte check passed, and GitHub then merges
+# only after the "Protect main" ruleset's
 # required checks pass on the pull request itself (a fresh run on its own head). Those checks are the trusted signal.
 # They run the same upstream code, so turning CORE_AUTOMERGE on means trusting the App's releases
 # (docs/whats-new-upstream.md).
 #
 # Main only. The pull-request job runs this checkout's scripts/bump_core_pin.py before it mints the App token, so the
-# checkout must be main. A manual run started on any other branch (gh workflow run --ref <branch>) is refused by the
-# first step of each job with an error naming the branch, and the pull-request job's `if:` skips it as well; both
-# checkouts take the exact commit the run was started for (github.sha), so the two jobs read the same main.
+# checkout must be main. A manual run started on any branch other than main fails at the bump job's first step with an
+# error naming the branch, and the pull-request job's `if:` then skips that job. The pull-request job's own first step
+# makes the same check, as a backstop in case that `if:` is ever loosened. On main, both checkouts take the exact
+# commit the run was started for (github.sha), so the two jobs read the same main.
+#
+# Start a manual run from main with this complete line (the probe line below adds `-f probe=true`):
+#   gh workflow run core-update.yml --ref main
 #
 # The pull request is opened with a short-lived GitHub App token (actions/create-github-app-token), not with
 # GITHUB_TOKEN. A pull request opened with GITHUB_TOKEN starts no workflow, so the required checks of the
 # "Protect main" ruleset never ran on it and it could never merge. One opened with the App token does start
 # them, so this edition's own CI (ci, security) also runs on the bump pull request; the compatibility check
-# in the bump job still runs first and picks the compatible / needs-adaptation label (only the label).
+# in the bump job still runs first and picks the compatible / needs-adaptation label and
+# the pull request's wording, never the merge.
 # The credential is the HCW Main Admin App (a GitHub App owned by the repository owner, installed on this
 # repository). Its client ID is the repository variable HCW_MAIN_ADMIN_CLIENT_ID (not a secret) and its private
 # key is the repository secret HCW_MAIN_ADMIN_PRIVATE_KEY. The key lives only as that secret and is never printed.
@@ -244,7 +250,8 @@ jobs:
           [ "$(git status --porcelain | LC_ALL=C sort | paste -sd, -)" = " M pyproject.toml, M uv.lock" ] \
             || refuse "the checkout changed beyond pyproject.toml and uv.lock"
           git --no-pager diff --stat
-          # Untrusted (the bump job ran upstream code): used for the label and the title only.
+          # Untrusted (the bump job ran upstream code): used for the label, the title, the body text and the
+          # not-compatible warning only.
           echo "outcome=${outcome}" >> "$GITHUB_OUTPUT"
       - if: inputs.probe || steps.apply.outcome == 'success'
         id: app-token
