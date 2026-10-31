@@ -264,18 +264,58 @@ def test_the_tags_are_worked_out_again_in_the_pull_request_job():
     assert "needs.bump.outputs" not in "".join(PR[PR.index(expect) :]), "later steps must not read the bump job's tags"
 
 
-def test_the_untrusted_outcome_alone_never_turns_on_auto_merge():
+def test_auto_merge_never_reads_the_untrusted_outcome():
     merge = [s for s in STEPS if re.search(r"\bgh pr merge\b", s)]
     assert len(merge) == 1
     condition = _field(merge[0], "if")
+    # The outcome comes from the job that ran upstream code, so it must not decide the merge. What does: the repository
+    # variable, this job's own byte-for-byte check, and GitHub's required checks on the pull request.
     for part in (
         "steps.apply.outcome == 'success'",
-        "steps.apply.outputs.outcome == 'success'",
         "vars.CORE_AUTOMERGE == 'true'",
+        "steps.pr.outputs.pull-request-number != ''",
         "!inputs.probe",
     ):
         assert part in condition, part
-    assert "--auto" in merge[0], "auto-merge waits for the required checks; never merge directly"
+    assert not re.search(r"outputs\.outcome|bump/outcome", merge[0]), "the auto-merge step must not read the outcome"
+    assert 'gh pr merge --squash --auto "$PR_NUMBER"' in merge[0], "auto-merge waits for the required checks"
+    assert "--admin" not in merge[0]
+    # The outcome reaches only the pull request's text (title, labels, body) and a warning that holds no token.
+    readers = [s for s in PR if "steps.apply.outputs.outcome" in s]
+    pr = _only(PR, "peter-evans/create-pull-request")
+    assert len(readers) == 2 and pr in readers
+    warning = next(s for s in readers if s is not pr)
+    assert not re.search(r"GH_TOKEN|secrets\.|app-token|\bgh\b", warning), "the warning step must hold no token"
+
+
+REFUSE_NAME = "name: Refuse a run that is not on main"
+
+
+def test_both_jobs_refuse_a_run_that_is_not_on_main_first_and_visibly():
+    for name, steps in (("bump", BUMP), ("pull-request", PR)):
+        first = steps[0]
+        assert first.startswith(REFUSE_NAME), f"{name}: the first step must be the main-only refusal"
+        assert not _field(first, "if"), f"{name}: the refusal must always run"
+        assert re.search(r'(?m)^ {8}env: \{ RUN_REF: "\$\{\{ github\.ref \}\}" \}$', first), name
+        block = first.split("run: |\n", 1)[1]
+        assert 'if [ "$RUN_REF" != "refs/heads/main" ]; then' in block
+        assert re.search(r'echo "::error::[^"]*\$\{RUN_REF\}[^"]*"', block), f"{name}: the error must name the ref"
+        assert re.search(r"(?m)^\s*exit 1$", block)
+        assert "${{" not in block, f"{name}: no expression inside the shell"
+    # A job-level `if:` would skip the bump job in silence; the pull-request job is also gated by one.
+    assert not re.search(r"(?m)^    if:", JOBS["bump"]), "the bump job must refuse, not be skipped silently"
+    job_if = "if: github.ref == 'refs/heads/main' && (needs.bump.outputs.changed == 'true' || inputs.probe)"
+    assert re.search(rf"(?m)^    {re.escape(job_if)}$", JOBS["pull-request"])
+
+
+def test_both_checkouts_take_the_commit_the_run_was_started_for_after_the_refusal():
+    for name, steps in (("bump", BUMP), ("pull-request", PR)):
+        checkout = _only(steps, "actions/checkout")
+        with_line = 'with: { persist-credentials: false, ref: "${{ github.sha }}" }'
+        assert re.search(rf"(?m)^ {{8}}{re.escape(with_line)}$", checkout), name
+        assert steps.index(checkout) > 0 and steps[0].startswith(REFUSE_NAME), name
+    # A checkout of a commit is a detached HEAD, where create-pull-request needs the base named.
+    assert _with(_only(PR, "peter-evans/create-pull-request"), "base") == "main"
 
 
 def test_bump_pull_request_adds_only_the_two_bump_files():
