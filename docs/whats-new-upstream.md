@@ -28,7 +28,16 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 
 ## What changed
 
-### 2026-11-04, later the same day: this repository is adapted to engine `0.1.1` (issue 29); the pin still waits for the tag
+### 2026-11-04, 21:30 UTC: `v0.1.1` is tagged and this pull request pins it
+
+- The App tagged [`v0.1.1`](https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/tag/v0.1.1) on 2026-11-04 (tag run
+  [41914618418](https://github.com/saulpatinojr/HCW-CloudCrawler_App/actions/runs/41914618418): build, attest and release
+  green). The pin moved with `scripts/bump_core_pin.py bump --from v0.1.0 --tag v0.1.1`; `uv.lock` records the wheel's
+  sha256 `45a5def595b2de85f0d07693bc4e8fcdd4c6afd65a052d4a5fa3288a66012edc`, the same value as a fresh download of the
+  release asset, re-locked with CI's uv 0.11.32 on CPython 3.15.2; `bump_core_pin.py check-lock` against this branch's
+  own previous lock reports "only cloud-crawler-core moved".
+
+### 2026-11-04, later the same day: this repository is adapted to engine `0.1.1` (issue 29)
 
 - Nothing new upstream since the entry below (the App's `main` is still `b8a238f`, `v0.1.1` still not tagged). This
   repository did the adaptation that entry describes, on the branch `fix/python-315-base`, so that the bump pull

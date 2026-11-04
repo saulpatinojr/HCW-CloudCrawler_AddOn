@@ -6,7 +6,7 @@ requires-python = ">=3.15.2, <3.16"
 
 [[manifest.dependency-metadata]]
 name = "cloud-crawler-core"
-version = "0.1.0"
+version = "0.1.1"
 requires-dist = ["pydantic>=2.14,<3"]
 
 [[package]]
@@ -143,13 +143,13 @@ wheels = [
 
 [[package]]
 name = "cloud-crawler-core"
-version = "0.1.0"
-source = { url = "https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.0/cloud_crawler_core-0.1.0-py3-none-any.whl" }
+version = "0.1.1"
+source = { url = "https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.1/cloud_crawler_core-0.1.1-py3-none-any.whl" }
 dependencies = [
     { name = "pydantic" },
 ]
 wheels = [
-    { url = "https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.0/cloud_crawler_core-0.1.0-py3-none-any.whl", hash = "sha256:25a7abfcec50b0f85cb427145a1fd7fb57898bd09cfc3483edad8a042e5e7be3" },
+    { url = "https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.1/cloud_crawler_core-0.1.1-py3-none-any.whl", hash = "sha256:45a5def595b2de85f0d07693bc4e8fcdd4c6afd65a052d4a5fa3288a66012edc" },
 ]
 
 [package.metadata]
@@ -177,7 +177,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cloud-crawler-core", url = "https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.0/cloud_crawler_core-0.1.0-py3-none-any.whl" },
+    { name = "cloud-crawler-core", url = "https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.1/cloud_crawler_core-0.1.1-py3-none-any.whl" },
     { name = "fastapi", specifier = "==0.162.0" },
     { name = "pydantic", specifier = "==2.14.2" },
     { name = "uvicorn", specifier = "==0.54.0" },
