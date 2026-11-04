@@ -11,6 +11,12 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+### Changed
+- The project's Python floor is `3.15.1` (`requires-python = ">=3.15.1,<3.16"`, `.python-version`, the Makefile's
+  `uv python pin`), not `3.15.2`: GitHub's hosted runners carry CPython 3.15.1 and the pinned uv 0.11.32 cannot download
+  3.15.2, so `uv sync --frozen` in CI failed with `No interpreter found for Python 3.15.2`. The image still runs the
+  website's `python:3.15.2-slim-trixie` digest; the floor is the same one the NetworkEyes add-on took.
+
 ### Added
 - CI now checks that the base image really carries the Python version that `infrastructure/docker/versions.env` names.
   Until now the `lint` job proved that every `FROM` line uses the pinned digest (`BASE_IMAGE@BASE_DIGEST`), but a digest is
