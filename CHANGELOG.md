@@ -83,6 +83,24 @@ once, merge one before rebasing the next.
   `clipboard-write`, because the pane saves files and copies its report and never sends a `navigate` message. The
   environment table now shows the real `CC_FRAME_ANCESTORS` (it includes `'self'`) and `CC_MAX_STORE_MB`. `README.md` and
   `docs/website-integration/routes.md` no longer describe the row as waiting. Nothing in the application changes.
+- The base image, and every file that names the Python line, moved from Python 3.14 to Python 3.15, the line the
+  website moved to on 2026-10-31
+  ([saulpatinojr/HCW-HybridCloudWorks#1386](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1386),
+  [#1468](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1468)). The daily `base-update.yml` run refuses a
+  move to another Python minor line on purpose (a person must decide), so since that day it has been red and the weekly
+  `base-follows-website` job in `security.yml` has been red on `main`. This pull request is that person's decision, made
+  by hand in one change: `BASE_IMAGE`, `BASE_DIGEST` and `BASE_PYTHON_VERSION` in `infrastructure/docker/versions.env`
+  now read `python:3.15.2-slim-trixie`, its index digest and `3.15.2`; both `FROM` lines and every `python3.14`
+  paths in `infrastructure/docker/Dockerfile` follow; `requires-python` in `pyproject.toml` is `>=3.15.2,<3.16` and
+  `uv.lock` was rebuilt for it with uv 0.11.32 (the version `ci.yml` names), which replaced every `cp314` wheel with its
+  `cp315` one and moved no package version; `.python-version`, the `uv python pin` in the `Makefile`, `PYTHON_VERSION`
+  in `ci.yml`, the three `python-version: "3.14"` lines in `core-update.yml` and `security.yml`, `target-version` in
+  `ruff.toml`, and the sentences in `CLAUDE.md`, `README.md`, `infrastructure/README.md`, `docs/operations/runbook.md`
+  and `docs/whats-new-upstream.md` that named the line all say 3.15. Known limit, recorded in `VALIDATION.md`: the
+  engine release this edition pins, `cloud-crawler-core` 0.1.0, declares `Requires-Python: <3.15,>=3.14.6`, so the
+  image's `pip install --require-hashes` step refuses it on Python 3.15 and
+  `test_wheel_accepts_every_python_the_project_allows` fails; both go green only once the App publishes an engine release
+  whose range covers 3.15 and `core-update.yml` adopts it. No other check was weakened to get past that.
 
 ### Fixed
 - `core-update.yml` now runs from `main` only, and auto-merge no longer listens to the `bump` job's report. These are

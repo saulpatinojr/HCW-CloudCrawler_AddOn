@@ -12,7 +12,7 @@ pattern that allows no space, quote, dollar sign, backtick, line break or other 
 the website's file can add a line to $GITHUB_OUTPUT, start a workflow command, or break out of the pull request text.
 The only paths the script writes are the two files above (fixed names, never taken from the website's file).
 It also refuses, for a person to decide, a move to a different image repository, a move to a different Python minor line
-(the Dockerfile has python3.14 paths), and a Dockerfile it cannot move completely.
+(the Dockerfile has python3.15 paths), and a Dockerfile it cannot move completely.
 
 Usage: python scripts/follow_website_base.py --website-env <file> [--root <repository root>] [--check]
        python scripts/follow_website_base.py --website-env <file> --compare-env <file>

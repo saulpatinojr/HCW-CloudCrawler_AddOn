@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "Hybrid Cloud Works Cloud Crawler, lab edition: the credential-free AddOn that collects evidence handed to it, runs deterministic drift detectors and expires everything after two hours. No cloud connectivity by design."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.14.6,<3.15"
+requires-python = ">=3.15.2,<3.16"
 dependencies = [
   "cloud-crawler-core @ https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/download/v0.1.0/cloud_crawler_core-0.1.0-py3-none-any.whl",  # CORE_REF v0.1.0
   "fastapi==0.162.0",

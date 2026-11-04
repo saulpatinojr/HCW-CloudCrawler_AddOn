@@ -1,5 +1,5 @@
 # Lint and format settings for the application and the tests.
-target-version = "py314"
+target-version = "py315"
 line-length = 120
 extend-exclude = [".venv", "web", "docs", "samples"]
 

@@ -17,7 +17,7 @@
 # Build:  docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab -t img-cc-lab-addon:dev .
 # Run:    docker compose up   (docker-compose.yml: hardened, loopback-only, CC_ALLOW_NO_TURNSTILE=1 for local use)
 
-FROM python:3.14.8-slim-trixie@sha256:fbecd461fc72d21b2143c6eaba25143738079154a6d0ea3da3aec724f50eed4a AS build
+FROM python:3.15.2-slim-trixie@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0 AS build
 ARG EDITION=lab
 RUN test "$EDITION" = "lab" || { echo "this Dockerfile builds the lab edition only (EDITION=$EDITION)"; exit 1; }
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1
@@ -26,18 +26,18 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.32@sha256:df4cae8f3a96d175e2e5f992e5975500
 COPY pyproject.toml uv.lock ./
 RUN UV_NO_CACHE=1 uv export --frozen --format requirements-txt --no-dev --no-emit-project --no-header -o requirements.lock.txt \
  && pip install --require-hashes --no-deps --prefix /install -r requirements.lock.txt
-COPY src/cloud_crawler_lab /install/lib/python3.14/site-packages/cloud_crawler_lab
+COPY src/cloud_crawler_lab /install/lib/python3.15/site-packages/cloud_crawler_lab
 RUN find /install -name "__pycache__" -type d -prune -exec rm -rf {} + \
  && python - <<'PY'
 import importlib.util, sys
-sys.path.insert(0, "/install/lib/python3.14/site-packages")
+sys.path.insert(0, "/install/lib/python3.15/site-packages")
 for forbidden in ("azure", "msal", "boto3"):
     if importlib.util.find_spec(forbidden) is not None:
         raise SystemExit(f"edition boundary: {forbidden} is importable in the build stage")
 print("edition boundary: no cloud SDK in /install")
 PY
 
-FROM python:3.14.8-slim-trixie@sha256:fbecd461fc72d21b2143c6eaba25143738079154a6d0ea3da3aec724f50eed4a AS lab
+FROM python:3.15.2-slim-trixie@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0 AS lab
 ARG EDITION=lab
 RUN test "$EDITION" = "lab"
 # The licence of this repository's LICENSE file, as an SPDX id. publish-images.yml sets the other labels at push time;
@@ -51,8 +51,8 @@ RUN apt-get update \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/* \
  && { python -m pip uninstall -y pip setuptools wheel >/dev/null 2>&1 || true; } \
- && rm -rf /usr/local/lib/python3.14/ensurepip /usr/local/lib/python3.14/site-packages/pip* \
-           /usr/local/lib/python3.14/site-packages/setuptools* /usr/local/lib/python3.14/site-packages/wheel* \
+ && rm -rf /usr/local/lib/python3.15/ensurepip /usr/local/lib/python3.15/site-packages/pip* \
+           /usr/local/lib/python3.15/site-packages/setuptools* /usr/local/lib/python3.15/site-packages/wheel* \
            /usr/local/bin/pip* /usr/local/bin/wheel /root/.cache \
  && groupadd --gid 10001 app && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin app
 COPY --from=build /install /usr/local

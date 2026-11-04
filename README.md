@@ -78,7 +78,7 @@ exports, so claims about Terraform stay `unknown`). The roadmap is section 22 of
 
 ## Getting started
 
-Prerequisites: Python 3.14 (managed by `uv`), `uv` 0.11.
+Prerequisites: Python 3.15 (managed by `uv`), `uv` 0.11.
 
 ```bash
 uv sync --all-packages

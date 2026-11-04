@@ -224,6 +224,30 @@ Known limitation: a manual run takes the workflow file itself from the branch it
 edits `core-update.yml` can delete these guards. Closing that needs the App key moved to an environment whose
 deployment branches are `main` only (a settings change, not made here).
 
+## Run 2026-11-03 (the base, and every file naming the Python line, moved to Python 3.15)
+
+Toolchain: Windows host with Docker Desktop (context `desktop-linux`, engine 29.9.2 linux/amd64, Buildx 0.38.1), uv
+0.12.0 locally for `uv sync` and `uv run`; `uv lock` was run with uv 0.11.32 (the version CI names) through
+`uvx uv@0.11.32 lock`. Python 3.15.2 (uv-managed) for the suite. The change follows the website's lab base to
+`python:3.15.2-slim-trixie@sha256:8c13a3f3...` (the pin on the website's `main` that day) and moves every file that
+names the Python line ([saulpatinojr/HCW-HybridCloudWorks#1386](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1386)).
+
+| What | Executed | Result |
+|---|---|---|
+| `uvx uv@0.11.32 lock` | yes | `Resolved 52 packages`, exit 0; `requires-python = ">=3.15.2, <3.16"`; 137 `cp315` wheel entries, no `cp314` left, no package version moved |
+| `uv sync --all-packages`, `uv run python --version` | yes | exit 0, `Python 3.15.2` |
+| `uv run ruff check .` and `uv run ruff format --check .` (`target-version = "py315"`) | yes | `All checks passed!`, `77 files already formatted`, both exit 0 |
+| `python -I scripts/follow_website_base.py --website-env <website's lab-image/versions.env> --root . --check` and `--compare-env infrastructure/docker/versions.env` | yes | `changed=false` and `branch_current=true`, both exit 0: the pin now equals the website's, so the weekly `base-follows-website` job and the daily `base-update` run have nothing to move |
+| `docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab -t hcw-cc-py315-check .` | yes | **exit 1** at the build stage's `pip install --require-hashes --no-deps`: `ERROR: Package 'cloud-crawler-core' requires a different Python: 3.15.2 not in '<3.15,>=3.14.6'`. Every earlier step (both `FROM` lines on the new digest, `uv export --frozen`) passed. No image was produced, so nothing to remove |
+| `pip install --no-deps --no-index` of the release wheel `cloud_crawler_core-0.1.0-py3-none-any.whl` (sha256 `25a7abfc...`, equal to the lock's) inside `python:3.15.2-slim-trixie` by digest | yes | the same refusal, exit 1; the wheel's `METADATA` says `Requires-Python: <3.15,>=3.14.6` |
+| `uv run pytest -q --cov=src --cov-report=term-missing --cov-fail-under=85` | yes | `94 failed, 554 passed`. One failure is the change: `test_wheel_accepts_every_python_the_project_allows` (`requires-python >=3.15.2,<3.16 allows Python 3.15.2..3.15.99, which the engine refuses`), the engine limit above. The other 93 (`tests/unit/test_bump_core_pin.py`, `tests/security/test_core_update_tag_shape.py`) are this host's: those tests start `bash -c ...` from Python, and on Windows that reaches `C:\Windows\System32\bash.exe` (the Windows Subsystem for Linux launcher, which answers `The RPC call contains a handle that differs from the declared handle type`) before any other `bash` on the PATH. A control run of the same three files on `main` (Python 3.14.6) in a second worktree on the same host failed exactly those 93 and passed the engine test; the two failure sets differ by that one test only |
+| The `image` job's Python check (`python --version` against `BASE_PYTHON_VERSION`) | no | it runs after the build, which did not complete here. The base digest itself answers `Python 3.15.2` (`docker run --rm --entrypoint python <digest> --version`), which is what `BASE_PYTHON_VERSION` says |
+| CI (`lint`, `test`, `image`, `pip-audit`, `secret-scan`, `dependency-review`) | no | not run here; `image` and `test` are expected red until the engine release above exists |
+
+Limitation: the move is complete on this repository's side and blocked on the engine. Until the App publishes a
+`cloud-crawler-core` release whose `requires-python` covers 3.15, this branch cannot build its image or pass its suite,
+and `main` keeps the red `base-update` and `base-follows-website` runs.
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
