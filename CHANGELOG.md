@@ -122,10 +122,9 @@ once, merge one before rebasing the next.
   the document); `docs/api.md`, `README.md`, `samples/README.md` and the pane (`web/index.html`, `web/app.js`) say the
   engine reads Terraform; the four tests that assumed it did not are rewritten against small fictional Terraform
   documents (`tests/terraform_documents.py`), and a Terraform row now counts against the claims-times-resources cap
-  like any other row. **The engine pin has not moved:** the App's `main` carries 0.1.1 but the tag `v0.1.1` is the
-  owner's step, so `pyproject.toml` and `uv.lock` still say `v0.1.0`, and the suite is green only with a 0.1.1 wheel
-  installed (`VALIDATION.md`, run of 2026-11-04). When the tag exists, `core-update.yml` opens the bump pull request
-  and this adaptation makes it `compatible`. The website row's `terraform` tag and "or your Terraform" summary come
+  like any other row. **The engine pin moved in the same pull request:** the App tagged `v0.1.1` on 2026-11-04, and
+  `pyproject.toml` and `uv.lock` now name its release wheel (sha256 `45a5def5…`), so the suite runs against the
+  released 0.1.1, not a local build (`VALIDATION.md`, `docs/whats-new-upstream.md`). The website row's `terraform` tag and "or your Terraform" summary come
   back with the next add-on release, in a pair of pull requests with the copy in
   `docs/website-integration/integration-guide.md`, as that guide says.
 - **The lab no longer refuses a string with more than 16 `eyJ` in it** (`MAX_TOKEN_STARTS` in `inputs.py` is gone;

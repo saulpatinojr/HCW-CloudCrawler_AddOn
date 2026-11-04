@@ -244,9 +244,9 @@ names the Python line ([saulpatinojr/HCW-HybridCloudWorks#1386](https://github.c
 | The `image` job's Python check (`python --version` against `BASE_PYTHON_VERSION`) | no | it runs after the build, which did not complete here. The base digest itself answers `Python 3.15.2` (`docker run --rm --entrypoint python <digest> --version`), which is what `BASE_PYTHON_VERSION` says |
 | CI (`lint`, `test`, `image`, `pip-audit`, `secret-scan`, `dependency-review`) | no | not run here; `image` and `test` are expected red until the engine release above exists |
 
-Limitation: the move is complete on this repository's side and blocked on the engine. Until the App publishes a
-`cloud-crawler-core` release whose `requires-python` covers 3.15, this branch cannot build its image or pass its suite,
-and `main` keeps the red `base-update` and `base-follows-website` runs.
+Limitation lifted on 2026-11-04: the App released `v0.1.1`, whose `requires-python` covers 3.15, and this branch pins
+its wheel (the entry of 2026-11-04, 21:30 UTC in `docs/whats-new-upstream.md`); the image build and the suite are the
+pull request's own `image` and `test` jobs.
 
 ## Run 2026-11-04 (engine 0.1.1 adaptation: Terraform is read; the `eyJ` guard is gone; issue 29)
 
@@ -261,19 +261,18 @@ see `docs/whats-new-upstream.md`), installed into the virtual environment by han
 | --- | --- | --- |
 | `uv run ruff check .` and `uv run ruff format --check .` | yes | clean, exit 0 (78 files) |
 | `uv run pytest -q --cov=src --cov-fail-under=85` with the local 0.1.1 wheel installed | yes | `95 failed, 556 passed`, coverage 97.59 percent (gate 85). The four tests issue 29 named are rewritten and pass, with the three tests that replaced them and the inverted `eyJ` tests. The 95 failures are two groups, neither about this change: 93 in `tests/unit/test_bump_core_pin.py` and `tests/security/test_core_update_tag_shape.py` start `bash -c` from Python and on this host reach `C:\Windows\System32\bash.exe` (the Windows Subsystem for Linux launcher), the same host artefact recorded in the run of 2026-11-03; and 2 in `tests/security/test_engine_adoption.py` (`test_installed_engine_is_the_pinned_release`, `test_static_metadata_matches_the_installed_wheel`) say `0.1.1 != 0.1.0`, which is exactly the local-wheel-against-old-pin setup and disappears with the real pin |
-| The same suite with the pinned 0.1.0 wheel | no | 0.1.0 refuses Python 3.15 (run of 2026-11-03); the four issue-29 tests and the inverted `eyJ` tests are written for 0.1.1 and are expected red on 0.1.0 |
-| `docker build` and the `image` job | no | Docker Desktop was stopped; the image with a 0.1.1 wheel was built on 2026-11-04 (entry in `docs/whats-new-upstream.md`) before this adaptation, and the pin cannot move until the release exists |
-| CI on the branch | no | it is expected red on `test` and `image` until the bump pull request moves the pin to `v0.1.1` |
+| The same suite with the pinned 0.1.0 wheel | no | 0.1.0 refuses Python 3.15 (run of 2026-11-03); superseded: the pin is the released 0.1.1 wheel since 2026-11-04 |
+| `docker build` and the `image` job | no | Docker Desktop was stopped; the image with a 0.1.1 wheel was built on 2026-11-04 (entry in `docs/whats-new-upstream.md`) before this adaptation, and the pin moved to the released 0.1.1 wheel on 2026-11-04; the pull request's `image` job is the proof |
+| CI on the branch | yes | the pull request's own checks, with the pin on `v0.1.1` (2026-11-04) |
 
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
   are later releases (website proposal, section 22).
-- Terraform reading needs engine 0.1.1, which the App has prepared on its `main` but not tagged. This repository is
+- Terraform reading needs engine 0.1.1, released by the App on 2026-11-04 and pinned here. This repository is
   adapted to it (issue 29): the response, the pane and the documents say the engine reads Terraform, and the tests hold
-  it to that. Until `v0.1.1` is tagged and `core-update.yml` moves the pin, the pinned 0.1.0 still refuses Python 3.15,
-  so the suite and the image are red on the branch; a published image with Terraform reading needs the next release
-  and the lab host's playbook run, and the website's row is restored then.
+  it to that. A published image with Terraform reading needs this repository's next release and the lab host's
+  playbook run, and the website's row is restored then.
 - The `eyJ` guard (`MAX_TOKEN_STARTS`) is gone: engine 0.1.1's secret-shape pattern is linear (App ticket 53), and
   `tests/security/test_upload_abuse.py` now proves a 2.6 MB upload of `eyJ` runs is accepted in under three seconds
   with no thread stalled.
