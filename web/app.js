@@ -179,7 +179,8 @@
       var li = el('li');
       li.appendChild(el('strong', null, f.name));
       li.appendChild(document.createTextNode(' · ' + KIND_LABELS[f.kind] + ' · ' + f.entries + (f.entries === 1 ? ' entry' : ' entries') + ' '));
-      if (f.kind !== 'arg-export') li.appendChild(el('span', 'small', '(recorded with a fingerprint; this version does not read Terraform yet, so claims about it stay unknown) '));
+      if (f.kind === 'tf-plan') li.appendChild(el('span', 'small', '(a plan is read as what Terraform would build, not what exists) '));
+      if (f.kind === 'tf-state') li.appendChild(el('span', 'small', '(read into the Azure resources it describes; anything it cannot say stays unknown) '));
       var remove = el('button', 'secondary small-button', 'Remove');
       remove.type = 'button';
       remove.addEventListener('click', function () { state.files.splice(i, 1); state.message = null; renderFiles(); updateRunButton(); });

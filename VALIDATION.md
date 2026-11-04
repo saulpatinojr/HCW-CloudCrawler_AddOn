@@ -248,14 +248,35 @@ Limitation: the move is complete on this repository's side and blocked on the en
 `cloud-crawler-core` release whose `requires-python` covers 3.15, this branch cannot build its image or pass its suite,
 and `main` keeps the red `base-update` and `base-follows-website` runs.
 
+## Run 2026-11-04 (engine 0.1.1 adaptation: Terraform is read; the `eyJ` guard is gone; issue 29)
+
+Toolchain: Windows host, uv 0.11.32 (`uvx uv@0.11.32`), uv-managed CPython 3.15.2, Docker Desktop stopped (no image
+build in this run). The engine under test was a wheel built locally from the App's `main` at commit `b8a238f`
+(`cloud_crawler_core-0.1.1-py3-none-any.whl`, sha256 `14e0fa05cb6e451c4323f773b017820f38e6282576584e2225ed5ee46ce6eb3c`,
+see `docs/whats-new-upstream.md`), installed into the virtual environment by hand with `uv pip install`; the pin in
+`pyproject.toml` and `uv.lock` stayed at `v0.1.0` because the App's tag `v0.1.1` did not exist yet. The pin moves when
+`core-update.yml` opens the bump pull request for the real release.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| `uv run ruff check .` and `uv run ruff format --check .` | yes | clean, exit 0 (78 files) |
+| `uv run pytest -q --cov=src --cov-fail-under=85` with the local 0.1.1 wheel installed | yes | `95 failed, 556 passed`, coverage 97.59 percent (gate 85). The four tests issue 29 named are rewritten and pass, with the three tests that replaced them and the inverted `eyJ` tests. The 95 failures are two groups, neither about this change: 93 in `tests/unit/test_bump_core_pin.py` and `tests/security/test_core_update_tag_shape.py` start `bash -c` from Python and on this host reach `C:\Windows\System32\bash.exe` (the Windows Subsystem for Linux launcher), the same host artefact recorded in the run of 2026-11-03; and 2 in `tests/security/test_engine_adoption.py` (`test_installed_engine_is_the_pinned_release`, `test_static_metadata_matches_the_installed_wheel`) say `0.1.1 != 0.1.0`, which is exactly the local-wheel-against-old-pin setup and disappears with the real pin |
+| The same suite with the pinned 0.1.0 wheel | no | 0.1.0 refuses Python 3.15 (run of 2026-11-03); the four issue-29 tests and the inverted `eyJ` tests are written for 0.1.1 and are expected red on 0.1.0 |
+| `docker build` and the `image` job | no | Docker Desktop was stopped; the image with a 0.1.1 wheel was built on 2026-11-04 (entry in `docs/whats-new-upstream.md`) before this adaptation, and the pin cannot move until the release exists |
+| CI on the branch | no | it is expected red on `test` and `image` until the bump pull request moves the pin to `v0.1.1` |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
   are later releases (website proposal, section 22).
-- The engine 0.1.0 does not read Terraform: a state or plan is accepted and recorded with a fingerprint, and claims about it
-  stay `unknown`. Reading it is engine work, upstream first ([App issue 54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54), `docs/whats-new-upstream.md`).
-- The engine's secret-redaction pattern is quadratic on a string of repeated `eyJ`; the lab refuses more than 16 of them in
-  one string until the engine fixes its pattern upstream.
+- Terraform reading needs engine 0.1.1, which the App has prepared on its `main` but not tagged. This repository is
+  adapted to it (issue 29): the response, the pane and the documents say the engine reads Terraform, and the tests hold
+  it to that. Until `v0.1.1` is tagged and `core-update.yml` moves the pin, the pinned 0.1.0 still refuses Python 3.15,
+  so the suite and the image are red on the branch; a published image with Terraform reading needs the next release
+  and the lab host's playbook run, and the website's row is restored then.
+- The `eyJ` guard (`MAX_TOKEN_STARTS`) is gone: engine 0.1.1's secret-shape pattern is linear (App ticket 53), and
+  `tests/security/test_upload_abuse.py` now proves a 2.6 MB upload of `eyJ` runs is accepted in under three seconds
+  with no thread stalled.
 - `security/redaction.py` is a thin layer over the engine's module (the old copy had drifted; see
   `docs/whats-new-upstream.md`), plus the ten words only the lab logs.
 - `core-update.yml` now has a `CORE_REF v0.1.0` line to compare with the App's latest release. It has not run against a

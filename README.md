@@ -10,8 +10,8 @@ the site's own API. It exists for demonstrations, labs, training and
 evaluation scenarios.
 
 The AddOn **collects evidence but never fetches it**. A visitor uploads an
-Azure Resource Graph export or a Terraform state or plan (this version of the
-engine reads only the export), or the site hands in results it obtained from
+Azure Resource Graph export or a Terraform state or plan (the engine reads all
+three; a plan is read as what Terraform would build), or the site hands in results it obtained from
 Azure MCP Server on the visitor's behalf; the AddOn validates, hashes, redacts and normalises what it is given,
 runs deterministic drift detectors against the decision records in the
 session, and answers with evidence, drift findings, draft ADRs and review
@@ -71,9 +71,11 @@ the lab application skeleton with the engine adopted. Both images are published,
 - the security suite that proves the boundary, including inside the image;
 - the hardened Dockerfile and the publish, security and core-update workflows.
 
-Not yet: the MCP server surface and the trusted-caller session API for the site's chat path (later releases), and
-Terraform *reading* (the engine 0.1.0 records a Terraform state or plan but its detectors read only Resource Graph
-exports, so claims about Terraform stay `unknown`). The roadmap is section 22 of the website proposal
+Not yet: the MCP server surface and the trusted-caller session API for the site's chat path (later releases).
+Terraform *reading* is adapted here for engine 0.1.1 ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)):
+the engine reads a state or plan through its provider-type table, so claims about mapped resources are answered,
+and anything the document cannot say stays `unknown`; it reaches a published image with the next release, after
+the App tags `v0.1.1`. The roadmap is section 22 of the website proposal
 *Azure Architecture MCP Appliance on Azure MCP Server 3.0*; nothing here is production.
 
 ## Getting started

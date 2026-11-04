@@ -42,6 +42,9 @@ results this edition never receives, so they report `unknown`. The limits on len
 ## Terraform files
 
 `tf-state` (a version 4 state) and `tf-plan` (the JSON from `terraform show -json`, `format_version` 1.x) are accepted as
-evidence, but the engine this edition runs (`cloud-crawler-core` 0.1.0) does not read Terraform yet: it records a
-fingerprint and the claims about it stay `unknown`. State files can hold secrets in plain text. The lab keeps nothing of
-the content after the answer is built, but strip secrets from a state before you upload it anyway.
+evidence and, from engine `cloud-crawler-core` 0.1.1, read: the engine turns the hashicorp/azurerm resources it knows
+into the same rows a Resource Graph export gives, counts the rest without reading them, and leaves out anything the
+document cannot answer (a value Terraform marks sensitive, a tag only known after apply), so a claim about it stays
+`unknown`. A plan is read as what Terraform would build, not as what exists. There is no sample Terraform file here;
+the tests build small fictional ones (`tests/terraform_documents.py`). State files can hold secrets in plain text. The
+lab keeps nothing of the content after the answer is built, but strip secrets from a state before you upload it anyway.

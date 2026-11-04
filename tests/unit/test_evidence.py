@@ -7,6 +7,7 @@ from cloud_crawler_lab.errors import ApiError
 from cloud_crawler_lab.evidence import MAX_FILES, MAX_IDENTIFIER, EvidenceFile, describe, ingest_files
 
 from ..conftest import load_sample
+from ..terraform_documents import GROUP, SUB, sample_plan, sample_state
 
 NOW = datetime(2026, 10, 26, 12, 0, tzinfo=UTC)
 
@@ -63,19 +64,48 @@ def test_secrets_in_an_export_are_redacted_and_counted():
     assert "sentinel" not in str(record.payload) and "yes" in str(record.payload)
 
 
-def test_terraform_state_and_plan_are_recorded_but_not_read_by_this_engine():
-    state = {"version": 4, "resources": [{"type": "azurerm_x", "instances": []}] * 3}
-    plan = {"format_version": "1.2", "resource_changes": [{"address": "a"}] * 2}
-    records = ingest_files(
-        files({"kind": "tf-state", "content": state}, {"kind": "tf-plan", "content": plan}), max_rows=10, now=NOW
-    )
-    [(state_record, state_entries), (plan_record, plan_entries)] = records
-    assert (state_entries, plan_entries) == (3, 2)
-    assert state_record.correlations == [] and plan_record.correlations == []
-    for record, entries in records:
-        info = describe(record, entries, None)
-        assert info["readByDetectors"] is False and info["resourceCount"] == 0
-        assert "does not read Terraform" in info["note"]
+def test_a_terraform_state_is_read_into_the_resources_the_engine_maps_and_the_rest_is_counted():
+    """Engine 0.1.1 reads a state through its provider-type table: the storage account and the SQL database become
+    rows; the resource group (a type the table does not map) and the data source are counted in the summary only."""
+    [(record, entries)] = ingest_files(files({"kind": "tf-state", "content": sample_state()}), max_rows=10, now=NOW)
+    assert entries == 4, "the lab counts every entry of the state's resources array against the row budget"
+    assert [c.type for c in record.correlations] == ["resource", "resource"]
+    assert all(c.value.startswith(f"/subscriptions/{SUB}/") for c in record.correlations)
+    assert record.subject.subscriptionId == SUB
+    stored = str(record.payload)
+    assert "fictional-placeholder" not in stored and "primary_access_key" not in stored, "sensitive values never stored"
+    info = describe(record, entries, "state.json")
+    assert info["readByDetectors"] is True and info["resourceCount"] == 2 and info["entryCount"] == 4
+    assert info["note"].startswith("Read into resources") and "unknown" in info["note"]
+    assert info["terraform"]["mapped"] == 2 and info["terraform"]["dataSources"] == 1
+    assert info["terraform"]["unmapped"] == {"azurerm_resource_group": 1}
+    assert "content" not in info and "attributes" not in str(info)
+
+
+def test_a_terraform_plan_is_read_as_what_terraform_would_build_and_names_what_it_cannot_know():
+    """A plan row with an Azure id correlates by that id; one the plan creates has no id yet and correlates by its
+    Terraform address; a destroyed object makes no row; tags only known after apply are listed as not carried."""
+    [(record, entries)] = ingest_files(files({"kind": "tf-plan", "content": sample_plan()}), max_rows=10, now=NOW)
+    assert entries == 4
+    providers = f"/subscriptions/{SUB}/resourcegroups/{GROUP}/providers"
+    assert [(c.type, c.value) for c in record.correlations] == [
+        ("resource", f"{providers}/microsoft.sql/servers/hcw-sample-sqlsrv-02/databases/hcw-sample-sql-02"),
+        ("terraform-address", "terraform:azurerm_storage_account.logs"),
+        ("resource", f"{providers}/microsoft.storage/storageaccounts/hcwsamplestprod02"),
+    ]
+    info = describe(record, entries, "plan.json")
+    assert info["readByDetectors"] is True and info["resourceCount"] == 3
+    assert "would build" in info["note"] and "after apply" in info["note"]
+    assert info["terraform"]["destroyed"] == 1 and info["terraform"]["withoutAzureId"] == 1
+    assert info["terraform"]["notCarried"] == {"tags": 2}, "the two storage accounts whose env tag is unknown"
+    assert info["terraform"]["planActions"] == {"create": 1, "delete": 1, "update": 2}
+
+
+def test_a_terraform_document_that_is_not_real_terraform_is_refused_by_the_engine_with_a_reason():
+    """The stubs the first version accepted unread (`resources: [{}]`) are now read, and refused by the engine."""
+    error = refused([{"kind": "tf-state", "content": {"version": 4, "resources": [{}]}}])
+    assert (error.status, error.code) == (422, "ingestion_failed")
+    assert error.details == {"evidenceIndex": 0, "reason": "resource 0 has no instances array"}
 
 
 @pytest.mark.parametrize(

@@ -21,6 +21,7 @@ from cloud_crawler_lab.security import logging as logs
 from cloud_crawler_lab.security.redaction import ALLOWED_WORDS
 
 from ..conftest import JSON, ROOT, load_sample, make_body, make_settings, one_claim_decision
+from ..terraform_documents import PROVIDER, state_of, state_record, storage_attributes
 
 SRC = ROOT / "src" / "cloud_crawler_lab"
 SENTINEL = "SENTINEL-4f7a91"
@@ -445,6 +446,16 @@ def storage_rows(count: int) -> list[dict]:
     ]
 
 
+def storage_state(count: int) -> dict:
+    """A Terraform state of `count` storage accounts, each a row the engine maps."""
+    return state_of(
+        *(
+            state_record("azurerm_storage_account", f"s{i}", storage_attributes(f"hcwsamplest{i:05d}", "LRS"))
+            for i in range(count)
+        )
+    )
+
+
 def public_access_decision(claims: int) -> dict:
     claim = {
         "statement": "s",
@@ -493,11 +504,33 @@ def test_claims_times_resources_is_capped_before_the_engine_evaluates_anything(m
         monkeypatch.undo()
         ok = c.post("/api/uploads", json=make_body(content=storage_rows(1250), decision=public_access_decision(20)))
         assert ok.status_code == 201 and ok.json()["listing"]["findingsTotal"] == 25_000
-        # Terraform files read into no resources, so they never count against it
-        tf = make_body(
-            kind="tf-state", content={"version": 4, "resources": [{}] * 5000}, decision=public_access_decision(20)
-        )
-        assert c.post("/api/uploads", json=tf).status_code == 201
+        # A Terraform row counts like an export row (engine 0.1.1 reads Terraform): 1,251 storage accounts in a state
+        # times 20 claims is over the cap, while 5,000 entries of a type the engine does not map make no row at all.
+        monkeypatch.setattr(analysis, "evaluate_decision", lambda *a, **k: pytest.fail("evaluated"))
+        over = make_body(kind="tf-state", content=storage_state(1251), decision=public_access_decision(20))
+        r = c.post("/api/uploads", json=over)
+        assert r.status_code == 422 and r.json()["error"]["details"] == {
+            "claims": 20,
+            "resources": 1251,
+            "maxFindings": 25_000,
+        }
+        monkeypatch.undo()
+        unmapped = {
+            "version": 4,
+            "resources": [
+                {
+                    "mode": "managed",
+                    "type": "azurerm_resource_group",
+                    "name": f"g{i}",
+                    "provider": PROVIDER,
+                    "instances": [{"attributes": {"id": f"{SUB}/resourceGroups/g{i}"}, "sensitive_attributes": []}],
+                }
+                for i in range(5000)
+            ],
+        }
+        tf = make_body(kind="tf-state", content=unmapped, decision=public_access_decision(20))
+        r = c.post("/api/uploads", json=tf)
+        assert r.status_code == 201 and r.json()["evidence"][0]["resourceCount"] == 0
 
 
 def test_a_value_echoed_in_a_finding_is_shortened_when_it_is_large():

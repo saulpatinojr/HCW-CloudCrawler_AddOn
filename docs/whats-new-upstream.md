@@ -28,6 +28,29 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 
 ## What changed
 
+### 2026-11-04, later the same day: this repository is adapted to engine `0.1.1` (issue 29); the pin still waits for the tag
+
+- Nothing new upstream since the entry below (the App's `main` is still `b8a238f`, `v0.1.1` still not tagged). This
+  repository did the adaptation that entry describes, on the branch `fix/python-315-base`, so that the bump pull
+  request for `v0.1.1` comes out green:
+  - The four tests that failed with 0.1.1 are rewritten against real-shaped Terraform documents
+    (`tests/terraform_documents.py`: a state with a zone-redundant storage account, a SQL database that is not, an
+    unmapped resource group and a data source; a plan with an update, a create without an Azure id, an update whose
+    `env` tag is only known after apply, and a delete). They assert what the engine now reads: rows, correlations by
+    Azure id or Terraform address, the content-free summary, `unknown` with its reason where the document cannot
+    answer, and that a resource a plan creates (no Azure id) lies outside a decision scoped to a subscription.
+  - `evidence.py` describes a Terraform file as read, with a note per kind (a plan is "what Terraform would build")
+    and the engine's `terraform` summary; `docs/api.md`, `README.md`, `samples/README.md`, `web/index.html` and
+    `web/app.js` say the same.
+  - The `MAX_TOKEN_STARTS` guard in `inputs.py` is removed (App ticket 53 is fixed in 0.1.1: `_TOKEN_IN_RUN` in the
+    engine's `redaction.py`, checked in the App source at `b8a238f`), and the two tests that proved the refusal now
+    prove the same hostile upload is accepted in linear time with no thread stalled.
+- **Still waiting on the tag:** the pin line and `uv.lock` stay at `v0.1.0` (never pin a wheel built here). When the
+  owner tags `v0.1.1`, `core-update.yml` opens the bump pull request; with this adaptation merged first, that bump
+  should be `compatible`. Then a new add-on release, the lab host's digest bump, and the website row's `terraform`
+  tag and "or your Terraform" summary restored together with the copy in `docs/website-integration/integration-guide.md`
+  (issue 29's remaining boxes).
+
 ### 2026-11-04: the App prepared engine `0.1.1` (not tagged yet): it accepts Python 3.15 and reads Terraform, so taking it is an adaptation, not a pin swap
 
 - The App's `main` is at commit `b8a238f` (pull request
@@ -269,6 +292,6 @@ The App has published three decisions: [0001](https://github.com/saulpatinojr/HC
 | [8](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/8): no sign-in on the App's `/api` and `/mcp` | The "human only" gate is a non-empty `actorId` today; an authentication model needs an owner decision | The caller classes and identity model it picks may change the tool contract this repository must match. Here, identity stays the website's job (asserted claims only); watch for a contract change. |
 | [9](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/9): protect `main` and tags | Partly done: pull request plus six checks, `v*` tags locked, but no approving review is required and `CODEOWNERS` still has placeholders | None directly. |
 | [13](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/13): GUID-scan false alarm | Fixed for bytecode; "scan only tracked files" is not done in the App | This repository already scans only files git lists. |
-| [54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54): Terraform state and plan readers | **Closed upstream** (pull request 60, on `main`, in engine 0.1.1; no release carries it until `v0.1.1` is tagged). The engine 0.1.0 this repository pins still stores `tf-state` and `tf-plan` unread | The website row promises Terraform. This edition accepts the two kinds and reports claims about them as `unknown`; taking 0.1.1 changes that and is [issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29) here (see the entry of 2026-11-04). |
-| [53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53): the secret-shape pattern is quadratic on repeated `eyJ` | **Fixed upstream** (pull requests 59 and 61, in engine 0.1.1; not in any release until `v0.1.1`). In the pinned 0.1.0 a 64 KB string of `eyJ` repeats still holds the process for 1 to 3 s | This edition refuses more than 16 `eyJ` in one string (`MAX_TOKEN_STARTS` in `inputs.py`); remove that guard with the 0.1.1 bump. |
+| [54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54): Terraform state and plan readers | **Closed upstream** (pull request 60, on `main`, in engine 0.1.1; no release carries it until `v0.1.1` is tagged). The engine 0.1.0 this repository pins still stores `tf-state` and `tf-plan` unread | The website row promises Terraform. This edition is adapted to 0.1.1 on `fix/python-315-base` ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29); see the later entry of 2026-11-04): the pin moves when `v0.1.1` is tagged, and the row's Terraform wording is restored with the next add-on release. |
+| [53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53): the secret-shape pattern is quadratic on repeated `eyJ` | **Fixed upstream** (pull requests 59 and 61, in engine 0.1.1; not in any release until `v0.1.1`). In the pinned 0.1.0 a 64 KB string of `eyJ` repeats still holds the process for 1 to 3 s | The `MAX_TOKEN_STARTS` guard in `inputs.py` is removed on `fix/python-315-base` (the branch that takes 0.1.1); `tests/security/test_upload_abuse.py` now proves the hostile string is accepted in linear time. |
 | [16](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/16): release hygiene | Proven by the `v0.1.0` release: the three files are there and the wheel's provenance verifies | The first adoption used those files. |

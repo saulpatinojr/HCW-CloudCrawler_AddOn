@@ -101,6 +101,35 @@ once, merge one before rebasing the next.
   image's `pip install --require-hashes` step refuses it on Python 3.15 and
   `test_wheel_accepts_every_python_the_project_allows` fails; both go green only once the App publishes an engine release
   whose range covers 3.15 and `core-update.yml` adopts it. No other check was weakened to get past that.
+- **Terraform state and plan files are now read, not just recorded, once the engine is `cloud-crawler-core` 0.1.1**
+  ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29); engine work in App pull request
+  [60](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/60)). Until now the lab accepted a `tf-state` or
+  `tf-plan` upload, kept a fingerprint and told the visitor "this version does not read Terraform yet", so every claim
+  about it stayed `unknown`. Engine 0.1.1 reads both through a provider-type table (hashicorp/azurerm resource types
+  only): a type it knows becomes the same kind of resource a Resource Graph export gives, anything else is counted
+  and never read, a value Terraform marks sensitive is withheld before anything reads it, and a property the document
+  cannot answer (a tag only known after apply) is left out so the verdict is `unknown` with the reason named, never a
+  guess. A plan is read as what Terraform would build, not what exists; the engine never lets a plan row replace a
+  row of another kind. What changed here: the upload response marks a Terraform file `readByDetectors: true`, gives
+  a note per kind and the engine's content-free `terraform` summary (counts and unmapped type names, no value from
+  the document); `docs/api.md`, `README.md`, `samples/README.md` and the pane (`web/index.html`, `web/app.js`) say the
+  engine reads Terraform; the four tests that assumed it did not are rewritten against small fictional Terraform
+  documents (`tests/terraform_documents.py`), and a Terraform row now counts against the claims-times-resources cap
+  like any other row. **The engine pin has not moved:** the App's `main` carries 0.1.1 but the tag `v0.1.1` is the
+  owner's step, so `pyproject.toml` and `uv.lock` still say `v0.1.0`, and the suite is green only with a 0.1.1 wheel
+  installed (`VALIDATION.md`, run of 2026-11-04). When the tag exists, `core-update.yml` opens the bump pull request
+  and this adaptation makes it `compatible`. The website row's `terraform` tag and "or your Terraform" summary come
+  back with the next add-on release, in a pair of pull requests with the copy in
+  `docs/website-integration/integration-guide.md`, as that guide says.
+- **The lab no longer refuses a string with more than 16 `eyJ` in it** (`MAX_TOKEN_STARTS` in `inputs.py` is gone;
+  App ticket [53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53), fixed in engine 0.1.1 by App pull
+  requests [59](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/59) and
+  [61](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/61)). The guard existed because the engine 0.1.0's
+  secret-shape pattern took quadratic time on a long run of `eyJ`; the 0.1.1 pattern is linear, so the guard would
+  only refuse honest uploads. `tests/security/test_upload_abuse.py` keeps the same hostile upload (40 rows of a 64 KB
+  `eyJ` run) and now proves it is accepted in under three seconds with no thread stalled for half a second, instead
+  of proving the refusal. The `too_complex` reason `token_shapes` no longer exists; the limits table in `docs/api.md`
+  is updated. Needs engine 0.1.1 like the entry above.
 
 ### Fixed
 - `core-update.yml` now runs from `main` only, and auto-merge no longer listens to the `bump` job's report. These are
