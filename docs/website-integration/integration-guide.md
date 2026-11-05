@@ -4,17 +4,20 @@ How `hybridcloudworks.com` shows the Cloud Crawler lab edition, per the HCW AddO
 repository `docs/standards/addon-integration-standard.md`, ADR 0035). The site frames this AddOn in a sandboxed pane on
 one page; nothing from this repository is installed into the site bundle.
 
-**Where it stands, read on 2026-10-26.** The website's catalogue row for this AddOn is `status: 'available'`
+**Where it stands, read on 2026-11-05.** The website's catalogue row for this AddOn is `status: 'available'`
 (website pull request [1413](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1413), for website issue 1357): `/tools/cloud-crawler` frames the
-tool and the Tools menu lists it, from the day the owner deploys the website (it is deployed by hand). The image is `v0.2.0`
-(digest `sha256:5a43c90bda9bed1d3472847f492b7c05405e6a6ce2d4aa7f4d9b519bb72daf28`, issue 17), the first with the upload
-route. The lab host has run it on `127.0.0.1:18084` since the owner's playbook run of 2026-10-26, and the website's status
-route then answered `configured: true, reachable: true`, version `0.2.0`, edition `lab`. The website's row does not promise
-Terraform: the engine this image runs (`cloud-crawler-core` 0.1.0) records a Terraform state or plan but does not read it,
-so the row's summary and technology list leave Terraform out until this repository ships an engine that does ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29) tracks restoring them).
-Release `0.3.0` of this repository, prepared on 2026-11-05, carries engine 0.1.1, which reads Terraform; once the owner
-tags `v0.3.0` and the lab host's pin moves to the new digest, the row's summary and `terraform` tag are restored on the
-website and in the copy below in a pair of pull requests, so the weekly check stays green. Not verified by
+tool and the Tools menu lists it, from the day the owner deploys the website (it is deployed by hand). The image the
+website's lab-host row pins is `v0.3.0` (index digest `sha256:7660672a10b2196630f2a97edc804f8013ab1c70e0d7b8091f9430ae3ef01f4c`,
+published by the tag run [42070419839](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/runs/42070419839)
+on 2026-11-05), which carries engine `cloud-crawler-core` 0.1.1, the first that reads a Terraform state or plan as well as an
+Azure Resource Graph export ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)). So the website's
+row promises Terraform again: its summary says "or your Terraform" and its technology list carries `terraform`, restored in the
+same website pull request that moved the digest, with the copy below changed in step so the weekly check stays green. Before
+that, from 2026-10-26, the row pinned `v0.2.0` (digest `sha256:5a43c90bda9bed1d3472847f492b7c05405e6a6ce2d4aa7f4d9b519bb72daf28`,
+issue 17, the first with the upload route, engine 0.1.0, which recorded Terraform but did not read it), and the row left
+Terraform out on purpose. The lab host runs the row's image on `127.0.0.1:18084`; it has run `v0.2.0` since the owner's
+playbook run of 2026-10-26 (the website's status route then answered `configured: true, reachable: true`, version `0.2.0`,
+edition `lab`), and runs `v0.3.0` once the owner re-runs the playbook after the website pull request merges. Not verified by
 any session when this was written: the pane inside the website's frame in a real browser, and one real upload with the human
 check (the owner's first checks after the website deploys). The website's page for this pair
 (`docs/architecture/app-to-addon/cloud-crawler.md`) holds the rest of the record.
@@ -31,11 +34,11 @@ check (the owner's first checks after the website deploys). The website's page f
 | Function App setting (status proxy) | `ADDON_CLOUD_CRAWLER_URL`. The registry (`functions/src/lib/addons/registry.js`) names it and `infra/functionapp.tf` declares it as a plain setting, applied by the owner's Terraform run; the status route reads this AddOn's `/api/health` through it. |
 | Lab-host vault key | `vault_addon_cloud_crawler_turnstile_secret` (ADR 0003 here) |
 | Lab-host loopback port | 18084 (the website's call, as ADR 0003 leaves it; the next after the Cloud Assessor's 18083; published on `127.0.0.1` only, behind the host's reverse proxy) |
-| Image | `docker.io/hybridcloudworks/img-cc-lab-addon`, published on `v*` tags by `publish-images.yml`. The lab host runs `v0.2.0`, digest `sha256:5a43c90bda9bed1d3472847f492b7c05405e6a6ce2d4aa7f4d9b519bb72daf28`, the first with the upload route (issue 17), pinned in the website's `lab-host/ansible/group_vars/all.yml` `addons[]`. `v0.1.0` (the engine adopted, no upload route) is also published and is not pinned. |
+| Image | `docker.io/hybridcloudworks/img-cc-lab-addon`, published on `v*` tags by `publish-images.yml`. The website's `lab-host/ansible/group_vars/all.yml` `addons[]` pins `v0.3.0`, index digest `sha256:7660672a10b2196630f2a97edc804f8013ab1c70e0d7b8091f9430ae3ef01f4c` (engine 0.1.1, reads Terraform; issue 29). `v0.2.0` (digest `sha256:5a43c90bda9bed1d3472847f492b7c05405e6a6ce2d4aa7f4d9b519bb72daf28`, the first with the upload route, issue 17) was pinned before it, and `v0.1.0` (the engine adopted, no upload route) is published and was never pinned. |
 
 ## Catalogue row (`frontend/src/data/addons/catalogue.js`)
 
-The website's row is the authority. This is a copy of it as of 2026-10-26 (website pull request [1413](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1413)). When
+The website's row is the authority. This is a copy of it as of 2026-11-05 (the website pull request for [issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29), which restored "or your Terraform" and `terraform`; the row before it was website pull request [1413](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1413)). When
 this block and the website disagree, the website is right; the other three AddOns' guides had a pasted row that drifted
 this way, which is why the source is named. The weekly check in `.github/workflows/guide-drift.yml` compares the twelve
 fields below, and the loopback port in the table above, with the website's `main`.
@@ -44,12 +47,12 @@ fields below, and the loopback port in the table above, with the website's `main
 {
   id: 'cloud-crawler',
   title: 'Cloud architecture drift check',
-  summary: 'Upload an export of your Azure resources and see where what is built has drifted from your architecture decisions, with draft decision records and review notes. Nothing you upload is kept beyond two hours.',
+  summary: 'Upload an export of your Azure resources or your Terraform and see where what is built has drifted from your architecture decisions, with draft decision records and review notes. Nothing you upload is kept beyond two hours.',
   origin: 'https://cloud-crawler.lab.hybridcloudworks.com',
   panePath: '/',
   healthPath: '/api/health',
   providers: ['azure'],
-  technology: ['resource-graph', 'architecture-decisions'],
+  technology: ['resource-graph', 'terraform', 'architecture-decisions'],
   status: 'available',
   capabilities: ['downloads', 'clipboard-write'],
   docsUrl: 'https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn#readme',
@@ -59,8 +62,9 @@ fields below, and the loopback port in the table above, with the website's `main
 
 The row was `coming` from 2026-10-24 and flipped to `available` (with `comingSince` and `comingReason` removed) in the website's
 second pull request for issue 1357, once the App had released, this AddOn had published `v0.2.0` and the lab host ran it. The
-summary and the technology list leave Terraform out until an engine that reads it ships here; then both are restored in the
-website's row and in this copy, in a pair of pull requests, so the weekly check stays green. `title`, `summary` and
+summary and the technology list left Terraform out from then until 2026-11-05, when `v0.3.0` (engine 0.1.1, which reads
+it) was published and the website restored "or your Terraform" and `terraform` in the pull request that moved the lab-host
+digest; this copy changed in step, so the weekly check stays green. `title`, `summary` and
 `comingReason` (while it existed) obey the site's public-copy rule (no vendor names; "human verification", "expires after two
 hours").
 
