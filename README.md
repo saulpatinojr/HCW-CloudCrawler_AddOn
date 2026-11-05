@@ -22,7 +22,7 @@ The engine is not written here. It is
 seeded and versioned in the upstream App repository and adopted here
 **unchanged** when the App releases (ADR 0002 in the App and ADR 0001 here; the update
 workflow in `.github/workflows/core-update.yml` opens the bump pull request).
-The engine is adopted at the App's release `v0.1.0` (the wheel's URL is pinned in
+The engine is adopted at the App's release `v0.1.1` (the wheel's URL is pinned in
 `pyproject.toml` and its sha256 is recorded in `uv.lock`); what has changed upstream, and what the
 first adoption involved, is in
 [`docs/whats-new-upstream.md`](docs/whats-new-upstream.md).
@@ -54,28 +54,34 @@ token or refresh token is ever held here (website proposal section 11).
 
 ## Status
 
-Version 0.2.0 carries the upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)); 0.1.0 was
-the lab application skeleton with the engine adopted. Both images are published, and the website's lab host runs 0.2.0
-([issue 17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17)). What exists in 0.2.0:
+Version 0.3.0 reads Terraform ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)); 0.2.0
+carries the upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)); 0.1.0 was the
+lab application skeleton with the engine adopted. The 0.1.0 and 0.2.0 images are published, and the website's lab host
+runs 0.2.0 ([issue 17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17)) until the owner tags `v0.3.0`
+and the host's pin moves to the new image. What exists in 0.3.0:
 
 - the lab application: configuration, the edition boundary and its startup refusal, content-free logging, security
   headers, exact-origin CORS, the upload and rate limits, and a flat `/api/health`;
-- **the upload route**: a visitor uploads evidence (a Resource Graph export, or a Terraform state or plan) and a
-  decision, behind human verification, and the lab runs the engine's ingest and drift code and answers with findings,
+- **the upload route**: a visitor uploads evidence (a Resource Graph export, or a Terraform state or plan, read the
+  same way and under the same limits since 0.3.0) and a decision, behind human verification, and the lab runs the
+  engine's ingest and drift code and answers with findings,
   review notes, a draft decision record and a report bundle that carries `NOT-AN-AUDIT.md`; the results live in memory
   for two hours, behind an owner token (see [`docs/api.md`](docs/api.md) and
   [ADR 0004](docs/adr/0004-the-upload-route.md));
 - the pane (file picker, decision chooser, samples, results) that posts `{type:'hcw-addon', id:'cloud-crawler', state}`
   with the states `loading | ready | working | unavailable` to the website origins only;
-- the engine `cloud-crawler-core` 0.1.0 as a hash-pinned dependency;
+- the engine `cloud-crawler-core` 0.1.1 as a hash-pinned dependency (0.1.0 in the 0.1.0 and 0.2.0 images);
 - the security suite that proves the boundary, including inside the image;
-- the hardened Dockerfile and the publish, security and core-update workflows.
+- the hardened Dockerfile and the publish, security and core-update workflows, with a release guard
+  (`scripts/check_release_version.py`) that makes the publish workflow's dry run refuse everything a tag would be
+  refused for (how to release: [`docs/operations/runbook.md`](docs/operations/runbook.md)).
 
 Not yet: the MCP server surface and the trusted-caller session API for the site's chat path (later releases).
-Terraform *reading* is adapted here for engine 0.1.1 ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)):
-the engine reads a state or plan through its provider-type table, so claims about mapped resources are answered,
-and anything the document cannot say stays `unknown`; it reaches a published image with the next release, after
-the App tags `v0.1.1`. The roadmap is section 22 of the website proposal
+Terraform *reading* (engine 0.1.1, [issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)): the
+engine reads a state or plan through its provider-type table, so claims about mapped resources are answered, and
+anything the document cannot say stays `unknown`. It reaches a published image with the tag `v0.3.0`; the website
+row's `terraform` tag and "or your Terraform" summary come back once the lab host runs that image. The roadmap is
+section 22 of the website proposal
 *Azure Architecture MCP Appliance on Azure MCP Server 3.0*; nothing here is production.
 
 ## Getting started

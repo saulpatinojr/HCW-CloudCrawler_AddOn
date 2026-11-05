@@ -11,6 +11,45 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-05
+
+Terraform reading: the lab now reads a Terraform state or plan the visitor uploads, not just records it, because the
+engine it runs is `cloud-crawler-core` 0.1.1 ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29);
+the adaptation and the pin move merged in [pull request 51](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pull/51)).
+The version moves to `0.3.0` (a new minor version: a new kind of input is read and the image moves to Python 3.15;
+nothing was removed or renamed, and the API, the limits and the pane contract are unchanged). `pyproject.toml`,
+`uv.lock`, `__version__` and `/api/health` all say `0.3.0`; publishing the image is the tag `v0.3.0`, which is the
+owner's call and is not part of this change. The MCP server and the trusted-caller session API for the website's chat
+path are still later releases.
+
+### Added
+- **The dry run now refuses everything the tag would refuse.** `scripts/check_release_version.py` is the release guard:
+  it checks that `pyproject.toml`, `__version__` and the `cloud-crawler-lab` entry of `uv.lock` name the same plain
+  `X.Y.Z`; with `--tag` (what `publish-images.yml` runs on a `v*` tag) it also checks that the tag is `v` + that version,
+  that `CHANGELOG.md` has a dated, non-empty section for it and nothing left under `[Unreleased]`, and, with
+  `--ancestor-of origin/main`, that the commit is on `main`; with `--rehearse` (what a manual run of the workflow, the
+  dry run before a tag, now runs) it takes the tag to be `v` + the package version and runs every one of those checks,
+  and also fails when that tag already exists. Until now a manual run only built, checked the boundary and scanned,
+  so a green dry run said nothing about the changelog: on 2026-11-04 a sister repository's tag was refused for entries
+  under `[Unreleased]` after a green dry run, and a tag cannot be taken back
+  ([HCW-CloudAssessor_App pull request 88](https://github.com/saulpatinojr/HCW-CloudAssessor_App/pull/88), whose
+  guard this one mirrors). The `lint` job of `ci.yml` and `make lint` run the no-tag mode on every pull request, so the
+  three version places cannot drift between releases. The workflow's checkout now fetches the full history
+  (`fetch-depth: 0`, needed to ask whether the commit is on `main`) and keeps no credentials in the checkout.
+  Tests: `tests/unit/test_release_guard.py` (every mode of the script, against throwaway trees and git repositories,
+  and that the dry run and the tag run print the same errors for the same state) and
+  `tests/security/test_publish_images_release_guard.py` (the step exists once, runs before the build, uses `--tag` on a
+  tag and `--rehearse` otherwise, and `ci.yml` and the Makefile run the plain mode). How to release, and what each
+  refusal means, is a new section of `docs/operations/runbook.md`.
+- **A Terraform upload is held to the same limits, human check and content-free logs as an Azure export**, per kind
+  (`tests/unit/test_terraform_parity.py`, issue 29's second box). The route never looked at the evidence kind before
+  rate-limiting, checking the declared length, verifying the visitor and streaming the body in, so this already held by
+  construction; the tests hold it per kind so a future per-kind path cannot quietly skip one: a `tf-state` or `tf-plan`
+  upload answers 503 with nothing read when human verification is not configured, 403 on a bad token and 201 on a
+  good one (with `readByDetectors: true`), is refused with 413 for a declared length over the limit before the
+  visitor's verification is spent, counts against the same row limit (`too_many_rows`), and leaves a `session_opened`
+  log line of counts only, with no name, type, path or kind from the document.
+
 ### Changed
 - The project's Python floor is `3.15.1` (`requires-python = ">=3.15.1,<3.16"`) and `.python-version` names the minor
   line only, `3.15` (the Makefile's `uv python pin` likewise), not an exact patch: `actions/setup-python` with `3.15`

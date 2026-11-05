@@ -1,7 +1,7 @@
 # Operations runbook (lab edition)
 
-This page holds the procedures this repository owns; the lab host that runs the container belongs to the website repository (see `infrastructure/README.md`), so there are two procedures so far: the base image
-(next) and Dependabot's Python updates (the last section).
+This page holds the procedures this repository owns; the lab host that runs the container belongs to the website repository (see `infrastructure/README.md`), so there are three procedures so far: the base image
+(next), Dependabot's Python updates, and releasing a version (the last section).
 
 ## Keeping the base image on the website's pin (`base-update`)
 
@@ -378,3 +378,60 @@ address, usually because the entry's `version` is not the pinned wheel's version
 repository today, so their Dependabot jobs pass. The day one of them pins its engine's release file by address, this same
 failure will start there. Copy the entry, the `CORE_METADATA` marker, the `core-update.yml` line and the tests, not a
 workaround.
+
+## Releasing a version (the dry run, then the owner's tag)
+
+A release is a tag `vX.Y.Z` on a commit of `main`. The tag starts [`publish-images.yml`](../../.github/workflows/publish-images.yml),
+which builds the image, checks the edition boundary inside it, scans it and pushes it to the registry by digest. A tag
+cannot be taken back once it is pushed (the ruleset that protects `v*` tags lets nobody move or delete one), so the
+version is checked before anything is built, and the same checks run on a dry run first.
+
+**What the guard checks.** `scripts/check_release_version.py` (standard library only; `make lint` and the `lint` job of
+`ci.yml` run it on every pull request without a tag) refuses the run when:
+
+| Message | What it means | What to do |
+| --- | --- | --- |
+| `the version differs between files (...)` | `pyproject.toml`, `__version__` in `src/cloud_crawler_lab/__init__.py` and the `cloud-crawler-lab` entry of `uv.lock` do not say the same version. | Set all three to the same `X.Y.Z` (edit the first two, then `uvx uv@0.11.32 lock` rewrites the third) in a pull request. |
+| `tag vA.B.C does not match the package version X.Y.Z` | The tag that was pushed names a version the code does not. | Nothing was published. Raise the version everywhere to a number that was never tagged, in a pull request, and tag that commit; the wrong tag stays as history. |
+| `CHANGELOG.md has no '## [X.Y.Z] - YYYY-MM-DD' section`, `has no release date`, `is empty` | The release notes for this version are missing, undated or empty. | Add the dated section with the entries in a pull request, then dry-run again. |
+| `CHANGELOG.md still has entries under [Unreleased]` | Something merged after the release pull request and left notes under `[Unreleased]`. | Fold them into the version's section (or raise the version if they change behaviour) in a pull request, then dry-run again. |
+| `commit ... is not on origin/main` | The run was started on a branch, or the tag points at a commit `main` does not contain. | Dry-run from `main`; tag only a commit of `main`. |
+| `the tag vX.Y.Z already exists` (dry run only) | This version was already released, or its tag was pushed and refused. | Raise the version everywhere; a tag is never reused. |
+
+**The release pull request** (what a session prepares; the owner decides the tag):
+
+1. Move the version in `pyproject.toml` and `src/cloud_crawler_lab/__init__.py`, then run `uvx uv@0.11.32 lock` so
+   `uv.lock` follows (that is the uv version `ci.yml` pins; `uv lock --check` in CI fails with another one).
+2. In `CHANGELOG.md`, add `## [X.Y.Z] - YYYY-MM-DD` under `## [Unreleased]`, move every entry under it, and leave
+   `[Unreleased]` empty. Update the status paragraph of `README.md`, the rows of `VALIDATION.md` and
+   `docs/whats-new-upstream.md` that name the version, and this runbook if the procedure changed.
+3. Run `make lint` and `make test` (or the three `uv run` commands in `README.md`). The guard's line
+   `release version consistent: X.Y.Z` is part of a green `make lint`. Then
+   `uv run python scripts/check_release_version.py --rehearse` runs the tag's checks against the branch: everything but
+   the ancestry check (which only `main` can pass) must be green before the pull request is opened.
+4. Open the pull request ready for review and merge it as any other (CodeRabbit asked for; every thread resolved).
+
+**The dry run, then the tag** (owner steps, after the merge; PowerShell):
+
+1. Start the dry run on `main` and wait for it. It builds, checks and scans, and never pushes (its header comment says
+   so: the Docker connection only trusts tags). Success looks like a green run whose step "The tag, the versions and the
+   changelog agree" prints `release version consistent: X.Y.Z, tag vX.Y.Z` and whose last step says
+   `is not a v* tag: built and scanned, not pushed`.
+
+   ```powershell
+   gh workflow run publish-images.yml --repo saulpatinojr/HCW-CloudCrawler_AddOn --ref main; Start-Sleep -Seconds 20; gh run list --repo saulpatinojr/HCW-CloudCrawler_AddOn --workflow publish-images.yml --limit 1 --json databaseId,headSha,status,conclusion,url
+   ```
+
+   If it is red, nothing was published and the tag would fail the same way: the failing step names what disagrees
+   (table above). Fix it in a pull request and dry-run again. A green dry run is only evidence for the commit it ran
+   on (`headSha` in the output): if `main` moves, dry-run again.
+2. Tag exactly that commit. The tag run repeats every check of the dry run and then pushes; its summary ends with the
+   image's digest (`## Published`), which is what the website's `lab-host/ansible/group_vars/all.yml` pins next.
+
+   ```powershell
+   git fetch origin main; git tag -a vX.Y.Z <the headSha the dry run printed> -m "vX.Y.Z"; git push origin vX.Y.Z
+   ```
+
+   Success: `git push` prints `* [new tag] vX.Y.Z -> vX.Y.Z`, and within a minute a `publish-images` run for the tag
+   appears at <https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/actions/workflows/publish-images.yml>. Record the
+   digest and the run in `VALIDATION.md` and on the release's tracking issue.

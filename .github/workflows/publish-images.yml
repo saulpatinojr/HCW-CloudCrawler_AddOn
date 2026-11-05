@@ -6,7 +6,10 @@
 # Until the owner creates the OIDC connection and sets DOCKERHUB_ENABLED=true / DOCKERHUB_CONNECTION=<uuid>, the push is
 # skipped and the website row stays `coming`.
 # A manual run (workflow_dispatch) is a dry run: it builds, checks the boundary and scans, and never pushes, because the
-# Docker connection only trusts tags.
+# Docker connection only trusts tags. Before anything is built, scripts/check_release_version.py checks that the tag,
+# pyproject.toml, __version__ and uv.lock agree, that CHANGELOG.md has a dated section for the version and nothing left
+# under [Unreleased], and that the commit is on main. The dry run runs the SAME checks with --rehearse (the tag is taken
+# to be v + the package version), so a green dry run on the commit you tag means the tag will pass them too.
 name: publish-images
 on:
   push:
@@ -25,6 +28,15 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with: { python-version: "3.15" }
+      - name: The tag, the versions and the changelog agree (a dry run runs the same checks as the tag)
+        env: { REF_TYPE: "${{ github.ref_type }}", REF_NAME: "${{ github.ref_name }}" }
+        run: |
+          set -euo pipefail
+          if [ "$REF_TYPE" = "tag" ]; then mode=(--tag "$REF_NAME"); else mode=(--rehearse); fi
+          python scripts/check_release_version.py "${mode[@]}" --ancestor-of origin/main
       - id: version
         name: Version from the tag (or the pyproject on manual runs)
         run: |

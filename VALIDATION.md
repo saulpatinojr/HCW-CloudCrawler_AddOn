@@ -265,14 +265,36 @@ see `docs/whats-new-upstream.md`), installed into the virtual environment by han
 | `docker build` and the `image` job | no | Docker Desktop was stopped; the image with a 0.1.1 wheel was built on 2026-11-04 (entry in `docs/whats-new-upstream.md`) before this adaptation, and the pin moved to the released 0.1.1 wheel on 2026-11-04; the pull request's `image` job is the proof |
 | CI on the branch | yes | the pull request's own checks, with the pin on `v0.1.1` (2026-11-04) |
 
+## Run 2026-11-05 (release 0.3.0 prepared; the release guard; Terraform parity; issue 29)
+
+Toolchain: Windows host, uv 0.12.0 for `uv sync` and `uv run`; `uv lock` and `uv lock --check` with `uvx uv@0.11.32`
+(the version `ci.yml` pins); uv-managed CPython 3.15.2; Docker Desktop 29.9.2 (context `desktop-linux`, local engine,
+`DOCKER_HOST` unset), Buildx 0.38.1. The engine is the pinned release wheel `cloud-crawler-core` 0.1.1.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The version in every place that says it: `pyproject.toml`, `uv.lock` (the `cloud-crawler-lab` entry), `__version__` | yes | all `0.3.0`; `uvx uv@0.11.32 lock` moved only that entry (`Updated cloud-crawler-lab v0.2.0 -> v0.3.0`); `uvx uv@0.11.32 lock --check` exit 0; `/api/health` and `X-Addon-Version` read `__version__` (`tests/contract/test_health_shape.py`, `tests/unit/test_release_guard.py`) |
+| `uv run python scripts/check_release_version.py` (the no-tag mode `ci.yml`'s `lint` job and `make lint` run) | yes | `release version consistent: 0.3.0`, exit 0 |
+| `uv run python scripts/check_release_version.py --rehearse` (what the dry run of `publish-images.yml` runs; the changelog has a dated `[0.3.0]` section and nothing under `[Unreleased]`) | yes | `release version consistent: 0.3.0, tag v0.3.0`, exit 0. With `--ancestor-of origin/main` the same, because the branch was still at `main`'s commit; on the pull request's own commits that check is red by design until the merge, and the real rehearsal is the dry run on `main` |
+| Release asset hash and provenance of the pinned engine | yes | `sha256sum` of a fresh `gh release download v0.1.1 --pattern "*.whl"` is `45a5def595b2de85f0d07693bc4e8fcdd4c6afd65a052d4a5fa3288a66012edc`, equal to the hash in `uv.lock`; `gh attestation verify <wheel> --repo saulpatinojr/HCW-CloudCrawler_App` exit 0 |
+| `uv run ruff check .` and `uv run ruff format --check .` | yes | `All checks passed!`, `82 files already formatted` (exit 0, exit 0) |
+| `uv run pytest -q --cov=src --cov-report=term-missing --cov-fail-under=85` | yes | `93 failed, 608 passed`; coverage 97.59 percent (gate 85). The 93 failures are the host artefact recorded on 2026-11-03 and 2026-11-04 and nothing else: 53 in `tests/unit/test_bump_core_pin.py` and 40 in `tests/security/test_core_update_tag_shape.py`, which start `bash -c` from Python and on this host reach `C:\Windows\System32\bash.exe` (the Windows Subsystem for Linux launcher). With those two files deselected: `594 passed`, same coverage. The pull request's `test` job on Linux is the evidence for them |
+| The new tests on their own: `tests/unit/test_release_guard.py` (26), `tests/security/test_publish_images_release_guard.py` (5), `tests/unit/test_terraform_parity.py` (10), `tests/contract` | yes | 54 passed (after one assertion was corrected: a missing token is refused before the verifier is asked, so the verifier sees the bad and the good token only) |
+| `docker build -f infrastructure/docker/Dockerfile --build-arg EDITION=lab` (task tag, removed afterwards), then every check of `ci.yml`'s `image` job by hand | yes, local | build exit 0 (204 MB); `import azure` and `import msal` fail; no `pip`; `import fastapi, pydantic, uvicorn, cloud_crawler_lab, cloud_crawler_core` works and `__version__` is `0.3.0`; the container refuses `IDENTITY_ENDPOINT`; uid 10001; `python --version` is `3.15.2`, equal to `BASE_PYTHON_VERSION`; licence label `MIT`; the hardened run (`--read-only --cap-drop ALL --security-opt no-new-privileges --memory 512m --pids-limit 256 --cpus 1`) answers `/api/health` 200 with `version: 0.3.0` after 2 s and `smoke.py` prints `upload round trip ok` |
+| Terraform through the hardened container (issue 29, second box): the two fixture documents of `tests/terraform_documents.py` posted to `/api/uploads` inside the image, then the same bodies with a declared length of 6 MB | yes, local | `tf-state`: 201, `readByDetectors: true`, 2 resources of 4 entries, the engine's summary (`mapped: 2`, `unmapped: {azurerm_resource_group: 1}`, `sensitiveMarked: 1`); `tf-plan`: 201, 3 resources, `planActions: {create: 1, delete: 1, update: 2}`, `notCarried: {tags: 2}`, one `unknown`; both 6 MB declarations answer `413 too_large`. The container's log holds `session_opened` lines of counts only and `upload_rejected` lines with `code` and `status` only; a search of the whole log for a name, a Terraform type, the file name or a resource path finds 0 lines |
+| The three properties in the code (read, with file and line) | yes, static | Human check: `src/cloud_crawler_lab/routes/uploads.py` line 121 (`await _verify_human(request, client)`) runs before the body is read at line 164 and never looks at the evidence kind; lines 72 to 89 fail closed (503) without a secret. Limits: line 119 (declared length) and line 164 (`read_body` under `max_upload_bytes`), `max_rows` at line 168; `src/cloud_crawler_lab/evidence.py` lines 86 to 97 check the Terraform shape and count its entries, lines 100 to 135 charge every kind against the one row budget (`too_many_rows`). Content-free logs: `uploads.py` line 97 (a refusal is logged by code and status), lines 139 to 150 (`session_opened` carries counts and a duration only), line 181 (a failure is logged by exception class), and `evidence.py` lines 153 to 155 hand the visitor the engine's summary of counts and type names, never a value |
+| Trivy scan of the image, SBOM, provenance, attestation, the push | **no** | Trivy is not installed on this host; `publish-images.yml` runs it on the dry run and on the tag. Pushing needs the tag `v0.3.0`, the owner's call ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)) |
+| The dry run on `main` (`gh workflow run publish-images.yml --ref main`) with the guard in it | **no**, after the merge | recorded on issue 29 and in this file by the session that runs it |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
   are later releases (website proposal, section 22).
 - Terraform reading needs engine 0.1.1, released by the App on 2026-11-04 and pinned here. This repository is
   adapted to it (issue 29): the response, the pane and the documents say the engine reads Terraform, and the tests hold
-  it to that. A published image with Terraform reading needs this repository's next release and the lab host's
-  playbook run, and the website's row is restored then.
+  it to that, with the same limits, human check and content-free logs as an export (run of 2026-11-05). A published
+  image with Terraform reading is the tag `v0.3.0` (release prepared on 2026-11-05; the owner's call), then the lab
+  host's playbook run, and the website's row is restored then.
 - The `eyJ` guard (`MAX_TOKEN_STARTS`) is gone: engine 0.1.1's secret-shape pattern is linear (App ticket 53), and
   `tests/security/test_upload_abuse.py` now proves a 2.6 MB upload of `eyJ` runs is accepted in under three seconds
   with no thread stalled.
