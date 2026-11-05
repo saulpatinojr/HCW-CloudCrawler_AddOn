@@ -57,6 +57,12 @@ once, merge one before rebasing the next.
   [pull request 19](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pull/19)); that job stays as the second line of defence.
 
 ### Changed
+- **Notes on the HCW Main Admin App now say it is also going on two App repositories.** On 2026-11-04 the owner
+  chose to reuse the App for the lockfile workflow of `HCW-CloudCrawler_App` and `HCW-CloudAssessor_App`
+  (HCW-CloudCrawler_App issue #70), so once it is installed there it covers six repositories, not four. The
+  `core-update.yml` comment and `VALIDATION.md` (key rotation, where the App is installed and the accepted-risk note)
+  now say so. Those two repositories use their own private key, so rotating this repository's key is unchanged.
+  Comments and documentation only.
 - **The engine-update workflow now keeps the GitHub App key away from the engine's code.** `.github/workflows/core-update.yml`
   checks for a newer engine release (`cloud-crawler-core`, from the App's GitHub Releases), moves the pin, tests this
   edition against it and opens a pull request. Until now all of that ran in one job, so the new engine's code (run by the
@@ -138,6 +144,11 @@ once, merge one before rebasing the next.
   is updated. Needs engine 0.1.1 like the entry above.
 
 ### Fixed
+- **The qlty check now runs the same ruff as the repository (0.17.3).** qlty (the code-quality service that posts
+  the `qlty check` status on pull requests) ran its own default ruff, 0.14.6, because `.qlty/qlty.toml` named no
+  version. That ruff cannot read a `ruff.toml` whose `target-version` is `py315`, so the move to Python 3.15
+  (pull request #51) made every qlty run end with "Build errored". `.qlty/qlty.toml` now pins ruff to the version in
+  `uv.lock`; move the two together when ruff is updated.
 - `core-update.yml` now runs from `main` only, and auto-merge no longer listens to the `bump` job's report. These are
   two High findings from a review of the same two-job workflow in the MigrateOrchestrator add-on
   ([its pull request 57](https://github.com/saulpatinojr/HCW-MigrateOrchestrator_AddOn/pull/57#discussion_r4430793870));
