@@ -22,7 +22,7 @@
 # holds a move).
 # When the two already agree and no pull request is open, the run ends in `plan`. `open-pr` applies the same move to the
 # same website commit and opens the pull request. The script refuses, for a person to decide, a different image repository,
-# a different Python minor line (3.14 to 3.15) and a Dockerfile it cannot move completely; the run is then red and nothing
+# a different Python minor line (3.15 to 3.16) and a Dockerfile it cannot move completely; the run is then red and nothing
 # is opened. Nothing is merged automatically, and no file but versions.env and the Dockerfile is touched.
 #
 # The pull request is opened with a short-lived GitHub App token (actions/create-github-app-token), not with GITHUB_TOKEN:

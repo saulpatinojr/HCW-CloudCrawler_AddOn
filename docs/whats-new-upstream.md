@@ -23,7 +23,7 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 | Engine version in the App | `cloud-crawler-core` 0.1.0; the App edition is also 0.1.0 | Read from the release |
 | What this repository pins | **`cloud-crawler-core` 0.1.0**, by release-asset URL on one line of `pyproject.toml`, with the wheel's sha256 `25a7abfcec50b0f85cb427145a1fd7fb57898bd09cfc3483edad8a042e5e7be3` recorded in `uv.lock`. The sha256 was computed from a fresh download of the release asset and equals GitHub's own digest for it; the build provenance verifies with `gh attestation verify` (signer: the App's `publish-core.yml` at `refs/tags/v0.1.0`, commit `8142b69`). | `gh release download`, `sha256sum`, `gh attestation verify ... --repo saulpatinojr/HCW-CloudCrawler_App` on 2026-10-26 |
 | Does the engine's log-word list match the lab's? | **No, and it is not copied any more.** The old copy of the engine's redaction module had drifted: ten words that only the lab logs (`session_opened`, `session_closed`, the five `turnstile_*` outcomes, `unsupported_media_type`, `arg-json`, `arg-csv`) are not in the engine's list. `security/redaction.py` is now a thin module: the engine's `scrub`, `VisitorDataError` and guard, plus those ten words. | `tests/security/test_engine_adoption.py` |
-| Compatible with this repository's pins? | Yes. Both require Python `>=3.14.6,<3.15`. The engine requires only `pydantic>=2.14,<3`; this repository pins `pydantic==2.14.1`. The engine imports no cloud SDK and nothing that opens a connection (checked here by walking its installed source). | `uv sync`, the tests above, and the full suite on 2026-10-26 |
+| Compatible with this repository's pins? | **Yes, with the 0.1.1 wheel pinned here.** The engine 0.1.1 declares `Requires-Python: <3.16,>=3.14.6`; this repository requires `>=3.15.1,<3.16` since it followed the website to the Python 3.15 line (the entry of 2026-11-03 below). The earlier 0.1.0 wheel (`<3.15`) refused Python 3.15, which is why the move waited for the release. Everything else still holds: the engine requires only `pydantic>=2.14,<3`; this repository pins `pydantic==2.14.2`; the engine imports no cloud SDK and nothing that opens a connection (checked here by walking its installed source). | `pip install` of the release wheel on `python:3.15.2-slim-trixie`, the Docker build and the full suite on 2026-11-03 |
 | Azure MCP Server | Pinned to 3.0.0 in the App (ADR 0001). **This repository never calls it.** | App ADR 0001 and 0003 |
 
 ## What changed
@@ -36,6 +36,113 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
   repositories hold a separate private key as Dependabot secrets, so rotating this repository's key is unchanged. The
   `core-update.yml` comment and `VALIDATION.md` now say where the App is installed, and the accepted-risk note says a
   stolen key could reach those two repositories as well, whose `main` still needs an approved pull request.
+
+### 2026-11-04, 21:30 UTC: `v0.1.1` is tagged and this pull request pins it
+
+- The App tagged [`v0.1.1`](https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/tag/v0.1.1) on 2026-11-04 (tag run
+  [41914618418](https://github.com/saulpatinojr/HCW-CloudCrawler_App/actions/runs/41914618418): build, attest and release
+  green). The pin moved with `scripts/bump_core_pin.py bump --from v0.1.0 --tag v0.1.1`; `uv.lock` records the wheel's
+  sha256 `45a5def595b2de85f0d07693bc4e8fcdd4c6afd65a052d4a5fa3288a66012edc`, the same value as a fresh download of the
+  release asset, re-locked with CI's uv 0.11.32 on CPython 3.15.2; `bump_core_pin.py check-lock` against this branch's
+  own previous lock reports "only cloud-crawler-core moved".
+
+### 2026-11-04, later the same day: this repository is adapted to engine `0.1.1` (issue 29)
+
+- Nothing new upstream since the entry below (the App's `main` is still `b8a238f`, `v0.1.1` still not tagged). This
+  repository did the adaptation that entry describes, on the branch `fix/python-315-base`, so that the bump pull
+  request for `v0.1.1` comes out green:
+  - The four tests that failed with 0.1.1 are rewritten against real-shaped Terraform documents
+    (`tests/terraform_documents.py`: a state with a zone-redundant storage account, a SQL database that is not, an
+    unmapped resource group and a data source; a plan with an update, a create without an Azure id, an update whose
+    `env` tag is only known after apply, and a delete). They assert what the engine now reads: rows, correlations by
+    Azure id or Terraform address, the content-free summary, `unknown` with its reason where the document cannot
+    answer, and that a resource a plan creates (no Azure id) lies outside a decision scoped to a subscription.
+  - `evidence.py` describes a Terraform file as read, with a note per kind (a plan is "what Terraform would build")
+    and the engine's `terraform` summary; `docs/api.md`, `README.md`, `samples/README.md`, `web/index.html` and
+    `web/app.js` say the same.
+  - The `MAX_TOKEN_STARTS` guard in `inputs.py` is removed (App ticket 53 is fixed in 0.1.1: `_TOKEN_IN_RUN` in the
+    engine's `redaction.py`, checked in the App source at `b8a238f`), and the two tests that proved the refusal now
+    prove the same hostile upload is accepted in linear time with no thread stalled.
+- **Still waiting on the tag:** the pin line and `uv.lock` stay at `v0.1.0` (never pin a wheel built here). When the
+  owner tags `v0.1.1`, `core-update.yml` opens the bump pull request; with this adaptation merged first, that bump
+  should be `compatible`. Then a new add-on release, the lab host's digest bump, and the website row's `terraform`
+  tag and "or your Terraform" summary restored together with the copy in `docs/website-integration/integration-guide.md`
+  (issue 29's remaining boxes).
+
+### 2026-11-04: the App prepared engine `0.1.1` (not tagged yet): it accepts Python 3.15 and reads Terraform, so taking it is an adaptation, not a pin swap
+
+- The App's `main` is at commit `b8a238f` (pull request
+  [67](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/67), merged 2026-11-04): version `0.1.1` in every
+  place the release check reads, a dated `[0.1.1] - 2026-11-03` changelog section, and `requires-python =
+  ">=3.14.6,<3.16"` in the engine and the App. The tag `v0.1.1` did not exist when this was written; pushing it is the
+  owner's step. When it does, fill in here: release URL `https://github.com/saulpatinojr/HCW-CloudCrawler_App/releases/tag/v0.1.1`
+  (to be confirmed), and the wheel's sha256 from the release notes (to be filled; see the next point).
+- **The wheel was built here, in advance.** On 2026-11-04 the engine wheel was built from that commit exactly as the
+  App's `publish-core.yml` builds it (Python 3.14, uv 0.11.32, `uv build --no-create-gitignore --package
+  cloud-crawler-core`, in a throwaway container): `cloud_crawler_core-0.1.1-py3-none-any.whl`, sha256
+  `14e0fa05cb6e451c4323f773b017820f38e6282576584e2225ed5ee46ce6eb3c`, 24 files, `Requires-Dist: pydantic<3,>=2.14`,
+  `Requires-Python: <3.16,>=3.14.6` (the App's own `scripts/verify-core-wheel.py` accepted it). Hatchling builds are
+  reproducible, so the release asset should carry the same digest; still, compare the asset's sha256 with the release
+  notes and with `gh attestation verify` before `uv lock` records it, as the first adoption did. Do not pin a wheel
+  built here: the pin is always the release asset (`bump_core_pin.py` builds the URL from the tag).
+- **What was proven with that wheel (local, 2026-11-04, Docker Desktop `desktop-linux`):** with the pin pointed at the
+  local wheel, `uv lock --no-build --upgrade-package cloud-crawler-core` (uv 0.11.32) recorded it, the image built on
+  `python:3.15.2-slim-trixie`, and every check of `ci.yml`'s `image` job passed by hand: `import azure` fails, the
+  container refuses an identity endpoint, uid 10001, the hardened start with the upload round trip (`smoke.py`), Python
+  3.15.2 equals `BASE_PYTHON_VERSION`, licence label `MIT`. So the Python 3.15 block described in the entry below is
+  lifted by this release: `pip install --require-hashes` accepts the wheel and
+  `test_wheel_accepts_every_python_the_project_allows` passes.
+- **What changed in the engine, and what it breaks here** (`git diff v0.1.0..main -- packages/cloud-crawler-core`,
+  27 files, 5,016 lines added):
+  1. **The engine reads Terraform state and plan** (App ticket
+     [54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54), pull request
+     [60](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/60)). `NORMALISED_KINDS` now holds `tf-state` and
+     `tf-plan`; a document is bounded, parsed through a provider-type table (hashicorp/azurerm only), rows are made
+     for the types the table knows, and the stored payload is the rows plus a content-free summary. A state or plan
+     that is not real Terraform (the stubs these tests use, `{"version": 4, "resources": [{}]}`) is now refused with
+     `invalid_request`, where 0.1.0 stored it unread. New field `NormalizedResource.notCarried` (identity, tags or
+     zones the evidence cannot answer, for example a plan whose tags are only known after apply): a detector or scope
+     that reads such a field answers `unknown` instead of "absent". In the drift engine, a plan row never replaces a
+     row of another kind and never closes a contradiction. **Here, four tests fail with 0.1.1 for these reasons
+     (run on 2026-11-04 on Python 3.15.2 in a container):**
+     `tests/unit/test_evidence.py::test_terraform_state_and_plan_are_recorded_but_not_read_by_this_engine`,
+     `tests/unit/test_upload_api.py::test_several_files_and_terraform_are_accepted_and_the_response_says_what_was_read`,
+     `tests/unit/test_upload_api.py::test_a_claim_nothing_can_read_is_unknown_never_a_guess` and
+     `tests/security/test_upload_hardening.py::test_claims_times_resources_is_capped_before_the_engine_evaluates_anything`
+     (its comment "Terraform files read into no resources, so they never count against it" is no longer true). The
+     words "this version of the engine does not read Terraform yet" in `src/cloud_crawler_lab/evidence.py`,
+     `docs/api.md`, `README.md`, `web/index.html` and `web/app.js` become wrong at the same moment. That is
+     [issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29) here: the bump pull request that
+     `core-update.yml` opens for `v0.1.1` will come out red and labelled `needs-adaptation`, and the adaptation (tests
+     with real-shaped Terraform documents, the route's note, the pane wording, then the website row) is done on it or
+     on a branch of its own before it merges. Everything else in the suite passed with the new engine (587 passed;
+     the 57 remaining failures in that run came from the temporary local-wheel pin, which is not the GitHub URL shape
+     that `tests/unit/test_bump_core_pin.py` and six tests in `tests/security/test_engine_adoption.py` expect, and
+     disappear with the real pin).
+  2. **The secret-shape pattern is linear and the glued-token regression is fixed** (App ticket
+     [53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53), pull requests
+     [59](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/59) and
+     [61](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/61)). Once 0.1.1 is pinned, the `MAX_TOKEN_STARTS`
+     guard in `src/cloud_crawler_lab/inputs.py` (and its tests) can go, as the table of open decisions below said.
+  3. **Dependencies and the static metadata are unchanged:** the wheel still requires only `pydantic>=2.14,<3`, so the
+     `CORE_METADATA` entry needs only its version line moved, which `bump_core_pin.py` does.
+- **App-only, nothing reaches here:** the appliance now refuses to start without sign-in on a non-loopback address,
+  the optional app-role check, the real-tenant sign-in record and the new guide pages. This repository runs its own
+  server, never the appliance's.
+
+### 2026-11-03: this repository moved to Python 3.15; the engine 0.1.0 does not accept it yet
+
+- Nothing changed upstream. This repository followed the website's lab base to `python:3.15.2-slim-trixie`
+  ([saulpatinojr/HCW-HybridCloudWorks#1386](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1386)) and
+  now requires Python `>=3.15.2,<3.16`.
+- What it means for the engine: the pinned release, `cloud-crawler-core` 0.1.0, says `Requires-Python: <3.15,>=3.14.6`
+  (read from the wheel's `METADATA`), and `packages/cloud-crawler-core/pyproject.toml` on the App's `main` says the
+  same. `pip` refuses a wheel whose range excludes the running Python, so the image build stops at its `pip install`
+  step with `Package 'cloud-crawler-core' requires a different Python: 3.15.2 not in '<3.15,>=3.14.6'`, and
+  `test_wheel_accepts_every_python_the_project_allows` fails for the same reason. The next App release needs
+  `requires-python` to cover 3.15; `core-update.yml` then opens the bump pull request as usual, and both go green with
+  it. Do not work around this with `--ignore-requires-python`: the refusal is the engine's own statement about what it
+  was tested on.
 
 ### 2026-10-31: `core-update.yml` split into two jobs (this repository's change, not the App's)
 
@@ -203,6 +310,6 @@ The App has published three decisions: [0001](https://github.com/saulpatinojr/HC
 | [8](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/8): no sign-in on the App's `/api` and `/mcp` | The "human only" gate is a non-empty `actorId` today; an authentication model needs an owner decision | The caller classes and identity model it picks may change the tool contract this repository must match. Here, identity stays the website's job (asserted claims only); watch for a contract change. |
 | [9](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/9): protect `main` and tags | Partly done: pull request plus six checks, `v*` tags locked, but no approving review is required and `CODEOWNERS` still has placeholders | None directly. |
 | [13](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/13): GUID-scan false alarm | Fixed for bytecode; "scan only tracked files" is not done in the App | This repository already scans only files git lists. |
-| [54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54): Terraform state and plan readers | The engine 0.1.0 stores `tf-state` and `tf-plan` evidence redacted and unparsed (`NORMALISED_KINDS` holds only `arg-export` and `azure-mcp-result`), so no detector reads Terraform | The website row promises Terraform. This edition accepts the two kinds and reports claims about them as `unknown`; reading them is engine work and goes upstream first. |
-| [53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53): the secret-shape pattern is quadratic on repeated `eyJ` | The engine's redaction runs it over every string of an upload; a 64 KB string of `eyJ` repeats held the process for 1 to 3 s | This edition refuses more than 16 `eyJ` in one string (`MAX_TOKEN_STARTS` in `inputs.py`); remove that guard once an engine release fixes the pattern. |
+| [54](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/54): Terraform state and plan readers | **Closed upstream** (pull request 60, on `main`, in engine 0.1.1; no release carries it until `v0.1.1` is tagged). The engine 0.1.0 this repository pins still stores `tf-state` and `tf-plan` unread | The website row promises Terraform. This edition is adapted to 0.1.1 on `fix/python-315-base` ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29); see the later entry of 2026-11-04): the pin moves when `v0.1.1` is tagged, and the row's Terraform wording is restored with the next add-on release. |
+| [53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53): the secret-shape pattern is quadratic on repeated `eyJ` | **Fixed upstream** (pull requests 59 and 61, in engine 0.1.1; not in any release until `v0.1.1`). In the pinned 0.1.0 a 64 KB string of `eyJ` repeats still holds the process for 1 to 3 s | The `MAX_TOKEN_STARTS` guard in `inputs.py` is removed on `fix/python-315-base` (the branch that takes 0.1.1); `tests/security/test_upload_abuse.py` now proves the hostile string is accepted in linear time. |
 | [16](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/16): release hygiene | Proven by the `v0.1.0` release: the three files are there and the wheel's provenance verifies | The first adoption used those files. |

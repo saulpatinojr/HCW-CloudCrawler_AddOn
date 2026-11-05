@@ -9,7 +9,7 @@
 There is no Terraform here and there must not be (AddOn Integration Standard, section 3): the lab host belongs to the
 website repository (`lab-host/ansible`, role `addons`), and the Azure appliance belongs to `HCW-CloudCrawler_App`.
 
-The lab application is copied into `/usr/local/lib/python3.14/site-packages` as a source tree rather than built as a
+The lab application is copied into `/usr/local/lib/python3.15/site-packages` as a source tree rather than built as a
 wheel, so no build backend enters the image. The build stage exports `uv.lock` with `uv export --frozen --format
 requirements-txt --no-dev --no-emit-project` (hashes on by default), using the uv CI uses by digest. That export is the
 only input `pip install --require-hashes --no-deps` reads, and uv stays in the build stage. There is no committed

@@ -1,7 +1,7 @@
 # CLAUDE.md — working agreement for Claude Code in this repository
 
 This is `saulpatinojr/HCW-CloudCrawler_AddOn`, the **lab edition** of Cloud Crawler (AddOn id `cloud-crawler`, site
-route `/tools/cloud-crawler`, origin `https://cloud-crawler.lab.hybridcloudworks.com`): a Python 3.14 FastAPI
+route `/tools/cloud-crawler`, origin `https://cloud-crawler.lab.hybridcloudworks.com`): a Python 3.15 FastAPI
 application (`src/cloud_crawler_lab`) that collects evidence handed to it, runs the engine's deterministic drift
 detectors and expires everything after two hours; a vanilla pane the website frames; a hardened Dockerfile and
 SHA-pinned workflows. The engine (`cloud-crawler-core`) is **written upstream** in `saulpatinojr/HCW-CloudCrawler_App`

@@ -25,10 +25,6 @@ MAX_DEPTH = 64
 MAX_CONTAINERS = 100_000
 # Every value in the parsed document: containers, strings, numbers, booleans and nulls.
 MAX_NODES = 1_000_000
-# The engine's secret-shape pattern (`eyJ...` then a dot) is quadratic on a string that repeats `eyJ` with no dot: every
-# `eyJ` starts a scan to the end of the run. A real token has two or three. Refusing more than this keeps each string's
-# cost linear, which matters because the engine redacts every string value of every upload.
-MAX_TOKEN_STARTS = 16
 # One string, in characters. Longer values are not evidence; they are a way to make results large.
 MAX_STRING = 65_536
 
@@ -67,8 +63,6 @@ def parse_document(body: bytes) -> Any:
 def _check_text(value: str) -> None:
     if len(value) > MAX_STRING:
         raise _too_complex("string_length")
-    if value.count("eyJ") > MAX_TOKEN_STARTS:
-        raise _too_complex("token_shapes")
     if not value.isascii():
         try:
             value.encode("utf-8")

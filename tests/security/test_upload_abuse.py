@@ -98,14 +98,21 @@ def test_extra_keys_next_to_the_evidence_and_the_files_are_refused_early(lab):
         assert response.status_code == 400 and seconds < 3 and peak < 80
 
 
-# ---- F2: the engine's secret-shape pattern is quadratic on repeated `eyJ` ----------------------------------------
+# ---- F2: the engine's secret-shape pattern was quadratic on repeated `eyJ` (fixed in engine 0.1.1) ---------------
+# Until engine 0.1.1 the lab refused a string with more than 16 `eyJ` (`MAX_TOKEN_STARTS`), because one 64 KB string
+# of `eyJ` repeats held the process for 1 to 3 s inside the engine's pattern. The engine's pattern is linear now (App
+# ticket 53), so the guard is gone and these tests prove the hostile string is simply accepted, quickly.
 
 
-def test_a_string_that_repeats_the_token_prefix_is_refused_so_the_engines_pattern_stays_linear(lab):
+def test_a_string_that_repeats_the_token_prefix_is_accepted_in_linear_time(lab):
+    """40 rows of a 64 KB `eyJ` run (2.6 MB of them): with the quadratic pattern this took minutes; now it is read and
+    answered like any other upload, and nothing in the lab refuses it."""
+    assert not hasattr(inputs, "MAX_TOKEN_STARTS"), "the lab-side guard was removed with engine 0.1.1"
     hostile = "eyJ" * 21_845
     rows = [{"id": f"{SUB}/r{i}", "name": "n", "type": "t", "properties": {"a": hostile}} for i in range(40)]
     response, seconds, _ = measured(lab.post, "/api/uploads", json=make_body(content=rows))
-    assert response.status_code == 422 and response.json()["error"]["details"]["reason"] == "token_shapes"
+    assert response.status_code == 201, response.text
+    assert response.json()["evidence"][0]["resourceCount"] == 40
     assert seconds < 3
 
 
@@ -114,11 +121,12 @@ def test_a_real_token_shape_is_still_accepted_and_redacted(lab):
     rows = [{"id": f"{SUB}/r", "name": "n", "type": "t", "properties": {"note": f"x {token}"}}]
     response = lab.post("/api/uploads", json=make_body(content=rows))
     assert response.status_code == 201 and response.json()["evidence"][0]["redactedCount"] == 1
-    assert inputs.MAX_TOKEN_STARTS >= 3
 
 
 def test_no_thread_is_stalled_for_long_by_the_hostile_string():
-    """What the review measured: one uninterrupted stall of 1.1 s while the pattern ran with the GIL held."""
+    """What the review measured on engine 0.1.0: one uninterrupted stall of 1.1 s while the pattern ran with the GIL
+    held. With the linear pattern the same upload is accepted and no tick of a second thread is late by half a
+    second."""
     stalls, stop = [], threading.Event()
 
     def ticker():
@@ -134,7 +142,7 @@ def test_no_thread_is_stalled_for_long_by_the_hostile_string():
     try:
         rows = [{"id": f"{SUB}/r{i}", "name": "n", "type": "t", "properties": {"a": "eyJ" * 21_845}} for i in range(5)]
         with TestClient(create_app(make_settings())) as c:
-            assert c.post("/api/uploads", json=make_body(content=rows)).status_code == 422
+            assert c.post("/api/uploads", json=make_body(content=rows)).status_code == 201
     finally:
         stop.set()
         thread.join()

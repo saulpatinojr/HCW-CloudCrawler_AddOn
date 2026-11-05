@@ -15,6 +15,7 @@ from cloud_crawler_lab.routes import uploads
 from cloud_crawler_lab.store import UploadStore
 
 from ..conftest import JSON, load_sample, make_body, make_settings, one_claim_decision
+from ..terraform_documents import sample_plan, sample_state
 
 
 def create(client, body=None, **kwargs):
@@ -392,25 +393,65 @@ def test_each_upload_is_its_own_draft_decision(client):
 
 
 def test_several_files_and_terraform_are_accepted_and_the_response_says_what_was_read(client):
+    """The sample export alone gives 3 supported and 2 contradicted for the zone-redundancy decision (score 60).
+    The plan adds: a SQL database it would make zone redundant (supported; the export does not have that resource); a
+    storage account whose `env` tag is only known after apply, so the claim's `env=prod` selector cannot be applied
+    and the verdict is unknown, never a guess either way; a storage account the plan creates, which has no Azure id
+    yet and so lies outside a decision scoped to a subscription (no finding); and a destroyed key vault (no row)."""
     body = make_body()
-    body["evidence"].append(
-        {"kind": "tf-plan", "name": "plan.json", "content": {"format_version": "1.2", "resource_changes": [{}, {}]}}
-    )
+    body["evidence"].append({"kind": "tf-plan", "name": "plan.json", "content": sample_plan()})
     r = create(client, body)
-    assert r.status_code == 201
+    assert r.status_code == 201, r.text
     [export, plan] = r.json()["evidence"]
-    assert export["readByDetectors"] is True and plan["readByDetectors"] is False
-    assert plan["entryCount"] == 2 and plan["resourceCount"] == 0 and plan["name"] == "plan.json"
-    assert r.json()["summary"]["contradicted"] == 2
-
-
-def test_a_claim_nothing_can_read_is_unknown_never_a_guess(client):
-    only_terraform = {
-        "evidence": [{"kind": "tf-state", "content": {"version": 4, "resources": [{}]}}],
-        "decision": load_sample("decision-zone-redundancy.json"),
+    assert export["readByDetectors"] is True and plan["readByDetectors"] is True
+    assert plan["entryCount"] == 4 and plan["resourceCount"] == 3 and plan["name"] == "plan.json"
+    assert "terraform" not in export and plan["terraform"]["mapped"] == 3 and plan["terraform"]["destroyed"] == 1
+    assert "would build" in plan["note"]
+    assert r.json()["summary"] == {
+        "supported": 4,
+        "contradicted": 2,
+        "unknown": 1,
+        "notApplicable": 8,
+        "score": 66.7,
+        "coverage": 0.857,  # 6 of 7 findings answered, rounded as the engine rounds
     }
-    r = create(client, only_terraform)
-    assert r.status_code == 201
+    detail = client.get(f"/api/uploads/{r.json()['uploadId']}", headers=owner(r)).json()
+    [unknown] = [f for f in detail["findings"] if f["verdict"] == "unknown"]
+    assert unknown["resourceId"].endswith("/microsoft.storage/storageaccounts/hcwsamplestprod02")
+    assert "does not carry its tags" in unknown["unknownReason"]
+    assert not any("azurerm_storage_account.logs" in (f.get("resourceId") or "") for f in detail["findings"])
+
+
+def _plan_with_only_the_storage_account_whose_tag_is_unknown() -> dict:
+    plan = sample_plan()
+    plan["resource_changes"] = [c for c in plan["resource_changes"] if c["name"] == "prod"]
+    return {"kind": "tf-plan", "content": plan}
+
+
+def _state_with_only_a_resource_group() -> dict:
+    state = sample_state()
+    state["resources"] = [r for r in state["resources"] if r["type"] == "azurerm_resource_group"]
+    return {"kind": "tf-state", "content": state}
+
+
+@pytest.mark.parametrize(
+    "document, reason",
+    [
+        pytest.param(
+            _plan_with_only_the_storage_account_whose_tag_is_unknown(),
+            "does not carry its tags",
+            id="a tag only known after apply",
+        ),
+        pytest.param(_state_with_only_a_resource_group(), "no usable evidence", id="no type the engine maps"),
+    ],
+)
+def test_a_claim_the_evidence_cannot_answer_is_unknown_never_a_guess(client, document, reason):
+    """Two ways a Terraform document cannot answer the zone-redundancy claim: a plan whose only row has tags that are
+    unknown until apply (the `env=prod` selector cannot be applied to it), and a state that holds only resource types
+    the engine's table does not map (no rows at all). Both stay `unknown`, name the reason, and leave the score
+    empty."""
+    r = create(client, {"evidence": [document], "decision": load_sample("decision-zone-redundancy.json")})
+    assert r.status_code == 201, r.text
     assert r.json()["summary"] == {
         "supported": 0,
         "contradicted": 0,
@@ -420,9 +461,8 @@ def test_a_claim_nothing_can_read_is_unknown_never_a_guess(client):
         "coverage": 0.0,
     }
     detail = client.get(f"/api/uploads/{r.json()['uploadId']}", headers=owner(r)).json()
-    assert (
-        detail["findings"][0]["verdict"] == "unknown" and "no usable evidence" in detail["findings"][0]["unknownReason"]
-    )
+    [finding] = detail["findings"]
+    assert finding["verdict"] == "unknown" and reason in finding["unknownReason"]
 
 
 def test_samples_are_served_from_a_fixed_list(client):

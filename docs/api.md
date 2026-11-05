@@ -42,8 +42,17 @@ X-Turnstile-Token: <the human-verification token>      (required unless the lab 
 
 - `evidence`: 1 to 5 files. `kind` is `arg-export` (a Resource Graph export: an array, or an object with a `data` array),
   `tf-state` (version 4) or `tf-plan` (`format_version` 1.x with `resource_changes`). `name` is optional and must look like
-  `plain name.json`. This version of the engine reads Resource Graph exports only; a Terraform file is recorded with a
-  fingerprint and the response marks it `readByDetectors: false`.
+  `plain name.json`. The engine reads all three kinds into resources (`readByDetectors: true`). A Terraform document is
+  read through the engine's provider-type table (hashicorp/azurerm resource types only): a type the table knows becomes
+  a resource, anything else (other providers, data sources, unmapped types, destroyed objects) is counted and never
+  read, and a property the document cannot answer (a tag only known after apply, a value Terraform marks sensitive)
+  is left out so the detector answers `unknown`, never a guess. A plan describes what Terraform *would* build, not
+  what exists: its rows never replace rows from an export or a state, and a verdict from a plan alone never closes a
+  contradiction. A resource a plan creates has no Azure id yet, so a decision scoped to a subscription does not
+  reach it. For a Terraform file the response's `evidence` entry carries a `terraform` summary from the engine: counts
+  (`instances`, `mapped`, `destroyed`, `dataSources`, `withoutAzureId`, `sensitiveMarked`, `planActions`), the
+  Terraform type names it did not map (`unmapped`) and what it could not carry (`notCarried`); no value from the
+  document. Strip secrets from a state before uploading it anyway; the lab keeps nothing of the content.
 - `decision`: the App's `adr_create` input, with the limits below. It is recorded as a **draft** (`status` may be `draft` or
   `proposed`). The detectors are listed in [`samples/README.md`](../samples/README.md).
 
@@ -68,7 +77,7 @@ X-Turnstile-Token: <the human-verification token>      (required unless the lab 
 | Files | 5 | `400 invalid_request` |
 | Claims in the decision | 20 | `400 invalid_request` |
 | Claims times resources read | 25,000 (about 120 MB while evaluating) | `422 too_many_findings` |
-| Nesting, objects and arrays, values, one string | depth 64; 100,000 objects and arrays; 1 million values; 65,536 characters; at most 16 `eyJ` in one string | `422 too_complex` |
+| Nesting, objects and arrays, values, one string | depth 64; 100,000 objects and arrays; 1 million values; 65,536 characters | `422 too_complex` |
 | Tags and zones on one resource | 100 and 100 | `422 ingestion_failed` |
 | The decision part of the request | 20,000 values, no object over 128 keys, no list over 1,000 | `400 invalid_request` |
 | Results held | 200, and 64 MB in all (oldest first); one client (the address the rate limit uses) may hold a tenth of the results and a quarter of the bytes, and loses its own oldest first | none: the oldest is dropped |

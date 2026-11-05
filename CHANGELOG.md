@@ -11,6 +11,13 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+### Changed
+- The project's Python floor is `3.15.1` (`requires-python = ">=3.15.1,<3.16"`) and `.python-version` names the minor
+  line only, `3.15` (the Makefile's `uv python pin` likewise), not an exact patch: `actions/setup-python` with `3.15`
+  hands out whichever 3.15.x its image carries (3.15.1 on one run, 3.15.2 on the next), the pinned uv 0.11.32 cannot
+  download the other patch, and an exact `.python-version` made `uv sync --frozen` fail in CI with `No interpreter found
+  for Python 3.15.x` on every other run. The image still runs the website's `python:3.15.2-slim-trixie` digest.
+
 ### Added
 - CI now checks that the base image really carries the Python version that `infrastructure/docker/versions.env` names.
   Until now the `lint` job proved that every `FROM` line uses the pinned digest (`BASE_IMAGE@BASE_DIGEST`), but a digest is
@@ -89,6 +96,52 @@ once, merge one before rebasing the next.
   `clipboard-write`, because the pane saves files and copies its report and never sends a `navigate` message. The
   environment table now shows the real `CC_FRAME_ANCESTORS` (it includes `'self'`) and `CC_MAX_STORE_MB`. `README.md` and
   `docs/website-integration/routes.md` no longer describe the row as waiting. Nothing in the application changes.
+- The base image, and every file that names the Python line, moved from Python 3.14 to Python 3.15, the line the
+  website moved to on 2026-10-31
+  ([saulpatinojr/HCW-HybridCloudWorks#1386](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1386),
+  [#1468](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1468)). The daily `base-update.yml` run refuses a
+  move to another Python minor line on purpose (a person must decide), so since that day it has been red and the weekly
+  `base-follows-website` job in `security.yml` has been red on `main`. This pull request is that person's decision, made
+  by hand in one change: `BASE_IMAGE`, `BASE_DIGEST` and `BASE_PYTHON_VERSION` in `infrastructure/docker/versions.env`
+  now read `python:3.15.2-slim-trixie`, its index digest and `3.15.2`; both `FROM` lines and every `python3.14`
+  paths in `infrastructure/docker/Dockerfile` follow; `requires-python` in `pyproject.toml` is `>=3.15.2,<3.16` and
+  `uv.lock` was rebuilt for it with uv 0.11.32 (the version `ci.yml` names), which replaced every `cp314` wheel with its
+  `cp315` one and moved no package version; `.python-version`, the `uv python pin` in the `Makefile`, `PYTHON_VERSION`
+  in `ci.yml`, the three `python-version: "3.14"` lines in `core-update.yml` and `security.yml`, `target-version` in
+  `ruff.toml`, and the sentences in `CLAUDE.md`, `README.md`, `infrastructure/README.md`, `docs/operations/runbook.md`
+  and `docs/whats-new-upstream.md` that named the line all say 3.15. Known limit, recorded in `VALIDATION.md`: the
+  engine release this edition pins, `cloud-crawler-core` 0.1.0, declares `Requires-Python: <3.15,>=3.14.6`, so the
+  image's `pip install --require-hashes` step refuses it on Python 3.15 and
+  `test_wheel_accepts_every_python_the_project_allows` fails; both go green only once the App publishes an engine release
+  whose range covers 3.15 and `core-update.yml` adopts it. No other check was weakened to get past that.
+- **Terraform state and plan files are now read, not just recorded, once the engine is `cloud-crawler-core` 0.1.1**
+  ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29); engine work in App pull request
+  [60](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/60)). Until now the lab accepted a `tf-state` or
+  `tf-plan` upload, kept a fingerprint and told the visitor "this version does not read Terraform yet", so every claim
+  about it stayed `unknown`. Engine 0.1.1 reads both through a provider-type table (hashicorp/azurerm resource types
+  only): a type it knows becomes the same kind of resource a Resource Graph export gives, anything else is counted
+  and never read, a value Terraform marks sensitive is withheld before anything reads it, and a property the document
+  cannot answer (a tag only known after apply) is left out so the verdict is `unknown` with the reason named, never a
+  guess. A plan is read as what Terraform would build, not what exists; the engine never lets a plan row replace a
+  row of another kind. What changed here: the upload response marks a Terraform file `readByDetectors: true`, gives
+  a note per kind and the engine's content-free `terraform` summary (counts and unmapped type names, no value from
+  the document); `docs/api.md`, `README.md`, `samples/README.md` and the pane (`web/index.html`, `web/app.js`) say the
+  engine reads Terraform; the four tests that assumed it did not are rewritten against small fictional Terraform
+  documents (`tests/terraform_documents.py`), and a Terraform row now counts against the claims-times-resources cap
+  like any other row. **The engine pin moved in the same pull request:** the App tagged `v0.1.1` on 2026-11-04, and
+  `pyproject.toml` and `uv.lock` now name its release wheel (sha256 `45a5def5…`), so the suite runs against the
+  released 0.1.1, not a local build (`VALIDATION.md`, `docs/whats-new-upstream.md`). The website row's `terraform` tag and "or your Terraform" summary come
+  back with the next add-on release, in a pair of pull requests with the copy in
+  `docs/website-integration/integration-guide.md`, as that guide says.
+- **The lab no longer refuses a string with more than 16 `eyJ` in it** (`MAX_TOKEN_STARTS` in `inputs.py` is gone;
+  App ticket [53](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/53), fixed in engine 0.1.1 by App pull
+  requests [59](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/59) and
+  [61](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/61)). The guard existed because the engine 0.1.0's
+  secret-shape pattern took quadratic time on a long run of `eyJ`; the 0.1.1 pattern is linear, so the guard would
+  only refuse honest uploads. `tests/security/test_upload_abuse.py` keeps the same hostile upload (40 rows of a 64 KB
+  `eyJ` run) and now proves it is accepted in under three seconds with no thread stalled for half a second, instead
+  of proving the refusal. The `too_complex` reason `token_shapes` no longer exists; the limits table in `docs/api.md`
+  is updated. Needs engine 0.1.1 like the entry above.
 
 ### Fixed
 - **The qlty check now runs the same ruff as the repository (0.17.3).** qlty (the code-quality service that posts

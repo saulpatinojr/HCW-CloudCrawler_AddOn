@@ -31,7 +31,7 @@
     <h2 id="h-evidence">1. What is built: your evidence</h2>
     <p class="small">
       Add an export of your Azure resources: the JSON from <code>az graph query</code> or the Resource Graph Explorer (an array, or an object with a <code>data</code> array).
-      A Terraform state or plan (<code>terraform show -json</code>) is accepted too, but this version does not read Terraform yet: it is recorded with a fingerprint and any claim about it stays "unknown".
+      A Terraform state or plan (<code>terraform show -json</code>) is read too: the Azure resources it describes are checked like the export's, a plan counts as what Terraform would build rather than what exists, and anything the file cannot say (a tag only known after apply, a value marked sensitive) stays "unknown".
       Remove secrets from a Terraform state first. Up to 5 files, 5 MB and 5,000 rows.
     </p>
     <label class="dropzone" id="dropzone" tabindex="0" for="file">

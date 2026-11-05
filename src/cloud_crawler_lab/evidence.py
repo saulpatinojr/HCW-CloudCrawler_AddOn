@@ -1,10 +1,13 @@
 """The evidence a visitor uploads, handed to the engine's own ingestion (`cloud_crawler_core.ingest.ingest`).
 
-Three kinds are accepted: `arg-export` (an Azure Resource Graph export, the one the engine reads into resources),
-and `tf-state` and `tf-plan` (the JSON Terraform writes with `terraform show -json`). The engine 0.1.0 stores a
-Terraform document redacted and unparsed "for later versions" (`NORMALISED_KINDS`), so a claim about a Terraform
-resource stays `unknown` here and the summary says so. The lab keeps no evidence payload at all once the result is
-built: only the fingerprint, the counts and the findings.
+Three kinds are accepted, and the engine (0.1.1 and later) reads all three into resources: `arg-export` (an Azure
+Resource Graph export), `tf-state` (a Terraform state file, version 4) and `tf-plan` (the JSON of a plan,
+`terraform show -json`). A Terraform document is read through the engine's provider-type table (hashicorp/azurerm
+only): a resource type the table knows becomes a row, anything else is counted in a content-free summary and never
+read, and a property the document cannot answer (a tag only known after apply, a value Terraform marks sensitive) is
+left out so the detector answers `unknown`, never a guess. A plan describes what Terraform would build, not what
+exists; the engine never lets a plan row replace a row of another kind. The lab keeps no evidence payload at all once
+the result is built: only the fingerprint, the counts and the findings.
 
 Every message that leaves this module names a position or a reason code. The engine's `IngestionError` messages are
 content-free by construction (they carry row numbers and limits), and the checks added here follow the same rule.
@@ -15,7 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal
 
-from cloud_crawler_core.ingest import NORMALISED_KINDS, ingest
+from cloud_crawler_core.ingest import NORMALISED_KINDS, TERRAFORM_KINDS, ingest
 from cloud_crawler_core.models import (
     Evidence,
     EvidenceClass,
@@ -135,7 +138,7 @@ def ingest_files(files: list[EvidenceFile], *, max_rows: int, now: datetime) -> 
 def describe(record: Evidence, entries: int | None, name: str | None) -> dict[str, Any]:
     """What the visitor is told about one file: counts and a fingerprint, never the content."""
     read = record.kind in NORMALISED_KINDS
-    return {
+    info: dict[str, Any] = {
         "evidenceId": record.evidenceId,
         "kind": record.kind.value,
         "name": name,
@@ -145,10 +148,26 @@ def describe(record: Evidence, entries: int | None, name: str | None) -> dict[st
         "confidence": record.confidence,
         "payloadHash": record.payloadHash,
         "readByDetectors": read,
-        "note": (
-            "Read into resources; the detectors checked your claims against it."
-            if read
-            else "Recorded with a fingerprint only. This version of the engine does not read Terraform yet, so "
-            "claims about it stay unknown."
-        ),
+        "note": NOTES[record.kind] if read else NOTE_UNREAD,
     }
+    if record.kind in TERRAFORM_KINDS and isinstance(record.payload, dict):
+        # The engine's own summary of the document: counts and Terraform type names only, never a value from it.
+        info["terraform"] = record.payload.get("terraform")
+    return info
+
+
+NOTE_UNREAD = (
+    "Recorded with a fingerprint only. This version of the engine does not read this kind, so claims about it stay "
+    "unknown."
+)
+NOTES: dict[EvidenceKind, str] = {
+    EvidenceKind.ARG_EXPORT: "Read into resources; the detectors checked your claims against it.",
+    EvidenceKind.TF_STATE: (
+        "Read into resources; the detectors checked your claims against it. Only the Azure resource types the engine "
+        "maps are read (the rest are counted, not read), and a value the state cannot answer stays unknown."
+    ),
+    EvidenceKind.TF_PLAN: (
+        "Read into the resources Terraform would build; the detectors checked your claims against that plan, not "
+        "against what exists. A value that is only known after apply stays unknown."
+    ),
+}

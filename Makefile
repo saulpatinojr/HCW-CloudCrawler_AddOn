@@ -2,7 +2,7 @@
 .PHONY: setup lint test run image package clean
 
 setup:
-	uv python pin 3.14.6
+	uv python pin 3.15
 	uv sync --all-packages
 
 lint:
