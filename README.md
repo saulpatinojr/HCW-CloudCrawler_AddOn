@@ -56,9 +56,10 @@ token or refresh token is ever held here (website proposal section 11).
 
 Version 0.3.0 reads Terraform ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)); 0.2.0
 carries the upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)); 0.1.0 was the
-lab application skeleton with the engine adopted. The 0.1.0 and 0.2.0 images are published, and the website's lab host
-runs 0.2.0 ([issue 17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17)) until the owner tags `v0.3.0`
-and the host's pin moves to the new image. What exists in 0.3.0:
+lab application skeleton with the engine adopted. The 0.1.0, 0.2.0 and 0.3.0 images are published (`v0.3.0` on
+2026-11-05), the website's lab-host row pins 0.3.0 by digest, and the host runs it once the owner re-runs the lab-host
+playbook (it ran 0.2.0 from 2026-10-26, [issue 17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17)).
+What exists in 0.3.0:
 
 - the lab application: configuration, the edition boundary and its startup refusal, content-free logging, security
   headers, exact-origin CORS, the upload and rate limits, and a flat `/api/health`;
@@ -79,8 +80,9 @@ and the host's pin moves to the new image. What exists in 0.3.0:
 Not yet: the MCP server surface and the trusted-caller session API for the site's chat path (later releases).
 Terraform *reading* (engine 0.1.1, [issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)): the
 engine reads a state or plan through its provider-type table, so claims about mapped resources are answered, and
-anything the document cannot say stays `unknown`. It reaches a published image with the tag `v0.3.0`; the website
-row's `terraform` tag and "or your Terraform" summary come back once the lab host runs that image. The roadmap is
+anything the document cannot say stays `unknown`. The image is published as `v0.3.0`, the website's lab-host row pins
+it, and the website row's `terraform` tag and "or your Terraform" summary are back; the host runs the image after the
+owner's next playbook run. The roadmap is
 section 22 of the website proposal
 *Azure Architecture MCP Appliance on Azure MCP Server 3.0*; nothing here is production.
 
