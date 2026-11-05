@@ -50,6 +50,12 @@ once, merge one before rebasing the next.
   [pull request 19](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pull/19)); that job stays as the second line of defence.
 
 ### Changed
+- **Notes on the HCW Main Admin App now say it is also installed on two App repositories.** On 2026-11-04 the owner
+  chose to reuse the App for the lockfile workflow of `HCW-CloudCrawler_App` and `HCW-CloudAssessor_App`
+  (HCW-CloudCrawler_App issue #70), so once it is installed there it covers six repositories, not four. The
+  `core-update.yml` comment and `VALIDATION.md` (key rotation, where the App is installed and the accepted-risk note)
+  now say so. Those two repositories use their own private key, so rotating this repository's key is unchanged.
+  Comments and documentation only.
 - **The engine-update workflow now keeps the GitHub App key away from the engine's code.** `.github/workflows/core-update.yml`
   checks for a newer engine release (`cloud-crawler-core`, from the App's GitHub Releases), moves the pin, tests this
   edition against it and opens a pull request. Until now all of that ran in one job, so the new engine's code (run by the

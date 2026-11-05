@@ -247,13 +247,14 @@ deployment branches are `main` only (a settings change, not made here).
   The App key lives only as the repository secret `HCW_MAIN_ADMIN_PRIVATE_KEY` and is never printed. To rotate it,
   generate a new private key on the settings page of the App (https://github.com/settings/apps), replace the secret in every repository that holds the key (this one:
   https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/settings/secrets/actions; the App is installed on the four
-  add-on repositories, so check the other three), then delete the old key on the settings page of the App.
+  add-on repositories, so check the other three; HCW-CloudCrawler_App and HCW-CloudAssessor_App, where it is also
+  installed since 2026-11-04, hold a separate key as Dependabot secrets and are rotated on their own), then delete the old key on the settings page of the App.
   The settings page can hold several keys, so a separate key per repository lets you revoke one without
   touching the others.
   **Accepted risk, so nobody has to rediscover it.** A repository secret can be read by any workflow that runs from a branch
   someone with write access can push, so `base-update.yml` is a second reader of the key beside `core-update.yml` (both can
   be started by hand with `workflow_dispatch`), and the base-update proof depends on that: it runs the workflow from a
-  throwaway branch. As of 2026-10-27, only the owner can push here. The App is installed on the four add-on repositories, and both
+  throwaway branch. As of 2026-10-27, only the owner can push here. The App is installed on the four add-on repositories (and, since 2026-11-04, on HCW-CloudCrawler_App and HCW-CloudAssessor_App), and both
   workflows ask the token action for this repository only (`repositories: ${{ github.repository }}`) with Contents and Pull
   requests write; a token lasts one hour. A modified workflow on another branch could ask for more: the limit is then whatever
   the App was granted when it was installed (that list is on the App's settings page, https://github.com/settings/apps, and is
@@ -262,7 +263,9 @@ deployment branches are `main` only (a settings change, not made here).
   (an environment limited to `main`, or a separate App installation for each repository) can be reopened if the key is ever
   suspected leaked. A separate key for each repository on the same App is not one of them: it helps rotation (one key can be
   revoked without touching the others) but it does not shrink what a stolen key can reach, because every key authenticates the
-  same App, and that App is installed on all four add-on repositories. An environment limited to `main` would also stop the
+  same App, and that App is installed on all four add-on repositories and, since 2026-11-04, on HCW-CloudCrawler_App and HCW-CloudAssessor_App too
+  (their lockfile workflow pushes with it, HCW-CloudCrawler_App issue #70). A stolen key could therefore reach those
+  two repositories as well, though `main` in both still needs a pull request with an approval of its latest push. An environment limited to `main` would also stop the
   base-update proof, which needs a run from a branch.
   Auto-merge of a
   bump needs the repository setting "Allow auto-merge" and the variable `CORE_AUTOMERGE=true`; on 2026-10-26 (UTC) neither was set here. "Allow auto-merge" has since been turned on,
