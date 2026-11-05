@@ -22,6 +22,8 @@ jobs:
       - run: uv sync --frozen --all-packages
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - name: pyproject.toml, __version__ and uv.lock name the same version
+        run: uv run python scripts/check_release_version.py
       - name: Base image digest in versions.env matches every FROM in the Dockerfile
         run: |
           set -euo pipefail

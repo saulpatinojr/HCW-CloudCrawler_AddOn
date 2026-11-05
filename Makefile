@@ -8,6 +8,7 @@ setup:
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
+	uv run python scripts/check_release_version.py
 
 test:
 	uv run pytest -q --cov=src --cov-report=term-missing
