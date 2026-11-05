@@ -442,8 +442,11 @@ def test_the_compatibility_step_fails_when_any_check_fails(tmp_path, failing):
     )
     (bin_dir / "uv").write_text(stub, encoding="utf-8", newline="\n")
     (bin_dir / "uv").chmod(0o755)
+    # A sentinel after the step's own lines: with the last check failing, "no later check ran" is vacuous, so the
+    # sentinel is what proves that bash stopped.
+    sentinel = "compatibility-sentinel"
     script = tmp_path / "compat.sh"
-    script.write_text(_run_body(_by_id(BUMP, "compat")), encoding="utf-8", newline="\n")
+    script.write_text(_run_body(_by_id(BUMP, "compat")) + f'echo "{sentinel}"\n', encoding="utf-8", newline="\n")
     env = {**os.environ, "PATH": os.pathsep.join([bin_dir.as_posix(), os.environ.get("PATH", "")])}
     if failing is not None:
         env["FAILING"] = failing
@@ -453,7 +456,9 @@ def test_the_compatibility_step_fails_when_any_check_fails(tmp_path, failing):
     if failing is None:
         assert result.returncode == 0, result.stdout + result.stderr
         assert all(c in result.stdout for c in COMPAT_CHECKS)
+        assert sentinel in result.stdout
     else:
         assert result.returncode != 0, f"{failing!r} failed but the step passed:\n{result.stdout}{result.stderr}"
         later = [c for c in COMPAT_CHECKS if COMPAT_CHECKS.index(c) > COMPAT_CHECKS.index(failing)]
         assert not any(c in result.stdout for c in later), "a later check ran after a failure"
+        assert sentinel not in result.stdout, "a command after the compatibility checks ran after a failure"
