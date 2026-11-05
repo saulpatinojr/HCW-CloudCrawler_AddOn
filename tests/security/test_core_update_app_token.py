@@ -414,6 +414,9 @@ def _run_body(step: str) -> str:
 
 
 def test_the_compatibility_step_runs_each_check_as_its_own_command():
+    """Under `set -e` bash leaves an `&&` list alone except for its last member, so a check that fails inside such a
+    list is hidden and the step reports success. Every check is therefore a line of its own, and no line joins
+    commands with `&&`, `||` or `;`."""
     compat = _by_id(BUMP, "compat")
     assert _field(compat, "continue-on-error") == "true", "its outcome is the label, so the job goes on either way"
     lines = [line.strip() for line in _run_body(compat).splitlines() if line.strip()]
