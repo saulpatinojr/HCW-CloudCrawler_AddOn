@@ -12,9 +12,14 @@ environment. These are static checks of the workflow text; they do not prove the
 probe=true does (see the header of the workflow). tests/unit/test_bump_core_pin.py runs the pull-request job's apply
 step itself against good and tampered artifacts."""
 
+import os
 import re
+import subprocess
+
+import pytest
 
 from ..conftest import ROOT
+from .test_base_update_workflow import BASH
 
 TEXT = (ROOT / ".github" / "workflows" / "core-update.yml").read_text(encoding="utf-8")
 VERSIONS = (ROOT / "infrastructure" / "docker" / "versions.env").read_text(encoding="utf-8")
@@ -381,3 +386,71 @@ def test_setup_python_installs_the_interpreter_python_version_names():
     lowest = tuple(int(part) for part in requires.group(1).split("."))
     ceiling = tuple(int(part) for part in requires.group(2).split("."))
     assert lowest <= version < ceiling, f"BASE_PYTHON_VERSION {base_python} is outside {requires.group(0)}"
+
+
+# The compatibility step is the one that decides the bump pull request's label and title. It is run here the way GitHub
+# runs it (bash -e), with `uv` replaced by a stub that fails one check at a time, because a regular expression over its
+# text cannot show that a failure stops it: `set -e` does not exit on a command that fails inside an `a && b` list
+# (bash skips the exit for every member but the last), which is how the NetworkEyes add-on's first real bump (its pull
+# request 74) reported "compatible" with a refused catalog and 41 failing tests. This repository's step had the same
+# shape, `ruff && pytest`, as its last statement: the list's own status still failed the step (against the old text only
+# the shape test below fails), but any line added after it would have hidden a failing lint.
+COMPAT_CHECKS = (
+    "uv run ruff check .",
+    "uv run pytest -q",
+)
+
+
+def _run_body(step: str) -> str:
+    """The `run: |` script of a step, dedented. Stops at the first line that is not part of the block (a comment or
+    key at the step's own indentation), so a comment that follows the step never becomes a command."""
+    body = step.split("run: |\n", 1)[1]
+    lines = []
+    for line in body.splitlines():
+        if line.strip() and not line.startswith(" " * 10):
+            break
+        lines.append(line[10:])
+    return "\n".join(lines) + "\n"
+
+
+def test_the_compatibility_step_runs_each_check_as_its_own_command():
+    compat = _by_id(BUMP, "compat")
+    assert _field(compat, "continue-on-error") == "true", "its outcome is the label, so the job goes on either way"
+    lines = [line.strip() for line in _run_body(compat).splitlines() if line.strip()]
+    assert lines[0] == "set -euo pipefail"
+    for check in COMPAT_CHECKS:
+        assert check in lines, f"{check!r} must be a line of its own"
+    for line in lines[1:]:
+        assert not re.search(r"&&|\|\||;", line), f"a joined list hides a failure from set -e: {line!r}"
+
+
+@pytest.mark.skipif(BASH is None, reason="bash is not available on this computer")
+@pytest.mark.parametrize("failing", [*COMPAT_CHECKS, None], ids=lambda c: c or "all-pass")
+def test_the_compatibility_step_fails_when_any_check_fails(tmp_path, failing):
+    """The stubbed `uv` exits 0 except for the one check named by `failing`, which exits 1; the step must then exit
+    non-zero (GitHub records `steps.compat.outcome == 'failure'`). With every check passing it exits 0."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    stub = (
+        "#!/usr/bin/env bash\n"
+        'line="$(basename "$0") $*"\n'
+        'if [ -n "${FAILING:-}" ] && [ "$line" = "$FAILING" ]; then echo "stub: $line fails" >&2; exit 1; fi\n'
+        'echo "stub: $line"\n'
+    )
+    (bin_dir / "uv").write_text(stub, encoding="utf-8", newline="\n")
+    (bin_dir / "uv").chmod(0o755)
+    script = tmp_path / "compat.sh"
+    script.write_text(_run_body(_by_id(BUMP, "compat")), encoding="utf-8", newline="\n")
+    env = {**os.environ, "PATH": os.pathsep.join([bin_dir.as_posix(), os.environ.get("PATH", "")])}
+    if failing is not None:
+        env["FAILING"] = failing
+    result = subprocess.run(
+        [BASH, "-e", script.as_posix()], cwd=tmp_path, env=env, capture_output=True, text=True, timeout=60
+    )
+    if failing is None:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert all(c in result.stdout for c in COMPAT_CHECKS)
+    else:
+        assert result.returncode != 0, f"{failing!r} failed but the step passed:\n{result.stdout}{result.stderr}"
+        later = [c for c in COMPAT_CHECKS if COMPAT_CHECKS.index(c) > COMPAT_CHECKS.index(failing)]
+        assert not any(c in result.stdout for c in later), "a later check ran after a failure"

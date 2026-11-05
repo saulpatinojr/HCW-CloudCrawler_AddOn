@@ -144,6 +144,15 @@ once, merge one before rebasing the next.
   is updated. Needs engine 0.1.1 like the entry above.
 
 ### Fixed
+- `core-update.yml`'s compatibility step ran `ruff && pytest` as one list under `set -e`, and bash does not exit on
+  a failure inside such a list (only the last member counts), so any line added after it would run even when the
+  lint had failed and the step would report whatever that line said. That is how the NetworkEyes add-on's first real
+  bump was opened as `compatible` with a refused catalog (found and fixed there first,
+  [its pull request 75](https://github.com/saulpatinojr/HCW-NetworkEyes_AddOn/pull/75)). Here the list was the
+  step's last statement, so its status still failed the step and no bump was mislabelled; the shape is removed
+  before that stops being true. Each check is now its own line, and
+  `tests/security/test_core_update_app_token.py` runs the step with a stubbed `uv` that fails one check at a time
+  and requires the step to fail. Refs saulpatinojr/HCW-MigrateOrchestrator_AddOn#50.
 - `core-update.yml`'s two `setup-python` steps read `.python-version` (`python-version-file`) instead of carrying a
   literal copy of it. The `pull-request` job locks with `UV_PYTHON_DOWNLOADS=never`, so the interpreter installed must
   satisfy `.python-version` exactly; a literal copy drifted from the file (`3.14` against `3.14.6`) and the scheduled
