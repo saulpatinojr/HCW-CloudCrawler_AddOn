@@ -50,7 +50,7 @@ once, merge one before rebasing the next.
   [pull request 19](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pull/19)); that job stays as the second line of defence.
 
 ### Changed
-- **Notes on the HCW Main Admin App now say it is also installed on two App repositories.** On 2026-11-04 the owner
+- **Notes on the HCW Main Admin App now say it is also going on two App repositories.** On 2026-11-04 the owner
   chose to reuse the App for the lockfile workflow of `HCW-CloudCrawler_App` and `HCW-CloudAssessor_App`
   (HCW-CloudCrawler_App issue #70), so once it is installed there it covers six repositories, not four. The
   `core-update.yml` comment and `VALIDATION.md` (key rotation, where the App is installed and the accepted-risk note)
