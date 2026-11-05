@@ -183,6 +183,11 @@ path are still later releases.
   is updated. Needs engine 0.1.1 like the entry above.
 
 ### Fixed
+- `core-update.yml`'s two `setup-python` steps read `.python-version` (`python-version-file`) instead of carrying a
+  literal copy of it. The `pull-request` job locks with `UV_PYTHON_DOWNLOADS=never`, so the interpreter installed must
+  satisfy `.python-version` exactly; a literal copy drifted from the file (`3.14` against `3.14.6`) and the scheduled
+  run failed with `No interpreter found` (run 41944145931). `tests/security/test_core_update_app_token.py` pins the
+  file-read and keeps `BASE_PYTHON_VERSION` on the line `.python-version` names, inside `requires-python`.
 - **The qlty check now runs the same ruff as the repository (0.17.3).** qlty (the code-quality service that posts
   the `qlty check` status on pull requests) ran its own default ruff, 0.14.6, because `.qlty/qlty.toml` named no
   version. That ruff cannot read a `ruff.toml` whose `target-version` is `py315`, so the move to Python 3.15

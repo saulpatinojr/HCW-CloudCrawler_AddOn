@@ -17,6 +17,9 @@ import re
 from ..conftest import ROOT
 
 TEXT = (ROOT / ".github" / "workflows" / "core-update.yml").read_text(encoding="utf-8")
+VERSIONS = (ROOT / "infrastructure" / "docker" / "versions.env").read_text(encoding="utf-8")
+PYPROJECT = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+PYTHON_VERSION_FILE = (ROOT / ".python-version").read_text(encoding="utf-8").strip()
 _PARTS = re.split(r"(?m)^  ([a-z-]+):\n", TEXT.split("\njobs:\n", 1)[1])[1:]
 JOBS = dict(zip(_PARTS[::2], _PARTS[1::2], strict=True))  # job id -> its text
 BUMP = re.split(r"(?m)^ {6}- ", JOBS["bump"].split("\n    steps:\n", 1)[1])[1:]
@@ -349,3 +352,32 @@ def test_probe_step_only_reads_and_checks_the_token_covers_this_repository_only(
     # the value attached (-XPOST, -fname=value) or separate.
     writes = r"\bgh pr\b|\bgit\b|--method|\s-[XfF]|--field|--raw-field|--input"
     assert not re.search(writes, run), "the probe must not write"
+
+
+def _versions_env(key: str) -> str:
+    found = re.search(rf"(?m)^{key}=(\S+)$", VERSIONS)
+    assert found, f"{key} is missing from infrastructure/docker/versions.env"
+    return found.group(1)
+
+
+def test_setup_python_installs_the_interpreter_python_version_names():
+    """`uv lock` in the pull-request job runs with UV_PYTHON_DOWNLOADS=never, so the interpreter setup-python installs
+    must satisfy `.python-version` exactly: with a literal copy of the version in the workflow the two drifted
+    (`.python-version` 3.14.6, setup-python `3.14` handing out 3.14.10) and every scheduled run failed with
+    `No interpreter found for Python 3.14.6` (run 41944145931, 2026-11-05). Both jobs now read the file, so there is
+    one place to move. The pinned line must also be the one the base image ships, inside requires-python."""
+    steps = _uses(STEPS, "actions/setup-python")
+    assert len(steps) == 2, "expected one setup-python step in each job"
+    for step in steps:
+        assert _with(step, "python-version-file") == ".python-version", step
+        assert not _with(step, "python-version"), step
+    base_python = _versions_env("BASE_PYTHON_VERSION")
+    assert base_python == PYTHON_VERSION_FILE or base_python.startswith(PYTHON_VERSION_FILE + "."), (
+        f".python-version {PYTHON_VERSION_FILE} is not the line of BASE_PYTHON_VERSION {base_python}"
+    )
+    requires = re.search(r'(?m)^requires-python = ">=([0-9.]+),<([0-9.]+)"$', PYPROJECT)
+    assert requires, "requires-python must be the range >=<lowest patch>,<<next minor>"
+    version = tuple(int(part) for part in base_python.split("."))
+    lowest = tuple(int(part) for part in requires.group(1).split("."))
+    ceiling = tuple(int(part) for part in requires.group(2).split("."))
+    assert lowest <= version < ceiling, f"BASE_PYTHON_VERSION {base_python} is outside {requires.group(0)}"
