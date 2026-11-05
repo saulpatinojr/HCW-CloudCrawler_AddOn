@@ -91,6 +91,11 @@ once, merge one before rebasing the next.
   `docs/website-integration/routes.md` no longer describe the row as waiting. Nothing in the application changes.
 
 ### Fixed
+- **The qlty check now runs the same ruff as the repository (0.17.3).** qlty (the code-quality service that posts
+  the `qlty check` status on pull requests) ran its own default ruff, 0.14.6, because `.qlty/qlty.toml` named no
+  version. That ruff cannot read a `ruff.toml` whose `target-version` is `py315`, so the move to Python 3.15
+  (pull request #51) made every qlty run end with "Build errored". `.qlty/qlty.toml` now pins ruff to the version in
+  `uv.lock`; move the two together when ruff is updated.
 - `core-update.yml` now runs from `main` only, and auto-merge no longer listens to the `bump` job's report. These are
   two High findings from a review of the same two-job workflow in the MigrateOrchestrator add-on
   ([its pull request 57](https://github.com/saulpatinojr/HCW-MigrateOrchestrator_AddOn/pull/57#discussion_r4430793870));
