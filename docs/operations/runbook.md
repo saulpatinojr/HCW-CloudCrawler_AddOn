@@ -409,7 +409,7 @@ version is checked before anything is built, and the same checks run on a dry ru
    `release version consistent: X.Y.Z` is part of a green `make lint`. Then
    `uv run python scripts/check_release_version.py --rehearse` runs the tag's checks against the branch: everything but
    the ancestry check (which only `main` can pass) must be green before the pull request is opened.
-4. Open the pull request ready for review and merge it as any other (CodeRabbit asked for; every thread resolved).
+4. Open the pull request ready for review and merge it as any other (every required check green; every thread answered and resolved).
 
 **The dry run, then the tag** (owner steps, after the merge; PowerShell):
 
