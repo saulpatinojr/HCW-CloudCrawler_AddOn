@@ -125,11 +125,12 @@ jobs:
         name: Record the immutable digest for the website's group_vars
         env:
           IMAGE_TAG: v${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           {
             echo "## Published"
             echo '```'
-            echo "${IMAGE}@${{ steps.build.outputs.digest }}"
+            echo "${IMAGE}@${DIGEST}"
             echo '```'
             echo "image_tag: ${IMAGE_TAG}"
           } | tee -a "$GITHUB_STEP_SUMMARY"

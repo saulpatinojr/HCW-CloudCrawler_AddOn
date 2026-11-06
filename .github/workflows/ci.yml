@@ -99,7 +99,9 @@ jobs:
         if: ${{ !cancelled() && steps.lint-tools.outcome == 'success' }}
         run: |
           zizmor --version
-          zizmor --offline --format=github .github/workflows
+          args=(--offline --format=github)
+          if [ -f .github/zizmor.yml ]; then args+=(--config .github/zizmor.yml); fi
+          zizmor "${args[@]}" .github/workflows
 
       - name: hadolint
         if: ${{ !cancelled() && steps.lint-tools.outcome == 'success' }}
