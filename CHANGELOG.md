@@ -13,6 +13,11 @@ once, merge one before rebasing the next.
 
 ### Changed
 
+- CodeRabbit, the review bot, is removed until further notice (the owner's instruction of 2026-11-06): its settings
+  file `.coderabbit.yaml` is deleted, the README no longer lists it among the repository's configuration, and the
+  release runbook's merge step no longer asks for a CodeRabbit review. Earlier `VALIDATION.md` rows that name
+  CodeRabbit record what was true then and stay. Repository process only; nothing in the image or the API changes.
+
 - The integration guide's copy of the website's catalogue row says "or your Terraform" and carries the `terraform`
   technology entry again, as the website's row does since its lab-host row moved to the `v0.3.0` image (index digest
   `sha256:7660672a10b2196630f2a97edc804f8013ab1c70e0d7b8091f9430ae3ef01f4c`, published by

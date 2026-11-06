@@ -155,7 +155,7 @@ and how the website's row was flipped to `available`, is in
 This repository was created from the organisation's template repository. It
 carries `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`,
 `.github/SECURITY.md`, `.github/CODEOWNERS`, the pull request and issue
-templates, CodeQL, dependency review, Dependabot, CodeRabbit and Qlty
+templates, CodeQL, dependency review, Dependabot and Qlty
 configuration, and `docs/adr/`. Pull requests open ready for review and follow
 `.github/PULL_REQUEST_TEMPLATE.md`; `CHANGELOG.md` is updated in the same pull
 request as the change.
