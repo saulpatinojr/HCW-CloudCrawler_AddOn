@@ -63,7 +63,7 @@ jobs:
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.licenses" }}' "${IMAGE}:scan")" = "MIT" || { echo "::error::the image does not state its open-source licence (org.opencontainers.image.licenses=MIT)"; exit 1; }
           if docker run --rm -e IDENTITY_ENDPOINT=http://169.254.169.254 "${IMAGE}:scan"; then echo "::error::the image started under an identity endpoint"; exit 1; fi
           cid="$(docker run -d --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --pids-limit 256 --cpus 1 -e CC_ALLOW_NO_TURNSTILE=1 "${IMAGE}:scan")"
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if docker exec "$cid" python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3).status==200 else 1)"; then ok=1; break; fi
             sleep 1
           done
@@ -125,11 +125,12 @@ jobs:
         name: Record the immutable digest for the website's group_vars
         env:
           IMAGE_TAG: v${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           {
             echo "## Published"
             echo '```'
-            echo "${IMAGE}@${{ steps.build.outputs.digest }}"
+            echo "${IMAGE}@${DIGEST}"
             echo '```'
             echo "image_tag: ${IMAGE_TAG}"
           } | tee -a "$GITHUB_STEP_SUMMARY"

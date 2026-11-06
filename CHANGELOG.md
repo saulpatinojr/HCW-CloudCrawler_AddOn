@@ -13,6 +13,7 @@ once, merge one before rebasing the next.
 
 ### Changed
 
+- **CI lints the workflows and the Dockerfile on every pull request** ([HCW-HybridCloudWorks#1575](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1575)). The required `lint` job now ends with actionlint 1.7.12, zizmor 1.31.1 (offline) and hadolint 2.14.0 (failing at warning), the same pinned releases and SHA-256 digests as the website's CI; CodeRabbit ran these until it was removed on 2026-11-06. `.github/actionlint.yaml` declares the `ubuntu-26.04` runner label, which actionlint 1.7.12 predates.
 - CodeRabbit, the review bot, is removed until further notice (the owner's instruction of 2026-11-06): its settings
   file `.coderabbit.yaml` is deleted, the README no longer lists it among the repository's configuration, and the
   release runbook's merge step no longer asks for a CodeRabbit review. Earlier `VALIDATION.md` rows that name
