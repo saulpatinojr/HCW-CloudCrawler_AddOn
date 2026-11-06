@@ -63,6 +63,9 @@ jobs:
       # run shows every finding.
       - name: Install actionlint, hadolint and zizmor (pinned, digests checked)
         id: lint-tools
+        # Runs after an earlier failure in this job too, so one run reports the
+        # linters' findings beside whatever else failed.
+        if: ${{ !cancelled() }}
         env:
           ACTIONLINT_VERSION: 1.7.12
           ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
