@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with: { python-version: "${{ env.PYTHON_VERSION }}" }
       - run: python -m pip install "uv==${{ env.UV_VERSION }}"
@@ -116,6 +118,8 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       # The build stage exports uv.lock, so a lock or Dockerfile change is proven here, not first at a release tag.
       - name: The lab image builds and keeps its edition boundary
         run: |
@@ -134,7 +138,7 @@ jobs:
           # from start to finish. The unit tests read the repository's folders, not the image's.
           cid="$(docker run -d --read-only --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --pids-limit 256 --cpus 1 -e CC_ALLOW_NO_TURNSTILE=1 addon:ci)"
           ok=0
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if docker exec "$cid" python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/api/health', timeout=3).status==200 else 1)" 2>/dev/null; then ok=1; break; fi
             sleep 1
           done
@@ -172,6 +176,8 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with: { python-version: "${{ env.PYTHON_VERSION }}" }
       - run: python -m pip install "uv==${{ env.UV_VERSION }}"
