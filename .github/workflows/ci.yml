@@ -79,16 +79,16 @@ jobs:
           mkdir -p "$tools"
           cd "$tools"
           tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          curl -sSfL -o "$tarball" "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}"
+          curl -sSfL --retry 3 --retry-all-errors -o "$tarball" "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}"
           echo "${ACTIONLINT_SHA256}  ${tarball}" | sha256sum -c -
           tar -xzf "$tarball" actionlint
-          curl -sSfL -o hadolint "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-linux-x86_64"
+          curl -sSfL --retry 3 --retry-all-errors -o hadolint "https://github.com/hadolint/hadolint/releases/download/v${HADOLINT_VERSION}/hadolint-linux-x86_64"
           echo "${HADOLINT_SHA256}  hadolint" | sha256sum -c -
           chmod 0755 actionlint hadolint
           # zizmor in its own environment: one wheel, one hash, nothing else.
           python3 -m venv zizmor-env
           echo "zizmor==${ZIZMOR_VERSION} --hash=sha256:${ZIZMOR_SHA256}" > zizmor-requirements.txt
-          zizmor-env/bin/python -m pip install --disable-pip-version-check --no-deps --only-binary=:all: --require-hashes -r zizmor-requirements.txt
+          zizmor-env/bin/python -m pip install --disable-pip-version-check --retries 3 --no-deps --only-binary=:all: --require-hashes -r zizmor-requirements.txt
           ln -s "$tools/zizmor-env/bin/zizmor" zizmor
           echo "$tools" >> "$GITHUB_PATH"
 
@@ -111,7 +111,11 @@ jobs:
         run: |
           set -euo pipefail
           hadolint --version
-          mapfile -d '' files < <(git ls-files -z -- '*Dockerfile*')
+          # Written to a file first, so a failing git stops the step (inside
+          # `< <(...)` its failure would be lost and read as "none tracked").
+          list="${RUNNER_TEMP}/dockerfiles"
+          git ls-files -z -- ':(glob)**/Dockerfile' ':(glob)**/Dockerfile.*' ':(glob)**/*.Dockerfile' > "$list"
+          mapfile -d '' files < "$list"
           if [ "${#files[@]}" -eq 0 ]; then
             echo "no Dockerfile is tracked; nothing to lint"
             exit 0
