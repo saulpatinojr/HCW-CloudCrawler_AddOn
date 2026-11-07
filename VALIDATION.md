@@ -286,6 +286,19 @@ Toolchain: Windows host, uv 0.12.0 for `uv sync` and `uv run`; `uv lock` and `uv
 | Trivy scan of the image, SBOM, provenance, attestation, the push | **no** | Trivy is not installed on this host; `publish-images.yml` runs it on the dry run and on the tag. Pushing needs the tag `v0.3.0`, the owner's call ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)) |
 | The dry run on `main` (`gh workflow run publish-images.yml --ref main`) with the guard in it | **no**, after the merge | recorded on issue 29 and in this file by the session that runs it |
 
+## Run 2026-11-07 (lint-step hardening; two workflows pinned to `ubuntu-26.04`; HCW-HybridCloudWorks#1575)
+
+Toolchain: Linux cloud session; uv-managed CPython 3.15.0b4 only, which `requires-python` (3.15.1 or later) refuses, so
+the full suite could not run here; the test files that read the workflows ran under CPython 3.13 with pytest and PyYAML.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| Test files that read `.github/workflows/*` (`--noconftest`, CPython 3.13) | yes | 185 passed; 4 files could not be collected because they import the application or need Python 3.15 (`test_core_update_app_token.py`, `test_core_update_tag_shape.py`, `test_engine_adoption.py`, `test_bump_core_pin.py`), none of them touched by this change |
+| Every workflow parses as YAML; `bash -n` on the edited install and hadolint steps | yes | all parse; both steps syntax-clean |
+| The new hadolint pathspecs on this tree (`git ls-files -z -- ':(glob)**/Dockerfile' ':(glob)**/Dockerfile.*' ':(glob)**/*.Dockerfile'`) | yes | `infrastructure/docker/Dockerfile`, the same single file the old `'*Dockerfile*'` found |
+| `ubuntu-latest` left anywhere in `.github/workflows` | yes | none; `codeql.yml` and `dependency-review.yml` were the only two |
+| actionlint, zizmor, hadolint themselves; `uv run pytest -q --cov=src` in full; the first `codeql` and `dependency-review` runs on `ubuntu-26.04` | **no** | the linters are not installed in this session and Python 3.15.1 is not available; the pull request's `lint` job and its other checks are the evidence |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
