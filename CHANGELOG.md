@@ -11,6 +11,10 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The notes say where the HCW Main Admin App is installed today.** `VALIDATION.md` and the comments in `.github/workflows/core-update.yml` said the App "is being added" to HCW-CloudCrawler_App and HCW-CloudAssessor_App, or would be there "once the owner adds it"; it has been installed there since 2026-11-05. The proof run is tracked on [HCW-CloudCrawler_App#70](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/70). Wording only.
+
 ### Changed
 
 - **The base image follows the website's current digest** ([pull request 60](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/pull/60)): `python:3.15.2-slim-trixie` moves to `sha256:e97b88e416c3…`, the digest the website's lab image moved to on 2026-11-07 ([HCW-HybridCloudWorks#1585](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1585)), a newer build of the same Debian 13 "trixie" image. Opened by `base-update.yml`, which changes the image reference in `infrastructure/docker/versions.env` and the two `FROM` lines of `infrastructure/docker/Dockerfile`; this changelog entry was added to its pull request by hand.
