@@ -31,6 +31,14 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 
 ## What changed
 
+### 2026-11-09: release 0.3.1 of this edition is prepared (nothing new upstream)
+
+- Nothing changed upstream: the App's latest release is still `v0.1.1` (read on 2026-11-09), and the pin here stays
+  `cloud-crawler-core` 0.1.1. This repository's release pull request moves its own version to `0.3.1`
+  (`pyproject.toml`, `__version__`, `uv.lock`) and folds the changelog. The release exists only to rebuild the lab
+  image, so that its Debian security upgrade picks up the fixed `zlib` for CVE-2026-76844 and CVE-2026-85091
+  ([HCW-HybridCloudWorks#1600](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1600)).
+
 ### 2026-11-05: release 0.3.0 of this edition is prepared (nothing new upstream)
 
 - Nothing changed upstream: the App's latest release is still `v0.1.1`, and `core-update.yml` reports "already at

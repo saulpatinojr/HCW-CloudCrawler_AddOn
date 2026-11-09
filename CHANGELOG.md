@@ -11,6 +11,20 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-09
+
+This release exists so that the lab image is built again and picks up Debian's fixed `zlib` (the compression library
+in the image's operating system). The published `img-cc-lab-addon:v0.3.0` carries two high-severity `zlib`
+vulnerabilities, **CVE-2026-76844** and **CVE-2026-85091**, which the website's image scan found and marks as fixable
+([HCW-HybridCloudWorks#1600](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1600)). The image's final
+stage runs Debian's security upgrade (`apt-get upgrade`) every time it is built, so a fresh build carries the fix; only
+a `v*` tag publishes a build, so the fix reaches the lab host through a new version. The engine is unchanged
+(`cloud-crawler-core` 0.1.1), and this release changes nothing in the lab application but the version string
+(`pyproject.toml`, `__version__` and the `cloud-crawler-lab` entry of `uv.lock` say `0.3.1`). The image is also built on
+the newer base digest of the same `python:3.15.2-slim-trixie` image (pull request 60, below). Publishing the image is
+the tag `v0.3.1`, which is the owner's call and is not part of this change. The entries below landed on `main` after
+0.3.0 and before this release; apart from the base digest they change documentation and CI only.
+
 ### Fixed
 
 - **The notes say where the HCW Main Admin App is installed today.** `VALIDATION.md` and the comments in `.github/workflows/core-update.yml` said the App "is being added" to HCW-CloudCrawler_App and HCW-CloudAssessor_App, or would be there "once the owner adds it"; it has been installed there since 2026-11-05. The proof run is tracked on [HCW-CloudCrawler_App#70](https://github.com/saulpatinojr/HCW-CloudCrawler_App/issues/70). Wording only.

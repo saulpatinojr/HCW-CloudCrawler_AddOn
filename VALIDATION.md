@@ -299,6 +299,26 @@ the full suite could not run here; the test files that read the workflows ran un
 | `ubuntu-latest` left anywhere in `.github/workflows` | yes | none; `codeql.yml` and `dependency-review.yml` were the only two |
 | actionlint, zizmor, hadolint themselves; `uv run pytest -q --cov=src` in full; the first `codeql` and `dependency-review` runs on `ubuntu-26.04` | **no** | the linters are not installed in this session and Python 3.15.1 is not available; the pull request's `lint` job and its other checks are the evidence |
 
+## Run 2026-11-09 (release 0.3.1 prepared: the image rebuilt for Debian's `zlib` fix; HCW-HybridCloudWorks#1600)
+
+This run prepares the version bump only and publishes nothing. The release exists so that the lab image is built again
+and its Debian security upgrade picks up the fixed `zlib` for CVE-2026-76844 and CVE-2026-85091, the two high findings
+the website's image scan reported on `img-cc-lab-addon:v0.3.0`
+([HCW-HybridCloudWorks#1600](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1600)). Toolchain: Linux cloud
+session, a scratch environment on uv-managed CPython **3.15.0b4** (which `requires-python`, 3.15.1 or later, refuses
+for `uv sync`), filled from `uv export --frozen` plus the `v0.1.1` engine wheel, whose sha256 `45a5def5…2edc` equals the
+one in `uv.lock`; tests run with `PYTHONPATH=src`.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The version in every place that says it: `pyproject.toml`, `uv.lock` (the `cloud-crawler-lab` entry), `__version__` | yes | all `0.3.1`. `uv lock` could not run here (no 3.15.1 interpreter), so the lock's one project-version line was changed by hand, the same single line 0.3.0's re-lock changed; `ci.yml`'s `uv lock --check` verifies it |
+| `python scripts/check_release_version.py` and `--rehearse` | yes | `release version consistent: 0.3.1` and `release version consistent: 0.3.1, tag v0.3.1`, both exit 0 (the changelog has a dated `[0.3.1]` section and nothing under `[Unreleased]`) |
+| `ruff check .`, `ruff format --check .` | yes | `All checks passed!`, `82 files already formatted` |
+| `pytest -q --cov=src --cov-fail-under=85` | yes | 706 passed; coverage 97.59 percent |
+| The image's final stage applies Debian's security updates at build time | yes, static | `infrastructure/docker/Dockerfile` lines 49 and 50 (`apt-get update` then `apt-get upgrade -y`) in the `lab` stage; `publish-images.yml` builds with no `cache-from`, so the layer is rebuilt on every run rather than reused |
+| Docker build, Trivy scan, the publish dry run on the merged commit | **no**, after the merge | no Docker daemon here; the manual run of `publish-images.yml` on the merge commit builds, checks the boundary and scans (its header says a manual run never pushes), and its Trivy step is the first check that `zlib` is fixed |
+| Push, provenance, SBOM, attestation, digest | **no**, CI on a `v*` tag only | the `v0.3.1` tag is the owner's call |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they

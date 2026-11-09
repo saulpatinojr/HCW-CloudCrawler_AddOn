@@ -54,12 +54,15 @@ token or refresh token is ever held here (website proposal section 11).
 
 ## Status
 
-Version 0.3.0 reads Terraform ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)); 0.2.0
+Version 0.3.1 is 0.3.0 rebuilt so the image carries Debian's fixed `zlib` (CVE-2026-76844 and CVE-2026-85091,
+[HCW-HybridCloudWorks#1600](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1600)); the application is
+unchanged. Version 0.3.0 reads Terraform ([issue 29](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/29)); 0.2.0
 carries the upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/16)); 0.1.0 was the
 lab application skeleton with the engine adopted. The 0.1.0, 0.2.0 and 0.3.0 images are published (`v0.3.0` on
 2026-11-05), the website's lab-host row pins 0.3.0 by digest, and the host runs it once the owner re-runs the lab-host
 playbook (it ran 0.2.0 from 2026-10-26, [issue 17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17)).
-What exists in 0.3.0:
+The 0.3.1 image is published when the owner tags `v0.3.1`; the lab-host pin moves to it after that.
+What exists in 0.3.0 and 0.3.1:
 
 - the lab application: configuration, the edition boundary and its startup refusal, content-free logging, security
   headers, exact-origin CORS, the upload and rate limits, and a flat `/api/health`;
