@@ -1,4 +1,4 @@
 """Cloud Crawler lab edition: the credential-free AddOn the website frames and hands evidence to."""
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 ADDON_ID = "cloud-crawler"
