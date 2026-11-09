@@ -61,7 +61,9 @@ carries the upload route ([issue 16](https://github.com/saulpatinojr/HCW-CloudCr
 lab application skeleton with the engine adopted. The 0.1.0, 0.2.0 and 0.3.0 images are published (`v0.3.0` on
 2026-11-05), the website's lab-host row pins 0.3.0 by digest, and the host runs it once the owner re-runs the lab-host
 playbook (it ran 0.2.0 from 2026-10-26, [issue 17](https://github.com/saulpatinojr/HCW-CloudCrawler_AddOn/issues/17)).
-The 0.3.1 image is published when the owner tags `v0.3.1`; the lab-host pin moves to it after that.
+Tagging `v0.3.1` starts the build and the vulnerability scan; the image is published only if the scan is clean and
+publishing is enabled (the `DOCKERHUB_ENABLED` and `DOCKERHUB_CONNECTION` repository variables). The zlib fix counts as
+done only once the clean image's digest is pinned in the website's lab-host row.
 What exists in 0.3.0 and 0.3.1:
 
 - the lab application: configuration, the edition boundary and its startup refusal, content-free logging, security
