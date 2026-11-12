@@ -14,6 +14,7 @@ once, merge one before rebasing the next.
 ### Changed
 
 - **The two jobs of `base-update.yml` now choose their Python instead of using the runner's** ([HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). The GitHub-hosted runner (the machine GitHub lends each job) comes with its own Python 3.14, older than the program's floor of Python 3.15, and the `plan` and `open-pr` jobs ran `scripts/follow_website_base.py` on it. Both now install the Python that `.python-version` names with `actions/setup-python` (the pin the other workflows already use) before the script runs, with no cache (files saved from earlier runs), because both jobs hold a token. `tests/security/test_base_update_workflow.py` checks the new steps. No other job here ran Python or Node.js on the runner's own version.
+- **A test fails any workflow step that runs Node.js or Python before its job has chosen the version** ([HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). `tests/security/test_workflow_runtime_setup.py` reads every file in `.github/workflows` and flags a step that calls `node`, `npm`, `npx`, `python`, `python3` or `pip` as a command before the job has used `actions/setup-node` or `actions/setup-python`, so the runner's own versions cannot come back unnoticed. It is a port of the website's check. Deliberate exceptions would be listed in the test, each with its reason; there are none here, and the test also fails when a listed exception no longer exists.
 
 ## [0.3.1] - 2026-11-09
 

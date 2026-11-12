@@ -64,7 +64,7 @@ jobs:
         with: { persist-credentials: false }
       # The script runs on the Python line in .python-version, not on the runner's own Python, which is older than
       # the program's floor (saulpatinojr/HCW-HybridCloudWorks#1707). No cache (files kept from earlier runs): this
-      # job holds a token.
+      # job holds a read-only token.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with: { python-version-file: .python-version }
       - id: website
@@ -155,7 +155,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with: { persist-credentials: false }
       # The same Python as the plan job, from .python-version (saulpatinojr/HCW-HybridCloudWorks#1707). No cache: this
-      # job opens a pull request.
+      # job holds the App's private key (HCW_MAIN_ADMIN_PRIVATE_KEY).
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with: { python-version-file: .python-version }
       - name: Apply the move (the same website commit the plan read)
