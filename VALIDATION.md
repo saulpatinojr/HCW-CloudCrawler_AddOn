@@ -331,7 +331,7 @@ uv-managed CPython 3.15.2.
 
 | Check | Executed here | Result |
 | --- | --- | --- |
-| Every job in `.github/workflows` that calls `node`, `npm`, `npx`, `python`, `python3` or `pip` as a command, and whether a setup step chose the version first | yes, by a script over the parsed YAML | only the three `follow_website_base.py` calls in `base-update.yml` used the runner's own version; every other call follows a setup-python step |
+| Every job in `.github/workflows` that calls `node`, `npm`, `npx`, `python`, `python3` or `pip` as a command, and whether a setup step chose the version first | yes, by a script over the parsed YAML | before this change, only the three `follow_website_base.py` calls in `base-update.yml` used the runner's own version. On this branch all three run after their job's setup-python step (`plan` has two calls, `open-pr` one), and no call on the runner's own version remains; every other call already followed a setup-python step |
 | `ruff check .`, `ruff format --check .`, `uv lock --check` | yes | `All checks passed!`, `83 files already formatted`, lock current |
 | `python scripts/check_release_version.py` | yes | `release version consistent: 0.3.1`, exit 0 |
 | `tests/security/test_workflow_runtime_setup.py`, the new check over every workflow | yes | 30 passed. Its workflow reader was compared with PyYAML (CPython 3.13, outside the test) on all 367 steps of the four add-ons' workflows: the same jobs, containers and step `name`, `uses` and `run` values |

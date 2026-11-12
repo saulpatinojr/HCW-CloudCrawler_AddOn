@@ -79,7 +79,7 @@ name = "ruff"
 # default (0.14.6), which cannot parse target-version = "py315" in ruff.toml
 # (the Python 3.15 move, pull request #51) and then reports the whole qlty
 # build as "Build errored". Move this with uv.lock.
-version = "0.17.3"
+version = "0.17.4"
 drivers = ["lint"]
 
 [[plugin]]
