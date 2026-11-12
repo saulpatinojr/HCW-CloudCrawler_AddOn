@@ -319,6 +319,27 @@ one in `uv.lock`; tests run with `PYTHONPATH=src`.
 | Docker build, Trivy scan, the publish dry run on the merged commit | **no**, after the merge | no Docker daemon here; the manual run of `publish-images.yml` on the merge commit builds, checks the boundary and scans (its header says a manual run never pushes), and its Trivy step is the first check that `zlib` is fixed |
 | Push, provenance, SBOM, attestation, digest | **no**, CI on a `v*` tag only | the `v0.3.1` tag is the owner's call |
 
+## Run 2026-11-12 (the `base-update.yml` jobs choose their Python; HCW-HybridCloudWorks#1707)
+
+The `plan` and `open-pr` jobs of `base-update.yml` ran `python3 -I scripts/follow_website_base.py` on the runner's own
+Python (3.14 on the `ubuntu-26.04` image), below the program's floor of 3.15
+([HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). Each job now installs
+the line `.python-version` names (3.15) with `actions/setup-python` before the script, with no cache. A new test,
+`tests/security/test_workflow_runtime_setup.py`, fails any workflow step that runs `node`, `npm`, `npx`, `python`,
+`python3` or `pip` before its job has set the version up; it lists no exception here. Toolchain: Linux cloud session,
+uv-managed CPython 3.15.2.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| Every job in `.github/workflows` that calls `node`, `npm`, `npx`, `python`, `python3` or `pip` as a command, and whether a setup step chose the version first | yes, by a script over the parsed YAML | before this change, only the three `follow_website_base.py` calls in `base-update.yml` used the runner's own version. On this branch all three run after their job's setup-python step (`plan` has two calls, `open-pr` one), and no call on the runner's own version remains; every other call already followed a setup-python step |
+| `ruff check .`, `ruff format --check .`, `uv lock --check` | yes | `All checks passed!`, `83 files already formatted`, lock current |
+| `python scripts/check_release_version.py` | yes | `release version consistent: 0.3.1`, exit 0 |
+| `tests/security/test_workflow_runtime_setup.py`, the new check over every workflow | yes | 30 passed. Its workflow reader was compared with PyYAML (CPython 3.13, outside the test) on all 367 steps of the four add-ons' workflows: the same jobs, containers and step `name`, `uses` and `run` values |
+| The new check fails when a fix is undone | yes, on a scratch worktree | with the `open-pr` job's setup-python step removed from `base-update.yml`, 1 failed and 29 passed, naming `base-update.yml > open-pr > Apply the move (the same website commit the plan read) > python`; the branch itself passes |
+| `pytest -q --cov=src --cov-fail-under=85` | yes | 737 passed (one new test: each `base-update` job installs Python before the script; 30 in the new check); coverage 97.59 percent |
+| actionlint 1.7.12 (with shellcheck 0.11.0) and zizmor 1.31.1 `--offline`, the versions `ci.yml` pins | yes | actionlint no findings; zizmor `No findings to report` |
+| A real `base-update` run on the chosen Python | **no**, after the merge | runs daily at 07:37 UTC or by hand from `main` (`gh workflow run base-update.yml --ref main`); the script uses Python's standard library only |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
@@ -393,7 +414,7 @@ one in `uv.lock`; tests run with `PYTHONPATH=src`.
   real pull request in this repository either); what the ruleset option "require extra approval for unattributed changes" does to
   a pull request into `main` (the Cloud Assessor proof's pull requests went into a throwaway branch, so it did not show this);
   and that the runner's own `docker buildx` and `python3` behave here as they did there (same runner label, not looked at
-  here). The `ci.yml` `lint` job still checks the pin against every `FROM`, and the weekly `base-follows-website` job still
+  here; since 2026-11-12 `python3` is the one `actions/setup-python` installs, see that run above). The `ci.yml` `lint` job still checks the pin against every `FROM`, and the weekly `base-follows-website` job still
   compares the image and its digest with the website's. That job does not look at the Python version, so it is not a
   full second check: if the website changes only `BASE_PYTHON_VERSION` to another minor line, `base-update` refuses and
   goes red while the weekly job stays green. Watch for failed `base-update` runs on their own

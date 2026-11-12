@@ -267,6 +267,18 @@ def test_no_expression_is_pasted_into_a_shell_script_and_the_python_runs_isolate
     assert sum("--compare-env" in c for c in python_calls) == 1, "only one call compares the pull request branch"
 
 
+def test_each_job_chooses_its_python_before_it_runs_the_script():
+    """The runner's own Python is older than the program's floor (saulpatinojr/HCW-HybridCloudWorks#1707), so each job
+    installs the line `.python-version` names before its first call to the script, and keeps no cache (files saved
+    from earlier runs) because both jobs hold a token."""
+    for steps in (PLAN_STEPS, OPEN_STEPS):
+        setup = _only(steps, "actions/setup-python")
+        assert re.search(r"(?m)^\s*with:\s*\{\s*python-version-file:\s*\.python-version\s*\}\s*$", setup), setup
+        assert "cache" not in setup, "no cache in a job that holds a token"
+        first_python = next(s for s in steps if "follow_website_base.py" in s)
+        assert steps.index(setup) < steps.index(first_python), "Python is chosen before the script runs"
+
+
 def test_the_website_file_is_fetched_over_https_only_at_a_commit_with_limits():
     curls = re.findall(r"(?s)curl .*?-o ", CODE)
     assert len(curls) == 2
@@ -280,7 +292,7 @@ def test_the_website_file_is_fetched_over_https_only_at_a_commit_with_limits():
 
 def test_every_checkout_drops_its_credentials_and_every_action_is_pinned_to_a_full_commit_sha():
     uses = re.findall(r"(?m)^\s*(?:- )?uses:\s*(\S+)", CODE)
-    assert len(uses) == 4, "two checkouts, the App token and the pull request action"
+    assert len(uses) == 6, "two checkouts, two setup-python steps, the App token and the pull request action"
     for reference in uses:
         assert re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", reference), f"{reference} is not pinned to a full SHA"
     checkouts = [s for s in PLAN_STEPS + OPEN_STEPS if "actions/checkout@" in s]
