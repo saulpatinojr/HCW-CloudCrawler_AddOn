@@ -7,13 +7,17 @@ read. This is a port of the website's check (scripts/workflow-runtime-setup.test
 `uvx` count as Python, because uv runs the interpreter it finds, the runner's own unless one was set up; so
 astral-sh/setup-uv counts as setting Python up only when it is given a `python-version` at or above the floor.
 
-A command counts when it is in command position on a line of a `run:` step: at the start, after `$(`, `<(`, a
-backtick, `(`, `{`, `|`, `&` or `;`, after leading `NAME=value` assignments (the value plain text, a quoted string,
-or both run together), or after a word that runs the next one
-(`env`, `sudo`, `xargs`, `exec`, `time`, `!`, `if`, `then`, `do` and the like). It does not count inside a quoted
-string (unless a double-quoted string runs a command with `$(`, `<(` or a backtick) or as an argument (`docker run
-image python ...`). The set-up step must come before the first such step. Limits, on purpose: a job that runs in a
-`container:` uses that image's runtime and is not checked; and a script a step calls (a `.sh` file) is not read.
+A command counts when it is in command position on a line of a `run:` step: at the start, after `$(`, `<(`, a backtick,
+`(`, `{`, `|`, `&` or `;`, after a `case` pattern at the start of a line (`check)`), after leading `NAME=value`
+assignments (the value plain text, a quoted string, or both run together), or after a word that runs the next one
+(`env`, `sudo`, `xargs`, `exec`, `time`, `nice`, `!`, `if`, `then`, `do` and the like) and that word's options (`sudo -u
+nobody`, `env -i`). It counts with a path in front too (`/usr/bin/python3`, `./venv/bin/python`), because a path to the
+runner's interpreter is still the runner's, and `python3.15.2` counts like `python3`. It does not count in a comment, a
+heredoc's body, a quoted string (unless a double-quoted string runs a command with `$(`, `<(` or a backtick; a
+single-quoted one may run over several lines, as a `docker run image bash -c '...'` script does) or as an argument
+(`docker run image python ...`, or the first word of a line that continues the one before it). The set-up step must come
+before the first such step. Limits, on purpose: a job that runs in a `container:` uses that image's runtime and is not
+checked; and a script a step calls (a `.sh` file) is not read.
 
 A set-up step with its own `if:` may be skipped while a later command still runs on the runner's own interpreter
 (Copilot on HCW-NetworkEyes_AddOn#100), so it covers a later step only when that step's `if:` is the same condition,
@@ -26,15 +30,17 @@ job runs, alike.
 The job's status is compared on its own. Without `always()`, `failure()`, `cancelled()` or `success()` in it, a step's
 condition includes an unwritten `success()`, so a set-up step with no `if:` is skipped once an earlier step has
 failed, while a later `if: always()`, `failure()` or `!cancelled()` step still runs (Copilot on
-HCW-MigrateOrchestrator_AddOn#72). So the statuses a later step can run under (after success, after a failure, after
-a cancel) must all be ones its set-up step runs under too, and the rule above is applied to the conditions with their
-status-only `&&` terms taken out.
+HCW-MigrateOrchestrator_AddOn#72). So after each job status (success, a failure, a cancel) a later step may run after,
+its set-up step must surely run, or depend on the same thing by the rule above, applied to the conditions with their
+status-only `&&` terms taken out. `||`, `&&`, `!` and parentheses are followed: `always() && !cancelled()` runs after
+success and failure, not after a cancel.
 
 Each set-up step must also ask for the floor or newer (Copilot on HCW-CloudCrawler_App#81): `python-version` or
 `python-version-file`, `node-version` or `node-version-file`, read through `${{ env.X }}` (the step's, job's or
 workflow's `env:`), `${{ matrix.X }}` (every entry of the job's matrix list) and the named file. A version that names a
-line only (`26`, `3.15`) stands for that line's newest release, so it passes when the line is at or above the floor's;
-an exact version (`26.10.0`) must be at or above the floor itself. A value this test cannot work out fails it, naming
+line only (`26`, `26.x`, `3.15`) stands for that line's newest release, so it passes when the line is at or above the
+floor's; an exact version (`26.10.0`) must be at or above the floor itself; anything else (`26.11.0-rc.1`,
+`26.11.0.0`, `lts/*`) cannot be compared. A value this test cannot work out fails it, naming
 the step, rather than passing unchecked.
 
 The workflows are read with a small line reader rather than a YAML library, because none is a dependency here. It
@@ -64,13 +70,26 @@ RUNNER_DEFAULT_ALLOWED: dict[str, str] = {}
 # (the value plain text, a quoted string, or both run together: `FOO="a b"`) and words that run the next word
 # (`env FOO=1 node`, `sudo node`, `if node ...; then`).
 ASSIGNMENT = r"""[A-Za-z_][A-Za-z0-9_]*=(?:"(?:[^"\\]|\\.)*"|'[^']*'|[^\s"'])*\s+"""
-START = (
-    r"(?:^|[$<]\(\s*|`\s*|[({|;&]\s*)"
-    r"(?:" + ASSIGNMENT + r"|(?:env|sudo|xargs|exec|time|nice|command|if|then|else|elif|do|while|until|!)\s+)*"
+# Words that run the next word, each with the options it may take first: the letters of the options that take an
+# argument (`sudo -u nobody`, `nice -n 10`), and any other `-x`/`--long` flag. `command` only with `-p`, because
+# `command -v node` looks node up and runs nothing.
+WRAPPER_OPTIONS = {"env": "uCS", "sudo": "ugCDhprtU", "xargs": "InPLdaEs", "exec": "a", "time": "of", "nice": "n"}
+WRAPPERS = "|".join(
+    [
+        rf"{word}(?:\s+(?:-[A-Za-z]*[{takes}]\s*[^\s-]\S*|--?\w[\w-]*(?:=\S+)?))*\s+"
+        for word, takes in WRAPPER_OPTIONS.items()
+    ]
+    + [r"command(?:\s+-p)*\s+", r"(?:if|then|else|elif|do|while|until|!)\s+"]
 )
+# A `case` pattern that ends at the start of a line (`check)`, `a|b)`), after which a command may follow.
+CASE_PATTERN = r"^[^()\s|]+(?:\|[^()\s|]+)*\)\s*"
+START = r"(?:^|[$<]\(\s*|`\s*|[({|;&]\s*|" + CASE_PATTERN + r")(?:" + ASSIGNMENT + "|" + WRAPPERS + r")*"
+# A runtime may be named with a path in front (`/usr/bin/python3`, `./venv/bin/python`): a path to the runner's own
+# interpreter is still the runner's. The path holds no `=`, so an assignment (`NODE=/x/node`) is not a command.
+PATH = r"(?:[^\s=]*/)?"
 COMMAND = {
-    "node": re.compile(START + r"(?:node|npm|npx)(?=\s|$)"),
-    "python": re.compile(START + r"(?:python(?:3(?:\.\d+)?)?|pip3?|uvx?)(?=\s|$)"),
+    "node": re.compile(START + PATH + r"(?:node|npm|npx)(?=\s|$)"),
+    "python": re.compile(START + PATH + r"(?:python(?:3(?:\.\d+){0,2})?|pip3?|uvx?)(?=\s|$)"),
 }
 SETUP = {"node": re.compile(r"^actions/setup-node@"), "python": re.compile(r"^actions/setup-python@")}
 # astral-sh/setup-uv sets Python up only when given a `python-version` (see `sets_up`).
@@ -88,19 +107,62 @@ STATUS_CALL = re.compile(r"(!?)\s*\b(always|failure|cancelled|success)\(\s*\)")
 VERSION_INPUTS = {"python": ("python-version", "python-version-file"), "node": ("node-version", "node-version-file")}
 
 
-def _without_quoted_text(line: str) -> str:
-    """The line with the text of its quoted strings taken out, so words in a message (`echo "...; if pip named..."`)
-    do not count. A double-quoted string that runs a command (`"$(node x)"`, or the older "`node x`") is kept. An
-    escaped backtick (`\\``, as in Markdown written to the step summary) is a plain character, so it is dropped
-    first."""
-    line = re.sub(r"'[^']*'", "''", line.replace("\\`", ""))
-    return re.sub(r'"(?:[^"\\]|\\.)*"', lambda q: q.group(0) if re.search(r"[$<]\(|`", q.group(0)) else '""', line)
+def _shell_text(run: str) -> str:
+    """The script as the shell reads it, for finding commands: comments and heredoc bodies dropped, a line that ends
+    in `\\` joined to the next (so the next line's first word is still an argument), single-quoted text emptied, and
+    double-quoted text emptied unless it runs a command (`"$(node x)"`, or the older "`node x`"). An escaped backtick
+    (`\\``, as in Markdown written to the step summary) is a plain character. A quoted string may run over several
+    lines, as the script of `docker run image bash -c '...'` does; what it runs is the container's, not the runner's."""
+    out: list[str] = []
+    heredocs: list[str] = []
+    i, n = 0, len(run)
+    while i < n:
+        char = run[i]
+        if char == "\\" and i + 1 < n:
+            out.append(" " if run[i + 1] == "\n" else "" if run[i + 1] == "`" else run[i : i + 2])
+            i += 2
+        elif char == "'":
+            end = run.find("'", i + 1)
+            out.append("''")
+            i = n if end == -1 else end + 1
+        elif char == '"':
+            j, body = i + 1, []
+            while j < n and run[j] != '"':
+                step = 2 if run[j] == "\\" and j + 1 < n else 1
+                body.append("" if run[j : j + 2] == "\\`" else run[j : j + step])
+                j += step
+            text = "".join(body)
+            out.append(f'"{text}"' if re.search(r"[$<]\(|`", text) else '""')
+            i = j + 1
+        elif char == "#" and (i == 0 or run[i - 1] in " \t\n;"):
+            end = run.find("\n", i)
+            i = n if end == -1 else end
+        elif run.startswith("<<", i) and not run.startswith("<<<", i):
+            found = re.match(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1", run[i:])
+            if found:
+                heredocs.append(found.group(2))
+            out.append("<<")
+            i += len(found.group(0)) if found else 2
+        elif char == "\n" and heredocs:
+            out.append("\n")
+            i += 1
+            for delimiter in heredocs:
+                while i < n:
+                    end = run.find("\n", i)
+                    end = n if end == -1 else end
+                    line, i = run[i:end], end + 1
+                    if line.strip() == delimiter:
+                        break
+            heredocs = []
+        else:
+            out.append(char)
+            i += 1
+    return "".join(out)
 
 
 def runs_runtime(run: str | None, kind: str) -> bool:
-    """True when a run script calls the runtime in command position on a line that is not a comment."""
-    lines = (line.strip() for line in (run or "").split("\n"))
-    return any(COMMAND[kind].search(_without_quoted_text(line)) for line in lines if line and not line.startswith("#"))
+    """True when a run script calls the runtime in command position (see `_shell_text` for what is left out)."""
+    return any(COMMAND[kind].search(line.strip()) for line in _shell_text(run or "").split("\n"))
 
 
 def _indent(line: str) -> int:
@@ -308,17 +370,39 @@ def condition(step: dict) -> str:
     return _normalized(str(step.get("if") or ""))
 
 
+def _status_value(expression: str, status: str) -> bool | None:
+    """Whether a condition holds after the job so far ended in `status` (success, failure or cancelled): True, False,
+    or None when it also depends on something else (`steps.x.outputs.y == 'true'`). `||`, `&&`, `!` and parentheses
+    are followed, so `always() && !cancelled()` holds after success and failure only; anything that is not a status
+    function or `true`/`false` is unknown."""
+    text = expression.strip()
+    while (unwrapped := _without_outer_parentheses(text)) != text:
+        text = unwrapped
+    for operator, decides in (("||", True), ("&&", False)):
+        terms = _top_level_terms(text, operator, unwrap=False)
+        if len(terms) > 1:
+            values = [_status_value(term, status) for term in terms]
+            return decides if decides in values else None if None in values else not decides
+    if text.startswith("!") and not text.startswith("!="):
+        value = _status_value(text[1:], status)
+        return None if value is None else not value
+    call = re.fullmatch(r"(always|failure|cancelled|success)\(\s*\)", text)
+    if call:
+        return call.group(1) in ("always", status)
+    return {"true": True, "false": False}.get(text)
+
+
+def _runs_after(expression: str, status: str) -> bool | None:
+    """`_status_value` of a step's whole condition, with GitHub's unwritten `success() &&` in front of one that names
+    no status function (and of no condition at all)."""
+    if not STATUS_CALL.search(expression) and status != "success":
+        return False
+    return _status_value(expression, status) if expression else True
+
+
 def statuses(expression: str) -> set[str]:
-    """The job statuses a step with this condition can run after: `success` alone when it names no status function
-    (the unwritten `success()`), all three for `always()`, `success` and `failure` for `!cancelled()`, and so on."""
-    found = STATUS_CALL.findall(expression)
-    if not found:
-        return {"success"}
-    named = set()
-    for negated, call in found:
-        meant = STATUSES if call == "always" else {call}
-        named |= (STATUSES - meant) if negated else meant
-    return named
+    """The job statuses a step with this condition may run after (`success` alone for no status function)."""
+    return {status for status in STATUSES if _runs_after(expression, status) is not False}
 
 
 def _without_status(expression: str) -> str:
@@ -328,15 +412,28 @@ def _without_status(expression: str) -> str:
     return expression if len(kept) == len(terms) else " && ".join(kept)
 
 
+def _conditions_cover(given: str, wanted: str) -> bool:
+    """True when a set-up step with condition `given` runs whenever a later step with condition `wanted` does: after
+    every job status the later step may run after, the set-up step surely runs, or its condition depends on the same
+    thing (status terms aside: the same condition, or one of the terms it joins with a top-level `||`)."""
+    for status in sorted(STATUSES):
+        if _runs_after(wanted, status) is False:
+            continue
+        runs = _runs_after(given, status)
+        if runs is False:
+            return False
+        if runs is None:
+            rest, need = _without_status(given), _without_status(wanted)
+            if not (rest in ("", need) or need in _top_level_terms(rest, "||")):
+                return False
+    return True
+
+
 def covers(setup: dict, step: dict) -> bool:
     """True when a set-up step runs whenever the later step does: it runs after every job status the later step can
     run after, and, status terms aside, it has no `if:`, the same `if:`, or an `if:` whose top-level `||` terms
     include the later step's."""
-    wanted, given = condition(step), condition(setup)
-    if not statuses(wanted) <= statuses(given):
-        return False
-    wanted, given = _without_status(wanted), _without_status(given)
-    return given in ("", wanted) or wanted in _top_level_terms(given, "||")
+    return _conditions_cover(condition(setup), condition(step))
 
 
 def unset_steps(file: str, jobs: dict[str, dict]) -> list[str]:
@@ -405,13 +502,14 @@ def requested_versions(step: dict, job: dict, root: Path, kind: str) -> list[str
 
 
 def _below_floor(version: str, kind: str) -> bool | None:
-    """True when the version is under the floor, False when at or above it, None when it is not a version number. A
-    version that names a line only (`26`, `3.15`, `26.x`) means that line's newest release, so only its numbers are
-    compared with the floor's (`26` with 26, `3.15` with 3.15); an exact one (`26.10.0`) is compared in full."""
-    found = re.match(r"v?(\d+(?:\.\d+)*)", version.strip())
+    """True when the version is under the floor, False when at or above it, None when it is not one of the forms this
+    test reads: `N`, `N.x` and `N.M` name a line and mean its newest release, so only their numbers are compared with
+    the floor's (`26` with 26, `3.15` with 3.15); `N.M.P` is exact and compared in full. Anything else, trailing text
+    included (`26.11.0-rc.1`, `26.11.0.0`, `lts/*`), is None, so the floor test names the step."""
+    found = re.fullmatch(r"v?(\d+)(?:\.x|\.(\d+)(?:\.(\d+))?)?", version.strip())
     if not found:
         return None
-    numbers = tuple(int(number) for number in found.group(1).split("."))[:3]
+    numbers = tuple(int(number) for number in found.groups() if number is not None)
     return numbers < FLOORS[kind][: len(numbers)]
 
 
@@ -455,6 +553,11 @@ def floor_problems(file: str, jobs: dict[str, dict], root: Path = ROOT) -> list[
         'echo "`node --version`"',
         "env FOO='bar baz' node x.js",
         "FOO=\"a b\"'c d'e node x.js",
+        "/opt/node/bin/node x.js",
+        "env -i npm ci",
+        "nice -n 10 node x.js",
+        "xargs -n 1 node",
+        "a|b) node x.js ;;",
     ],
 )
 def test_node_in_command_position_is_found(line):
@@ -476,6 +579,17 @@ def test_node_in_command_position_is_found(line):
         "uv sync --frozen",
         "uvx zizmor .github",
         "cd y && uv run pytest",
+        "/usr/bin/python3 -I check.py",
+        "/opt/az/bin/python3 -Im pip check",
+        "./venv/bin/python x.py",
+        "python3.15.2 -c 'print(1)'",
+        "/usr/bin/python3 -c 'print(1)'",
+        "env -i python3 check.py",
+        "sudo -u nobody python3 check.py",
+        "sudo -u runner python3 check.py",
+        "time -p python3 check.py",
+        "check) python3 scripts/check.py ;;",
+        "docker run --rm img bash -c 'x' && python3 y.py",
     ],
 )
 def test_python_in_command_position_is_found(line):
@@ -487,7 +601,6 @@ def test_python_in_command_position_is_found(line):
     [
         ('echo "run \\`node scripts/x.mjs\\` by hand"', "node"),
         ('docker run --rm img python -c "import azure"', "python"),
-        ("/opt/az/bin/python3 -Im pip check", "python"),
         ("# node is not run here", "node"),
         ('for node in items["nodes"]:', "node"),
         ('echo "$NODE_VERSION"', "node"),
@@ -496,6 +609,13 @@ def test_python_in_command_position_is_found(line):
         ("echo 'literal `python3` text'", "python"),
         ("uvicorn app:main", "python"),
         ('FOO="python3 x" true', "python"),
+        ("NODE_BIN=/opt/node/bin/node", "node"),
+        ("command -v node", "node"),
+        ("echo $(foo) python3 x", "python"),
+        ("docker run --rm img bash -c '\n  /opt/az/bin/python3 -Im pip check\n'", "python"),
+        ("docker run --rm img \\\n  /opt/az/bin/python3 -Im pip check", "python"),
+        ("cat > x.txt <<'EOF'\npython3 is named here\nEOF", "python"),
+        ("echo x # node y", "node"),
     ],
 )
 def test_words_that_are_not_commands_are_not_found(line, kind):
@@ -654,10 +774,34 @@ def test_a_set_up_step_with_its_own_condition_covers_only_steps_it_always_runs_b
         ("always() && a", "!cancelled() && a", True),
         ("a", "failure() && a", False),
         ("always()", "a || b", True),
+        # Status functions joined by `&&` and `||` (Copilot on HCW-CloudAssessor_AddOn#89).
+        ("always() && !cancelled()", "cancelled()", False),
+        ("always() && !cancelled()", "failure()", True),
+        ("failure() || cancelled()", "cancelled()", True),
+        ("failure() || cancelled()", "", False),
+        ("success() || failure()", "!cancelled()", True),
     ],
 )
 def test_covers_compares_normalised_conditions_and_top_level_or_terms(setup, step, covered):
     assert covers({"if": setup}, {"if": step}) is covered
+
+
+@pytest.mark.parametrize(
+    ("expression", "expected"),
+    [
+        ("", {"success"}),
+        ("a", {"success"}),
+        ("always()", {"success", "failure", "cancelled"}),
+        ("!cancelled()", {"success", "failure"}),
+        ("always() && !cancelled()", {"success", "failure"}),
+        ("failure() || cancelled()", {"failure", "cancelled"}),
+        ("(failure() || cancelled()) && a", {"failure", "cancelled"}),
+        ("!(failure() || cancelled())", {"success"}),
+        ("false", set()),
+    ],
+)
+def test_statuses_follow_and_or_and_not(expression, expected):
+    assert statuses(expression) == expected
 
 
 def test_a_set_up_step_must_ask_for_the_floor_or_newer(tmp_path):
@@ -748,6 +892,11 @@ def test_a_set_up_step_must_ask_for_the_floor_or_newer(tmp_path):
         ("3.14.9", "python", True),
         ("3.14", "python", True),
         ("lts/*", "node", None),
+        ("26.11.0-not-a-version", "node", None),
+        ("26.11.0garbage", "node", None),
+        ("26.11.0-rc.1", "node", None),
+        ("26.11.0.0", "node", None),
+        ("3.15.0b4", "python", None),
     ],
 )
 def test_a_line_meets_the_floor_by_its_line_and_an_exact_version_in_full(version, kind, below):
