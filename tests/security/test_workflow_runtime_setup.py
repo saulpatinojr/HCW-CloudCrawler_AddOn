@@ -1,12 +1,15 @@
 """Every workflow job that runs Node.js or Python chooses its version (saulpatinojr/HCW-HybridCloudWorks#1707).
 
-A job that runs `node`, `npm`, `npx`, `python3` or `pip` without actions/setup-node or actions/setup-python gets
-whatever the runner image ships: on ubuntu-26.04 that was Node.js 24 and Python 3.14 in November 2026, both below the
-program's floors (Node.js 26, Python 3.15). Nothing else notices, because a job that names no version has nothing to
-read. This is a port of the website's check (scripts/workflow-runtime-setup.test.mjs in HCW-HybridCloudWorks).
+A job that runs `node`, `npm`, `npx`, `python3`, `pip`, `uv` or `uvx` without actions/setup-node or actions/setup-python
+gets whatever the runner image ships: on ubuntu-26.04 that was Node.js 24 and Python 3.14 in November 2026, both below
+the program's floors (Node.js 26, Python 3.15). Nothing else notices, because a job that names no version has nothing to
+read. This is a port of the website's check (scripts/workflow-runtime-setup.test.mjs in HCW-HybridCloudWorks). `uv` and
+`uvx` count as Python, because uv runs the interpreter it finds, the runner's own unless one was set up; so
+astral-sh/setup-uv counts as setting Python up only when it is given a `python-version` at or above the floor.
 
 A command counts when it is in command position on a line of a `run:` step: at the start, after `$(`, `<(`, a
-backtick, `(`, `{`, `|`, `&` or `;`, after leading `NAME=value` assignments, or after a word that runs the next one
+backtick, `(`, `{`, `|`, `&` or `;`, after leading `NAME=value` assignments (the value plain text, a quoted string,
+or both run together), or after a word that runs the next one
 (`env`, `sudo`, `xargs`, `exec`, `time`, `!`, `if`, `then`, `do` and the like). It does not count inside a quoted
 string (unless a double-quoted string runs a command with `$(`, `<(` or a backtick) or as an argument (`docker run
 image python ...`). The set-up step must come before the first such step. Limits, on purpose: a job that runs in a
@@ -16,13 +19,23 @@ A set-up step with its own `if:` may be skipped while a later command still runs
 (Copilot on HCW-NetworkEyes_AddOn#100), so it covers a later step only when that step's `if:` is the same condition,
 or is one of the terms the set-up's condition joins with a top-level `||` (whenever that step runs, so did the
 set-up). Conditions are compared without a surrounding `${{ }}`, with runs of spaces made one, and a term without
-one pair of parentheses around the whole of it. A set-up step with no `if:` covers every later step. A job's own
-`if:` does not matter here, because it decides whether every step of the job runs, alike.
+one pair of parentheses around the whole of it. A set-up step with no `if:` covers every later step whose condition
+does not test the job's status. A job's own `if:` does not matter here, because it decides whether every step of the
+job runs, alike.
+
+The job's status is compared on its own. Without `always()`, `failure()`, `cancelled()` or `success()` in it, a step's
+condition includes an unwritten `success()`, so a set-up step with no `if:` is skipped once an earlier step has
+failed, while a later `if: always()`, `failure()` or `!cancelled()` step still runs (Copilot on
+HCW-MigrateOrchestrator_AddOn#72). So the statuses a later step can run under (after success, after a failure, after
+a cancel) must all be ones its set-up step runs under too, and the rule above is applied to the conditions with their
+status-only `&&` terms taken out.
 
 Each set-up step must also ask for the floor or newer (Copilot on HCW-CloudCrawler_App#81): `python-version` or
 `python-version-file`, `node-version` or `node-version-file`, read through `${{ env.X }}` (the step's, job's or
-workflow's `env:`), `${{ matrix.X }}` (every entry of the job's matrix list) and the named file. A value this test
-cannot work out fails it, naming the step, rather than passing unchecked.
+workflow's `env:`), `${{ matrix.X }}` (every entry of the job's matrix list) and the named file. A version that names a
+line only (`26`, `3.15`) stands for that line's newest release, so it passes when the line is at or above the floor's;
+an exact version (`26.10.0`) must be at or above the floor itself. A value this test cannot work out fails it, naming
+the step, rather than passing unchecked.
 
 The workflows are read with a small line reader rather than a YAML library, because none is a dependency here. It
 relies on the layout every workflow in this repository has (a `jobs:` key at the top level, a `steps:` list, block
@@ -48,21 +61,29 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 RUNNER_DEFAULT_ALLOWED: dict[str, str] = {}
 
 # Where a command may start: the line's start or an opening or joining character, then any `NAME=value` assignments
-# and words that run the next word (`env FOO=1 node`, `sudo node`, `if node ...; then`).
+# (the value plain text, a quoted string, or both run together: `FOO="a b"`) and words that run the next word
+# (`env FOO=1 node`, `sudo node`, `if node ...; then`).
+ASSIGNMENT = r"""[A-Za-z_][A-Za-z0-9_]*=(?:"(?:[^"\\]|\\.)*"|'[^']*'|[^\s"'])*\s+"""
 START = (
     r"(?:^|[$<]\(\s*|`\s*|[({|;&]\s*)"
-    r"(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+|(?:env|sudo|xargs|exec|time|nice|command|if|then|else|elif|do|while|until|!)\s+)*"
+    r"(?:" + ASSIGNMENT + r"|(?:env|sudo|xargs|exec|time|nice|command|if|then|else|elif|do|while|until|!)\s+)*"
 )
 COMMAND = {
     "node": re.compile(START + r"(?:node|npm|npx)(?=\s|$)"),
-    "python": re.compile(START + r"(?:python(?:3(?:\.\d+)?)?|pip3?)(?=\s|$)"),
+    "python": re.compile(START + r"(?:python(?:3(?:\.\d+)?)?|pip3?|uvx?)(?=\s|$)"),
 }
 SETUP = {"node": re.compile(r"^actions/setup-node@"), "python": re.compile(r"^actions/setup-python@")}
+# astral-sh/setup-uv sets Python up only when given a `python-version` (see `sets_up`).
+SETUP_UV = re.compile(r"^astral-sh/setup-uv@")
 
 # The lowest versions a set-up step may ask for. The program's floors are kept in scripts/version-floors.json in
 # HCW-HybridCloudWorks; change them there first, then here.
-PYTHON_FLOOR = (3, 15)
-NODE_FLOOR = 26
+PYTHON_FLOOR = (3, 15, 0)
+NODE_FLOOR = (26, 11, 0)
+FLOORS = {"python": PYTHON_FLOOR, "node": NODE_FLOOR}
+# The job statuses a step can run after, and the status functions that name them.
+STATUSES = {"success", "failure", "cancelled"}
+STATUS_CALL = re.compile(r"(!?)\s*\b(always|failure|cancelled|success)\(\s*\)")
 # The set-up step's inputs that name the version, directly or through a file in the repository.
 VERSION_INPUTS = {"python": ("python-version", "python-version-file"), "node": ("node-version", "node-version-file")}
 
@@ -247,9 +268,9 @@ def _normalized(expression: str) -> str:
     return " ".join((wrapped.group(1) if wrapped else text).split())
 
 
-def _top_level_or_terms(expression: str) -> list[str]:
-    """The terms an expression joins with `||` outside parentheses and quotes, each without one pair of parentheses
-    around the whole of it; a one-item list when there is no such `||`."""
+def _top_level_terms(expression: str, operator: str = "||", unwrap: bool = True) -> list[str]:
+    """The terms an expression joins with `||` (or `&&`) outside parentheses and quotes, each without one pair of
+    parentheses around the whole of it (unless `unwrap` is false); a one-item list when there is no such operator."""
     terms, depth, quote, start, index = [], 0, "", 0, 0
     while index < len(expression):
         char = expression[index]
@@ -261,13 +282,13 @@ def _top_level_or_terms(expression: str) -> list[str]:
             depth += 1
         elif char == ")":
             depth -= 1
-        elif depth == 0 and expression.startswith("||", index):
+        elif depth == 0 and expression.startswith(operator, index):
             terms.append(expression[start:index])
-            start = index + 2
-            index += 1
+            start = index + len(operator)
+            index += len(operator) - 1
         index += 1
     terms.append(expression[start:])
-    return [_without_outer_parentheses(term.strip()) for term in terms]
+    return [_without_outer_parentheses(term.strip()) if unwrap else term.strip() for term in terms]
 
 
 def _without_outer_parentheses(term: str) -> str:
@@ -287,11 +308,35 @@ def condition(step: dict) -> str:
     return _normalized(str(step.get("if") or ""))
 
 
+def statuses(expression: str) -> set[str]:
+    """The job statuses a step with this condition can run after: `success` alone when it names no status function
+    (the unwritten `success()`), all three for `always()`, `success` and `failure` for `!cancelled()`, and so on."""
+    found = STATUS_CALL.findall(expression)
+    if not found:
+        return {"success"}
+    named = set()
+    for negated, call in found:
+        meant = STATUSES if call == "always" else {call}
+        named |= (STATUSES - meant) if negated else meant
+    return named
+
+
+def _without_status(expression: str) -> str:
+    """The condition without its top-level `&&` terms that test only the job's status (`always()`, `!cancelled()`)."""
+    terms = _top_level_terms(expression, "&&", unwrap=False)
+    kept = [term for term in terms if re.sub(r"[\s!()&|]", "", STATUS_CALL.sub("", term))]
+    return expression if len(kept) == len(terms) else " && ".join(kept)
+
+
 def covers(setup: dict, step: dict) -> bool:
-    """True when a set-up step runs whenever the later step does: it has no `if:`, the same `if:`, or an `if:` whose
-    top-level `||` terms include the later step's."""
+    """True when a set-up step runs whenever the later step does: it runs after every job status the later step can
+    run after, and, status terms aside, it has no `if:`, the same `if:`, or an `if:` whose top-level `||` terms
+    include the later step's."""
     wanted, given = condition(step), condition(setup)
-    return given in ("", wanted) or wanted in _top_level_or_terms(given)
+    if not statuses(wanted) <= statuses(given):
+        return False
+    wanted, given = _without_status(wanted), _without_status(given)
+    return given in ("", wanted) or wanted in _top_level_terms(given, "||")
 
 
 def unset_steps(file: str, jobs: dict[str, dict]) -> list[str]:
@@ -305,10 +350,7 @@ def unset_steps(file: str, jobs: dict[str, dict]) -> list[str]:
             for i, step in enumerate(job["steps"]):
                 if not runs_runtime(step.get("run"), kind):
                     continue
-                covered = any(
-                    SETUP[kind].search(earlier.get("uses", "")) and covers(earlier, step)
-                    for earlier in job["steps"][:i]
-                )
+                covered = any(sets_up(earlier, job, kind) and covers(earlier, step) for earlier in job["steps"][:i])
                 if not covered:
                     found.append(f"{file} > {name} > {step.get('name') or f'step {i + 1}'} > {kind}")
     return found
@@ -327,9 +369,29 @@ def _resolved(value: str, step: dict, job: dict, depth: int = 0) -> list[str] | 
     return job.get("matrix", {}).get(name) or None
 
 
-def requested_versions(step: dict, job: dict, root: Path) -> list[str] | None:
+def is_set_up(step: dict, kind: str) -> bool:
+    """True for a step that sets the runtime up: actions/setup-node or actions/setup-python, or, for Python,
+    astral-sh/setup-uv given a `python-version`."""
+    uses = step.get("uses", "")
+    if kind == "python" and SETUP_UV.search(uses):
+        return "python-version" in (step.get("with") or {})
+    return bool(SETUP[kind].search(uses))
+
+
+def sets_up(step: dict, job: dict, kind: str, root: Path = ROOT) -> bool:
+    """True when the step chooses the runtime for the steps after it. setup-uv counts only with a `python-version` at
+    or above the floor (a lower one is also reported by the floor test); without one uv uses the runner's Python."""
+    if not is_set_up(step, kind):
+        return False
+    if not SETUP_UV.search(step.get("uses", "")):
+        return True
+    versions = requested_versions(step, job, root, kind)
+    return bool(versions) and all(_below_floor(version, kind) is False for version in versions)
+
+
+def requested_versions(step: dict, job: dict, root: Path, kind: str) -> list[str] | None:
     """The versions a set-up step asks for, read through `env`, `matrix` and a version file; None when unreadable."""
-    direct, from_file = VERSION_INPUTS["python" if SETUP["python"].search(step.get("uses", "")) else "node"]
+    direct, from_file = VERSION_INPUTS[kind]
     given = step.get("with") or {}
     if direct in given:
         return _resolved(str(given[direct]), step, job)
@@ -343,12 +405,14 @@ def requested_versions(step: dict, job: dict, root: Path) -> list[str] | None:
 
 
 def _below_floor(version: str, kind: str) -> bool | None:
-    """True when the version is under the floor, False when at or above it, None when it is not a version number."""
-    if kind == "python":
-        found = re.match(r"(\d+)\.(\d+)(?!\d)", version)
-        return None if not found else (int(found.group(1)), int(found.group(2))) < PYTHON_FLOOR
-    found = re.match(r"v?(\d+)(?!\d)", version)
-    return None if not found else int(found.group(1)) < NODE_FLOOR
+    """True when the version is under the floor, False when at or above it, None when it is not a version number. A
+    version that names a line only (`26`, `3.15`, `26.x`) means that line's newest release, so only its numbers are
+    compared with the floor's (`26` with 26, `3.15` with 3.15); an exact one (`26.10.0`) is compared in full."""
+    found = re.match(r"v?(\d+(?:\.\d+)*)", version.strip())
+    if not found:
+        return None
+    numbers = tuple(int(number) for number in found.group(1).split("."))[:3]
+    return numbers < FLOORS[kind][: len(numbers)]
 
 
 def floor_problems(file: str, jobs: dict[str, dict], root: Path = ROOT) -> list[str]:
@@ -357,10 +421,10 @@ def floor_problems(file: str, jobs: dict[str, dict], root: Path = ROOT) -> list[
     for name, job in jobs.items():
         for i, step in enumerate(job["steps"]):
             for kind in COMMAND:
-                if not SETUP[kind].search(step.get("uses", "")):
+                if not is_set_up(step, kind):
                     continue
                 label = f"{file} > {name} > {step.get('name') or f'step {i + 1}'} > {kind}"
-                versions = requested_versions(step, job, root)
+                versions = requested_versions(step, job, root, kind)
                 if not versions:
                     problems.append(f"{label}: cannot work out the version it asks for")
                 for version in versions or []:
@@ -389,6 +453,8 @@ def floor_problems(file: str, jobs: dict[str, dict], root: Path = ROOT) -> list[
         "exec node x",
         "cd y && npm ci",
         'echo "`node --version`"',
+        "env FOO='bar baz' node x.js",
+        "FOO=\"a b\"'c d'e node x.js",
     ],
 )
 def test_node_in_command_position_is_found(line):
@@ -404,6 +470,12 @@ def test_node_in_command_position_is_found(line):
         "python -m pip install uv",
         "version=`python3 scripts/check.py`",
         'echo "`python3 --version`"',
+        'FOO="bar baz" python3 check.py',
+        'STAMP="$(date +%s) run" python3 check.py',
+        "uv run python scripts/check.py",
+        "uv sync --frozen",
+        "uvx zizmor .github",
+        "cd y && uv run pytest",
     ],
 )
 def test_python_in_command_position_is_found(line):
@@ -421,8 +493,9 @@ def test_python_in_command_position_is_found(line):
         ('echo "$NODE_VERSION"', "node"),
         ("nodes=3 nodejs-check", "node"),
         ('echo "the stage is wrong; if pip named the file differently, look"', "python"),
-        ("uv run python scripts/check.py", "python"),
         ("echo 'literal `python3` text'", "python"),
+        ("uvicorn app:main", "python"),
+        ('FOO="python3 x" true', "python"),
     ],
 )
 def test_words_that_are_not_commands_are_not_found(line, kind):
@@ -499,6 +572,21 @@ def test_a_set_up_step_with_its_own_condition_covers_only_steps_it_always_runs_b
             steps:
               - uses: actions/setup-python@abc
               - name: Run
+                if: github.ref == 'refs/heads/main'
+                run: python3 a.py
+          after-a-failure:
+            runs-on: ubuntu-26.04
+            steps:
+              - uses: actions/setup-python@abc
+              - name: Run
+                if: always()
+                run: python3 a.py
+          after-a-failure-set-up-too:
+            runs-on: ubuntu-26.04
+            steps:
+              - uses: actions/setup-python@abc
+                if: always()
+              - name: Run
                 if: failure()
                 run: python3 a.py
           other-condition:
@@ -535,6 +623,7 @@ def test_a_set_up_step_with_its_own_condition_covers_only_steps_it_always_runs_b
     )
     assert unset_steps("x.yml", read_jobs(text)) == [
         "x.yml > skipped > Run > python",
+        "x.yml > after-a-failure > Run > python",
         "x.yml > other-condition > Run > python",
         "x.yml > and-term > Run > node",
     ]
@@ -550,6 +639,21 @@ def test_a_set_up_step_with_its_own_condition_covers_only_steps_it_always_runs_b
         ("(a || b) && c", "a", False),
         ("a || b", "a || c", False),
         ("", "anything", True),
+        # The job's status: a set-up step with no `if:` runs only after success (the unwritten `success()`).
+        ("", "", True),
+        ("", "always()", False),
+        ("", "${{ !cancelled() }}", False),
+        ("", "failure()", False),
+        ("${{ !cancelled() }}", "${{ !cancelled() }}", True),
+        ("always()", "failure()", True),
+        ("always()", "cancelled()", True),
+        ("!cancelled()", "always()", False),
+        ("!cancelled()", "cancelled()", False),
+        ("failure()", "", False),
+        ("always() && a", "a", True),
+        ("always() && a", "!cancelled() && a", True),
+        ("a", "failure() && a", False),
+        ("always()", "a || b", True),
     ],
 )
 def test_covers_compares_normalised_conditions_and_top_level_or_terms(setup, step, covered):
@@ -627,6 +731,60 @@ def test_a_set_up_step_must_ask_for_the_floor_or_newer(tmp_path):
         "x.yml > unreadable > step 2 > node: cannot work out the version it asks for",
         "x.yml > unreadable > step 3 > node: 'lts/*' is not a version number this test can compare",
     ]
+
+
+@pytest.mark.parametrize(
+    ("version", "kind", "below"),
+    [
+        ("26.0.0", "node", True),
+        ("26.10.0", "node", True),
+        ("26.11.0", "node", False),
+        ("26", "node", False),
+        ("26.x", "node", False),
+        ("v27.0.0", "node", False),
+        ("24", "node", True),
+        ("3.15", "python", False),
+        ("3.15.0", "python", False),
+        ("3.14.9", "python", True),
+        ("3.14", "python", True),
+        ("lts/*", "node", None),
+    ],
+)
+def test_a_line_meets_the_floor_by_its_line_and_an_exact_version_in_full(version, kind, below):
+    assert _below_floor(version, kind) is below
+
+
+def test_setup_uv_sets_python_up_only_with_a_python_version_at_the_floor():
+    text = textwrap.dedent(
+        """\
+        name: x
+        on: push
+        jobs:
+          no-version:
+            runs-on: ubuntu-26.04
+            steps:
+              - uses: astral-sh/setup-uv@abc
+              - name: Test
+                run: uv run pytest
+          new:
+            runs-on: ubuntu-26.04
+            steps:
+              - uses: astral-sh/setup-uv@abc
+                with: { python-version: "3.15", enable-cache: false }
+              - name: Test
+                run: uv run pytest
+          old:
+            runs-on: ubuntu-26.04
+            steps:
+              - uses: astral-sh/setup-uv@abc
+                with: { python-version: "3.14" }
+              - name: Test
+                run: uv run pytest
+        """
+    )
+    jobs = read_jobs(text)
+    assert unset_steps("x.yml", jobs) == ["x.yml > no-version > Test > python", "x.yml > old > Test > python"]
+    assert floor_problems("x.yml", jobs) == ["x.yml > old > step 1 > python: asks for 3.14, below the floor"]
 
 
 FILES = sorted(p for p in WORKFLOWS.iterdir() if p.suffix in (".yml", ".yaml"))
