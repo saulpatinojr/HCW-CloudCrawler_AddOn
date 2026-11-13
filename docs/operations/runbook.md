@@ -395,7 +395,7 @@ version is checked before anything is built, and the same checks run on a dry ru
 
 | Message | What it means | What to do |
 | --- | --- | --- |
-| `the version differs between files (...)` | `pyproject.toml`, `__version__` in `src/cloud_crawler_lab/__init__.py` and the `cloud-crawler-lab` entry of `uv.lock` do not say the same version. | Set all three to the same `X.Y.Z` (edit the first two, then `uvx uv@0.11.32 lock` rewrites the third) in a pull request. |
+| `the version differs between files (...)` | `pyproject.toml`, `__version__` in `src/cloud_crawler_lab/__init__.py` and the `cloud-crawler-lab` entry of `uv.lock` do not say the same version. | Set all three to the same `X.Y.Z` (edit the first two, then `uvx uv@0.13.7 lock` rewrites the third) in a pull request. |
 | `tag vA.B.C does not match the package version X.Y.Z` | The tag that was pushed names a version the code does not. | Nothing was published. Raise the version everywhere to a number that was never tagged, in a pull request, and tag that commit; the wrong tag stays as history. |
 | `CHANGELOG.md has no '## [X.Y.Z] - YYYY-MM-DD' section`, `has no release date`, `is empty` | The release notes for this version are missing, undated or empty. | Add the dated section with the entries in a pull request, then dry-run again. |
 | `CHANGELOG.md still has entries under [Unreleased]` | Something merged after the release pull request and left notes under `[Unreleased]`. | Fold them into the version's section (or raise the version if they change behaviour) in a pull request, then dry-run again. |
