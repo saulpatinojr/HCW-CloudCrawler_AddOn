@@ -130,7 +130,7 @@ jobs:
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with: { python-version-file: .python-version }
       - if: steps.refs.outputs.changed == 'true' && !inputs.probe
-        run: python -m pip install "uv==0.13.7"
+        run: python -m pip install "uv==0.13.8"
       - if: steps.refs.outputs.changed == 'true' && !inputs.probe
         name: Bump CORE_REF and re-lock
         env: { LATEST: "${{ steps.refs.outputs.latest }}", CURRENT: "${{ steps.refs.outputs.current }}" }
@@ -218,13 +218,13 @@ jobs:
       - if: ${{ !inputs.probe }}
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with: { python-version-file: .python-version }
-      # The same uv as the bump job, verified by its sha256 (the manylinux x86_64 wheel of uv 0.13.7 on PyPI). When
+      # The same uv as the bump job, verified by its sha256 (the manylinux x86_64 wheel of uv 0.13.8 on PyPI). When
       # the uv version moves, this hash moves with it (tests/security/test_core_update_app_token.py checks the version).
       - if: ${{ !inputs.probe }}
         name: uv, hash-checked
         run: |
           set -euo pipefail
-          printf '%s\n' 'uv==0.13.7 --hash=sha256:2c9bdc4a872b60a93c5f26c0791089ea11585a4f9d3b3c017d78eb8487505e25' > "${RUNNER_TEMP}/uv-requirements.txt"
+          printf '%s\n' 'uv==0.13.8 --hash=sha256:e18a57b8b352eb7c8feb317b9f6f533c8f0ad9673fd6cf34bbe3cf1a9f6a8984' > "${RUNNER_TEMP}/uv-requirements.txt"
           python -m pip install --require-hashes --no-deps -r "${RUNNER_TEMP}/uv-requirements.txt"
       - if: ${{ !inputs.probe }}
         id: apply

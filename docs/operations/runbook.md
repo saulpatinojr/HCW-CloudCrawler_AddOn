@@ -272,10 +272,11 @@ does today, not something its documentation promises):
 | uv version | Requests to the engine's address before the change | With the entry |
 |---|---|---|
 | 0.13.5 (what Dependabot ran: the line `Package manager uv, Info : uv 0.13.5` in its job log) and 0.13.6 (the newest at the time) | a HEAD, then a GET | none |
-| 0.13.7 (the version `ci.yml` pins since 2026-11-13; measured that day) | a HEAD (answered `401` from that session, so the lock failed) | none |
+| 0.13.8 (the version `ci.yml` pins now; measured 2026-11-13 the same way, from an empty cache, before it was adopted) | a HEAD (answered `401` from that session, so the lock failed) | none |
+| 0.13.7 (the version `ci.yml` pinned from 2026-11-13 until the move to 0.13.8; measured 2026-11-13) | a HEAD (answered `401` from that session, so the lock failed) | none |
 | 0.12.0 and 0.11.32 (the version `ci.yml` pinned until 2026-11-13) | one GET (a full download); never a HEAD | one GET |
 
-So only the newer uv sends the HEAD, and the entry is what keeps it away from the address. Since CI moved to uv 0.13.7,
+So only the newer uv sends the HEAD, and the entry is what keeps it away from the address. Since CI moved to uv 0.13.7 (0.13.8 now),
 this matters for CI too: without the entry, the `uv lock --check` step in `ci.yml` would send the same HEAD. If Dependabot's image moves to a uv that behaves differently, the job could fail again; the log
 line above tells you which uv it used.
 
@@ -346,12 +347,12 @@ pull request carries the label `needs-adaptation`. Then:
    version: `.python-version`, the Python in `infrastructure/docker/Dockerfile`, `PYTHON_VERSION` in `ci.yml`, and the
    `python-version: "3.15"` lines in `.github/workflows/core-update.yml` and `.github/workflows/security.yml`; search
    for `python-version` and `3.15` to catch any added later), or do not adopt that release.
-5. Rebuild the lock with the uv version `ci.yml` names in `UV_VERSION` (0.13.7 today; use the number that file shows). It
+5. Rebuild the lock with the uv version `ci.yml` names in `UV_VERSION` (0.13.8 today; use the number that file shows). It
    runs `uv` from a temporary environment, in the folder of the pull request's branch, and prints `Resolved` and a package
    count when it worked. Then push the change.
 
    ```powershell
-   uvx uv@0.13.7 lock
+   uvx uv@0.13.8 lock
    ```
 
    Success: the pull request's `lint` and `test` checks go green, including `test_static_metadata_matches_the_installed_wheel`.
@@ -395,7 +396,7 @@ version is checked before anything is built, and the same checks run on a dry ru
 
 | Message | What it means | What to do |
 | --- | --- | --- |
-| `the version differs between files (...)` | `pyproject.toml`, `__version__` in `src/cloud_crawler_lab/__init__.py` and the `cloud-crawler-lab` entry of `uv.lock` do not say the same version. | Set all three to the same `X.Y.Z` (edit the first two, then `uvx uv@0.13.7 lock` rewrites the third) in a pull request. |
+| `the version differs between files (...)` | `pyproject.toml`, `__version__` in `src/cloud_crawler_lab/__init__.py` and the `cloud-crawler-lab` entry of `uv.lock` do not say the same version. | Set all three to the same `X.Y.Z` (edit the first two, then `uvx uv@0.13.8 lock` rewrites the third) in a pull request. |
 | `tag vA.B.C does not match the package version X.Y.Z` | The tag that was pushed names a version the code does not. | Nothing was published. Raise the version everywhere to a number that was never tagged, in a pull request, and tag that commit; the wrong tag stays as history. |
 | `CHANGELOG.md has no '## [X.Y.Z] - YYYY-MM-DD' section`, `has no release date`, `is empty` | The release notes for this version are missing, undated or empty. | Add the dated section with the entries in a pull request, then dry-run again. |
 | `CHANGELOG.md still has entries under [Unreleased]` | Something merged after the release pull request and left notes under `[Unreleased]`. | Fold them into the version's section (or raise the version if they change behaviour) in a pull request, then dry-run again. |
@@ -404,7 +405,7 @@ version is checked before anything is built, and the same checks run on a dry ru
 
 **The release pull request** (what a session prepares; the owner decides the tag):
 
-1. Move the version in `pyproject.toml` and `src/cloud_crawler_lab/__init__.py`, then run `uvx uv@0.13.7 lock` so
+1. Move the version in `pyproject.toml` and `src/cloud_crawler_lab/__init__.py`, then run `uvx uv@0.13.8 lock` so
    `uv.lock` follows (that is the uv version `ci.yml` pins; `uv lock --check` in CI fails with another one).
 2. In `CHANGELOG.md`, add `## [X.Y.Z] - YYYY-MM-DD` under `## [Unreleased]`, move every entry under it, and leave
    `[Unreleased]` empty. Update the status paragraph of `README.md`, the rows of `VALIDATION.md` and
