@@ -33,8 +33,8 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 
 ### 2026-11-13: the App's release workflows move to uv 0.13.8 (no change in what the release holds)
 
-- The App's branch `claude/uv-0138-1707` (HCW-HybridCloudWorks#1707) moves every App workflow from uv 0.13.7 to
-  0.13.8, a bug-fix release, the same version this repository's own branch of that name adopts. It changes no engine
+- The App's [pull request 88](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/88) (website [#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)) moves every App workflow from uv 0.13.7 to
+  0.13.8, a bug-fix release, the same version this repository adopts in its own pull request. It changes no engine
   code, no detector, no tool schema and no lockfile.
 - **What reaches this repository:** nothing that differs in content. Built in two scratch copies of the App's `main`
   on 2026-11-13, the engine wheel and its source archive from uv 0.13.8 are byte-identical to 0.13.7's (the wheel's
