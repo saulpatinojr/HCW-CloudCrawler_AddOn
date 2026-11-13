@@ -358,6 +358,22 @@ uv (the tool that installs the Python packages and keeps `uv.lock`) moves from 0
 | Docker image build, and CI itself on uv 0.13.7 | **no** | no Docker daemon here, and nothing was pushed. The first pull request run is the real test of the `uv lock --check` step |
 | `make e2e` | **no** | no Playwright browser is installed here, and this change touches neither the pane nor the API |
 
+## Run 2026-11-13, third part (the finished workflow runtime check; HCW-HybridCloudWorks#1707)
+
+`tests/security/test_workflow_runtime_setup.py` is replaced by the finished Python copy from HCW-NetworkEyes_App (commit `3810402`, [HCW-NetworkEyes_App#394](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/394)), which is kept the same as the website's `scripts/workflow-runtime-setup.test.mjs` ([HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). Only this repository's own lists differ, and the wording of three comment lines that ran past this repository's 120 columns. Toolchain: Linux cloud session, CPython 3.15.2, uv 0.13.7 installed with `pip` into a throwaway virtual environment outside the repository.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The port's code against HCW-NetworkEyes_App's copy at `3810402` | yes | the two files' syntax trees are identical once the docstrings and the four lists (`RUNNER_DEFAULT_ALLOWED`, `INDIRECT_RUNTIME`, `PIPX_ALLOWED`, `BELOW_FLOOR_ALLOWED`) are set aside |
+| `uv sync --all-packages`, `ruff check .`, `ruff format --check .` | yes | `Checked 51 packages`; `All checks passed!`; 83 files already formatted |
+| `pytest -q --cov=src --cov-fail-under=85` | yes | 1061 passed; coverage 97.59%. `tests/security/test_workflow_runtime_setup.py` alone: 354 passed (121 before) |
+| The check over this repository's workflows | yes | no step reported: every step that runs Python or Node.js (now counting `pytest`, `bash -c` scripts and the rest) comes after a set-up step that covers it, every set-up step asks for 3.15 or 26, and no workflow runs `pipx` |
+| The scripts the workflows call, read one level deep | yes | every Python script a step calls (`scripts/follow_website_base.py`, `check_release_version.py`, `bump_core_pin.py`) is run with `python` or `python3`, which the check reads; `check_release_version.py` starts only `git`, and the others start nothing. `infrastructure/docker/smoke.py` is piped into the image's own Python with `docker exec`, so it does not run on the runner. So `INDIRECT_RUNTIME` stays empty |
+| The same answers as HCW-NetworkEyes_App's copy | yes | 21,840 shared cases (command reading with its shell text, the `pipx` check and the condition rules) and the 97 workflow files of the nine HCW repositories cloned here (unset steps, `pipx` problems, floor problems): no disagreement, and none between the three add-ons' copies |
+| The new checks catch a real step | yes | a job with `bash -c 'pytest -q'` and `pipx run zizmor .` steps added to the end of `ci.yml` on the working tree: 2 failed, naming both steps; the file was then restored |
+| actionlint, zizmor, and CI on GitHub | **no** | no workflow changed, and nothing was pushed; the pull request's CI runs the test on GitHub |
+| `make e2e` | **no** | this change touches neither the pane nor the API |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
