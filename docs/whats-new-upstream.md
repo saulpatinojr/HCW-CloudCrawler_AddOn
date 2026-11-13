@@ -31,6 +31,18 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 
 ## What changed
 
+### 2026-11-13: the App's release workflows move to uv 0.13.7, and the bill of materials grows
+
+- The App's pull request `claude/runtime-followups-1707` (HCW-HybridCloudWorks#1707) moves every App workflow from
+  uv 0.11.32 to 0.13.7, the same version this repository's own pull request of that name adopts. It changes no engine
+  code, no detector, no tool schema and no lockfile.
+- **What reaches this repository:** the next App release's software bill of materials, `cloud-crawler-core.cdx.json`
+  (the list of what the engine wheel depends on), is written by uv 0.13.7. It lists the same five packages, but each
+  entry now also carries its download addresses and sha256 hashes, so the file grows from about 2 KB to about 19 KB.
+  The wheel built by 0.13.7 is byte-identical to 0.11.32's (checked in a scratch copy on 2026-11-13).
+- **Nothing to do here:** `core-update.yml` reads only the release's tag and the wheel's address and sha256; nothing in
+  this repository reads the bill of materials. If a later change starts reading it, expect the 0.13.7 shape.
+
 ### 2026-11-09: release 0.3.1 of this edition is prepared (nothing new upstream)
 
 - Nothing changed upstream: the App's latest release is still `v0.1.1` (read on 2026-11-09), and the pin here stays

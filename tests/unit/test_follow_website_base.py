@@ -389,7 +389,7 @@ def test_compare_env_never_changes_this_repositorys_files(tmp_path):
 
 def test_the_uv_image_and_other_digests_in_the_dockerfile_are_left_alone(tmp_path):
     """The real Dockerfiles also pull the uv image by digest; only the base image reference may move."""
-    uv = "ghcr.io/astral-sh/uv:0.11.32@sha256:" + "c" * 64
+    uv = "ghcr.io/astral-sh/uv:0.13.7@sha256:" + "c" * 64
     dockerfile = DOCKERFILE.replace(
         "RUN true\n", f"ARG EDITION=lab\nCOPY --from={uv} /uv /usr/local/bin/uv\nRUN true\n"
     )

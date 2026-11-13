@@ -340,6 +340,24 @@ uv-managed CPython 3.15.2.
 | actionlint 1.7.12 (with shellcheck 0.11.0) and zizmor 1.31.1 `--offline`, the versions `ci.yml` pins | yes | actionlint no findings; zizmor `No findings to report` |
 | A real `base-update` run on the chosen Python | **no**, after the merge | runs daily at 07:37 UTC or by hand from `main` (`gh workflow run base-update.yml --ref main`); the script uses Python's standard library only |
 
+## Run 2026-11-13 (uv 0.13.7; HCW-HybridCloudWorks#1707)
+
+uv (the tool that installs the Python packages and keeps `uv.lock`) moves from 0.11.32 to 0.13.7 in `ci.yml`, `security.yml`, `core-update.yml` and the Dockerfile's uv image ([HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). Toolchain: Linux cloud session, CPython 3.15.2, uv 0.13.7 installed with `pip` into a throwaway virtual environment outside the repository, and the session's own uv 0.11.32.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The uv image digest: an anonymous `HEAD` of `https://ghcr.io/v2/astral-sh/uv/manifests/0.13.7` asking for an image index | yes | `Docker-Content-Digest: sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490`, content type `application/vnd.oci.image.index.v1+json` (the multi-platform index, which is what `docker buildx imagetools inspect` prints in `ci.yml`); the same digest `HCW-NetworkEyes_App` pins for 0.13.7. The old pin `df4cae8f…504c` is still what the registry gives for 0.11.32 |
+| `ci.yml`'s uv check replayed (the `grep -Fq` lines, with the digest above in place of `docker buildx`) | yes | the Dockerfile line and the `"uv==0.13.7"` lines in `security.yml` and `core-update.yml` all match |
+| The uv wheel hash in `core-update.yml`'s pull-request job | yes | `pip download --no-deps --only-binary=:all: --platform manylinux_2_17_x86_64 uv==0.13.7` gives `uv-0.13.7-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl` with sha256 `2c9bdc4a872b60a93c5f26c0791089ea11585a4f9d3b3c017d78eb8487505e25`, the value PyPI's JSON lists |
+| `uv lock --check` with uv 0.13.7 | yes | `Resolved 52 packages`, exit 0, and `uv.lock` is unchanged. With `-v`, no request to the engine's address: the `[[tool.uv.dependency-metadata]]` entry answers for it |
+| The same on a scratch copy with that entry taken out | yes | uv 0.13.7 sends a `HEAD` to the engine's address; GitHub redirects it to `objects.githubusercontent.com`, which answers `401`, and the lock fails. This is the first time the `401` that Dependabot met was seen outside Dependabot; the runbook's table now says so |
+| The image's `uv export` (the Dockerfile's flags) and `security.yml`'s export, under uv 0.11.32 and 0.13.7 | yes | byte-identical in both cases |
+| `uv sync --all-packages` (uv 0.13.7), `ruff check .`, `ruff format --check .` | yes | `Checked 51 packages`; `All checks passed!`; 83 files already formatted |
+| `pytest -q --cov=src --cov-fail-under=85` (uv 0.13.7) | yes | 828 passed; coverage 97.59%. `tests/security/test_workflow_runtime_setup.py`, `test_core_update_app_token.py` and `tests/unit/test_follow_website_base.py` together: 271 passed |
+| actionlint 1.7.12, hadolint 2.14.0 and zizmor 1.31.1 `--offline`, the versions `ci.yml` pins (binaries checked against its sha256 values) | yes, actionlint without shellcheck | no findings from any of them. shellcheck is not installed here, so actionlint ran with `-shellcheck=`; the shell lines changed only in a version number and a hash |
+| Docker image build, and CI itself on uv 0.13.7 | **no** | no Docker daemon here, and nothing was pushed. The first pull request run is the real test of the `uv lock --check` step |
+| `make e2e` | **no** | no Playwright browser is installed here, and this change touches neither the pane nor the API |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
