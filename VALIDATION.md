@@ -374,6 +374,21 @@ uv (the tool that installs the Python packages and keeps `uv.lock`) moves from 0
 | actionlint, zizmor, and CI on GitHub | **no** | no workflow changed, and nothing was pushed; the pull request's CI runs the test on GitHub |
 | `make e2e` | **no** | this change touches neither the pane nor the API |
 
+## Run 2026-11-13, fourth part (round two of the workflow runtime check; HCW-HybridCloudWorks#1707)
+
+`tests/security/test_workflow_runtime_setup.py` is replaced by round two of the check, from the canonical Python copy in HCW-NetworkEyes_App (commit `8ac3118`, with the fourth review round's fixes, [HCW-NetworkEyes_App#395](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/395)), which is kept the same as the website's `scripts/workflow-runtime-setup.test.mjs` (merged as `9e2e0dd`, [HCW-HybridCloudWorks#1719](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1719); issue [HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). Only this repository's own lists differ, and the wording of the docstring and comment lines that ran past this repository's 120 columns (the one long pattern, `ASSIGNMENT`, is written as two adjacent strings, which Python joins into the same value). Run from `main` at `0947e8a`. Toolchain: Linux cloud session, CPython 3.15.2, uv 0.13.7 from a throwaway virtual environment outside the repository.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The port's code against HCW-NetworkEyes_App's copy at `8ac3118` | yes | the two files' syntax trees are identical once the docstrings and the four lists (`RUNNER_DEFAULT_ALLOWED`, `INDIRECT_RUNTIME`, `PIPX_ALLOWED`, `BELOW_FLOOR_ALLOWED`) are set aside; the earlier canonical copy, as a control, differs |
+| `uv sync --all-packages`, `ruff check .`, `ruff format --check .` | yes | `Checked 51 packages`; `All checks passed!`; 83 files already formatted |
+| `pytest -q --cov=src` | yes | 1406 passed; coverage 97.59%. `tests/security/test_workflow_runtime_setup.py` alone: 699 passed (354 before) |
+| The check over this repository's workflows | yes | the same findings as the copy on `main`: no step reported that its lists do not name, no `pipx` step, no set-up step below 3.15 or 26, and no composite action to read. Its lists stay empty |
+| The same answers as the canonical copy, and the JavaScript copies | yes | 66,627 cases (23,958 command readings, each with its two shell texts; 42,498 `pipx` cases; 171 condition cases), and the 104 files (100 workflows, 4 composite actions) of the nine HCW repositories cloned here plus two folders of made-up workflows for the new rules (jobs read, unset steps, `pipx` problems, floor problems): 0 disagreements with the canonical Python copy at `8ac3118` and between the five Python ports. The website's JavaScript copy (`9e2e0dd`) and the MigrateOrchestrator App's (`78feda5`) do not have the fourth round's fixes yet: they agree with the canonical copy as it was before them (`62ee0cc`) on every case, and differ from it now exactly on the 3,085 cases those fixes change (28 answers; the rest are how a GitHub expression is written in the shell text) and on the made-up workflow for them; the fixes reach them in their own pull requests |
+| The new checks catch a real step | yes | in a scratch copy of the CloudCrawler add-on's `.github` (not this working tree), a job added to `ci.yml` with `PIPX_DEFAULT_PYTHON=/usr/bin/python3 pipx run zizmor .` and a literal `run: |` script running `node x.js`: 2 failed, naming both steps; the same `node` in a folded `run: >-` script is one line of text, as GitHub runs it, and is not reported |
+| actionlint, zizmor, and CI on GitHub | **no** | no workflow changed, and nothing was pushed; the pull request's CI runs the test on GitHub |
+| `make e2e` | **no** | this change touches neither the pane nor the API |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
