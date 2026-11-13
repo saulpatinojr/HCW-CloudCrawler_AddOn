@@ -254,7 +254,10 @@ shows, in order:
 Why the signed link refused the HEAD is also an inference (a link signed for downloading may not accept a HEAD). It was not
 reproduced: from the machine used on 2026-10-27 GitHub redirected to a different host, `release-assets.githubusercontent.com`,
 and that host answered both HEAD and GET with 200. A local run of the same uv version (0.13.5) did send the HEAD, so the
-first half of the chain was seen on both sides. The fix does not depend on the reason for the 401.
+first half of the chain was seen on both sides. On 2026-11-13 a cloud session did see the whole chain: uv 0.13.7, locking a
+copy of this project with the entry below taken out, sent the HEAD, GitHub redirected it to `objects.githubusercontent.com`,
+and that host answered `401`, so the lock failed (a GET of the same address went to `release-assets.githubusercontent.com`
+and downloaded). The fix does not depend on the reason for the 401.
 
 **The fix.** `pyproject.toml` holds the engine's dependency list itself, in the entry `[[tool.uv.dependency-metadata]]`
 ([uv's description](https://docs.astral.sh/uv/concepts/resolution/)), copied from the wheel's own `METADATA` file (the
@@ -269,10 +272,11 @@ does today, not something its documentation promises):
 | uv version | Requests to the engine's address before the change | With the entry |
 |---|---|---|
 | 0.13.5 (what Dependabot ran: the line `Package manager uv, Info : uv 0.13.5` in its job log) and 0.13.6 (the newest at the time) | a HEAD, then a GET | none |
-| 0.12.0 and 0.11.32 (the version `ci.yml` pins) | one GET (a full download); never a HEAD | one GET |
+| 0.13.7 (the version `ci.yml` pins since 2026-11-13; measured that day) | a HEAD (answered `401` from that session, so the lock failed) | none |
+| 0.12.0 and 0.11.32 (the version `ci.yml` pinned until 2026-11-13) | one GET (a full download); never a HEAD | one GET |
 
-So only the newer uv sends the HEAD, and the entry is what keeps it away from the address. CI's uv still downloads the
-wheel, which is harmless. If Dependabot's image moves to a uv that behaves differently, the job could fail again; the log
+So only the newer uv sends the HEAD, and the entry is what keeps it away from the address. Since CI moved to uv 0.13.7,
+this matters for CI too: without the entry, the `uv lock --check` step in `ci.yml` would send the same HEAD. If Dependabot's image moves to a uv that behaves differently, the job could fail again; the log
 line above tells you which uv it used.
 
 Things that look like fixes and are not:
@@ -342,12 +346,12 @@ pull request carries the label `needs-adaptation`. Then:
    version: `.python-version`, the Python in `infrastructure/docker/Dockerfile`, `PYTHON_VERSION` in `ci.yml`, and the
    `python-version: "3.15"` lines in `.github/workflows/core-update.yml` and `.github/workflows/security.yml`; search
    for `python-version` and `3.15` to catch any added later), or do not adopt that release.
-5. Rebuild the lock with the uv version `ci.yml` names in `UV_VERSION` (0.11.32 today; use the number that file shows). It
+5. Rebuild the lock with the uv version `ci.yml` names in `UV_VERSION` (0.13.7 today; use the number that file shows). It
    runs `uv` from a temporary environment, in the folder of the pull request's branch, and prints `Resolved` and a package
    count when it worked. Then push the change.
 
    ```powershell
-   uvx uv@0.11.32 lock
+   uvx uv@0.13.7 lock
    ```
 
    Success: the pull request's `lint` and `test` checks go green, including `test_static_metadata_matches_the_installed_wheel`.
@@ -400,7 +404,7 @@ version is checked before anything is built, and the same checks run on a dry ru
 
 **The release pull request** (what a session prepares; the owner decides the tag):
 
-1. Move the version in `pyproject.toml` and `src/cloud_crawler_lab/__init__.py`, then run `uvx uv@0.11.32 lock` so
+1. Move the version in `pyproject.toml` and `src/cloud_crawler_lab/__init__.py`, then run `uvx uv@0.13.7 lock` so
    `uv.lock` follows (that is the uv version `ci.yml` pins; `uv lock --check` in CI fails with another one).
 2. In `CHANGELOG.md`, add `## [X.Y.Z] - YYYY-MM-DD` under `## [Unreleased]`, move every entry under it, and leave
    `[Unreleased]` empty. Update the status paragraph of `README.md`, the rows of `VALIDATION.md` and
