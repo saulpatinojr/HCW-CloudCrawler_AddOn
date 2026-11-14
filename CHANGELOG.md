@@ -13,6 +13,8 @@ once, merge one before rebasing the next.
 
 ### Added
 
+- **An `@claude` mention now starts Claude Code** (owner request 2026-11-14). A new workflow, `.github/workflows/claude.yml`, runs the Claude Code action when the owner, a member or a collaborator writes `@claude` in an issue, a pull request comment or a review; before this, such a comment did nothing. It signs in with the `CLAUDE_CODE_OAUTH_TOKEN` repository secret (the owner's Claude subscription, not an API key) and needs the [Claude GitHub App](https://github.com/apps/claude) installed on the repository. It follows the [official example](https://github.com/anthropics/claude-code-action/blob/main/examples/claude.yml), with both actions pinned to a commit, the `ubuntu-26.04` runner, a 60-minute limit and a check on who wrote the comment, because the repository is public. It works only once the file is on `main`, the secret is saved and the app is installed.
+
 - **A `NOTICE` file at the root of the repository** (the owner's request of 2026-11-14). A NOTICE is the short
   plain-text file that sits beside `LICENSE` and says what the licence covers and where outside material comes from; the
   sibling lab editions already have one. It says: the repository is MIT (see `LICENSE`); the engine,
