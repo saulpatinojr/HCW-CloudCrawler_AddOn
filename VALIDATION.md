@@ -492,6 +492,21 @@ merged. Read through the API on 2026-11-14: both pull requests `merged: true`, a
 | Docker image build, `make e2e`, hadolint, actionlint, zizmor | **no** | no code, image, workflow, pane or API file changed |
 | CI on GitHub | **no** | runs when the pull request is opened |
 
+## Run 2026-11-14 (round five of the workflow runtime check, the last planned round; HCW-HybridCloudWorks#1707)
+
+`tests/security/test_workflow_runtime_setup.py` takes round five of the check from the canonical Python copy in HCW-NetworkEyes_App (merged as `6e7f5c0`, [HCW-NetworkEyes_App#405](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/405)), which is kept the same as the website's copy (merged as `5a7e7f4a`, [HCW-HybridCloudWorks#1726](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1726); issue [HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). Only this repository's own lists differ, and one new test's one-line workflow, written as adjacent strings (which Python joins into the same value) to fit 120 columns. Run from `main` at `a233275`. Toolchain: Linux cloud session, CPython 3.15.2, uv 0.13.8.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The port's code against HCW-NetworkEyes_App's copy at `6e7f5c0` | yes | identical syntax trees, function by function (208 functions) and as a whole, once the docstrings and the four lists (`RUNNER_DEFAULT_ALLOWED`, `INDIRECT_RUNTIME`, `PIPX_ALLOWED`, `BELOW_FLOOR_ALLOWED`) are set aside; the same 114 test functions in the same order; a word-by-word comparison shows the differences from before round five unchanged, plus line wrapping only |
+| `uv sync --all-packages`, `ruff check .`, `ruff format --check .` | yes | `Checked 51 packages`; `All checks passed!`; 83 files already formatted |
+| `pytest -q --cov=src --cov-fail-under=85` | yes | 1842 passed; coverage 97.59%. `tests/security/test_workflow_runtime_setup.py` alone: 1134 passed (1129 before) |
+| The same answers as the canonical copy | yes | the 94,952 generated cases of round five and the rounds before it (command reading, `sudo` reading, `pipx`, the floor, `shell:` words, and made-up workflows read for unset steps, `pipx` problems and floor problems): 0 disagreements with HCW-NetworkEyes_App's copy at `6e7f5c0`, and none between the five ported Python copies (before this change: 10,084) |
+| The check over the workflows of every HCW clone and worktree in this session (386 workflow and composite-action files) | yes | the same findings as the canonical copy's, file by file |
+| gitleaks (the secret scan `security.yml` runs) | **no** | not installed here; `tests/security/test_no_secrets.py` ran in the suite above |
+| actionlint, zizmor, and CI on GitHub | **no** | no workflow changed; CI runs when the pull request is opened |
+| `make e2e` | **no** | this change touches neither the pane nor the API |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they

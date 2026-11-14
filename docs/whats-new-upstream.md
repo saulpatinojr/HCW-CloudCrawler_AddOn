@@ -31,6 +31,27 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 
 ## What changed
 
+### 2026-11-14: the workflow runtime check moves to round five, the last planned round (website [#1726](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1726), NetworkEyes_App [#405](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/405))
+
+- The check that every workflow step running Python or Node.js sets its version up first has a fifth round: a step whose
+  `shell:` is written but empty (`shell:`, `~`, `null`, a comment alone, `''`) now uses the job's or the workflow's
+  default shell, as GitHub's runner does, and a job whose own `defaults.run.shell` is null now uses the workflow's. Its
+  canonical copy is the Python one in HCW-NetworkEyes_App
+  ([HCW-NetworkEyes_App#405](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/405), merged on 2026-11-14); the
+  website's JavaScript twin merged in
+  [HCW-HybridCloudWorks#1726](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1726). This repository's
+  `tests/security/test_workflow_runtime_setup.py` is refreshed from the canonical copy in the same pull request as this
+  entry; only its own lists stay its own.
+- **The last planned round.** The owner decided on 2026-11-14 that round five is the last planned round. After it, this
+  check changes only when (1) a real HCW workflow trips it or would get past it, or (2) a reviewer shows a way past it
+  that a workflow could plausibly be written with. Any other edge case a reviewer raises is added to the known-limits
+  list in the test file's header, not to a new round.
+- **Reaches this edition? Only as this test.** No engine, catalog, rule, wheel or release change comes with it, so
+  `core-update.yml` has nothing to adopt. The App (HCW-CloudCrawler_App) keeps its own copy
+  (`tests/unit/test_workflow_runtime_setup.py`); it moves to round five in
+  [HCW-CloudCrawler_App#95](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/95), opened alongside this one.
+- What the test now reads is in this repository's `CHANGELOG.md` entry of the same date.
+
 ### 2026-11-14: the workflow runtime check moves to round four (website [#1725](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1725), NetworkEyes_App [#403](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/403))
 
 - The check that every workflow step running Python or Node.js sets its version up first has a fourth round: it
