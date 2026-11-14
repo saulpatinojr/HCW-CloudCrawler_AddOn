@@ -419,7 +419,7 @@ the 3.15 line with `--no-project`. Linux cloud session, CPython 3.15.2, uv 0.13.
 | `uv lock` (uv 0.13.8) | yes | `Resolved 52 packages`; only the lock's `requires-python` line changed; no package version moved |
 | `make setup` | yes | exit 0 with `uv python pin --no-project 3.15`; before that change `uv python pin 3.15` stopped with "The requested Python version `3.15` is incompatible with the project `requires-python` value of `>=3.15.2, <3.16`" |
 | `uv sync --all-packages`, `ruff check .`, `ruff format --check .`, `scripts/check_release_version.py`, `uv lock --check` | yes | `Checked 51 packages`; `All checks passed!`; 83 files already formatted; `release version consistent: 0.3.1`; exit 0 |
-| `pytest -q --cov=src --cov-fail-under=85` | yes | 1406 passed; coverage 97.59%, including `test_wheel_accepts_every_python_the_project_allows` against the pinned `v0.1.1` wheel |
+| `pytest -q --cov=src --cov-fail-under=85` | yes | 1406 passed on the branch as first pushed; 1757 passed after `main` (round three of the workflow runtime check, #79) was merged in; coverage 97.59% both times, including `test_wheel_accepts_every_python_the_project_allows` against the pinned `v0.1.1` wheel |
 | The App's next wheel against this range | yes, from the App's branch `claude/python-3.15.2` | a wheel built there says `Requires-Python: <3.16,>=3.15.2`, which covers every Python this range allows |
 | Docker image build, `make e2e`, the linters | **no** | no Docker daemon or Playwright browser here; no Dockerfile, workflow, pane or API file changed |
 
