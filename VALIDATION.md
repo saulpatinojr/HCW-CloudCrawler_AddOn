@@ -421,7 +421,7 @@ session, uv-managed CPython 3.15.2.
 | --- | --- | --- |
 | `uv sync --all-packages` | yes | installed |
 | `uv run ruff check . && uv run ruff format --check .` | yes | `All checks passed!`, `83 files already formatted` |
-| `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 1406 passed; coverage 97.59 percent |
+| `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 1406 passed on the branch as first written; 1757 passed after `main` (round three of the workflow runtime check, #79, and Python 3.15.2, #80) was merged in; coverage 97.59 percent both times |
 | Docker image build | **no** | the change adds no file the image copies |
 
 ## Run 2026-11-14 (Python 3.15.2 is the minimum; owner decision 2026-11-14)
