@@ -13,8 +13,9 @@ docker.io/hybridcloudworks/img-cc-lab-addon installs that wheel from uv.lock, an
 org.opencontainers.image.licenses says "MIT". The base image, Python and the other installed packages keep their own
 licences.
 
-Azure MCP Server: this edition neither includes nor runs Microsoft's Azure MCP Server. It never fetches evidence; it
-reads only what is uploaded or what the website hands in, which may be results the website obtained from that server.
+Azure MCP Server: this edition neither includes nor runs Microsoft's Azure MCP Server. It never fetches evidence.
+Today it reads only what is uploaded. Once the trusted-caller session API exists (not built yet), it will also read what
+the website hands in, which may be results the website obtained from that server.
 
 The pane's theme tokens (web/theme.css) are copied from the hybridcloudworks.com website repository
 (HCW-HybridCloudWorks, frontend/src/index.css) on 2026-10-10. The pane loads no fonts from the site.
