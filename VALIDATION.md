@@ -376,7 +376,7 @@ uv (the tool that installs the Python packages and keeps `uv.lock`) moves from 0
 
 ## Run 2026-11-13, fourth part (round two of the workflow runtime check; HCW-HybridCloudWorks#1707)
 
-`tests/security/test_workflow_runtime_setup.py` is replaced by round two of the check, from the canonical Python copy in HCW-NetworkEyes_App (commit `8ac3118`, with the fourth review round's fixes, [HCW-NetworkEyes_App#395](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/395)), which is kept the same as the website's `scripts/workflow-runtime-setup.test.mjs` (merged as `9e2e0dd`, [HCW-HybridCloudWorks#1719](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1719); issue [HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). Only this repository's own lists differ, and the wording of the docstring and comment lines that ran past this repository's 120 columns (the one long pattern, `ASSIGNMENT`, is written as two adjacent strings, which Python joins into the same value). Run from `main` at `0947e8a`. Toolchain: Linux cloud session, CPython 3.15.2, uv 0.13.7 from a throwaway virtual environment outside the repository.
+`tests/security/test_workflow_runtime_setup.py` is replaced by round two of the check, from the canonical Python copy in HCW-NetworkEyes_App (commit `8ac3118`, with the fourth review round's fixes, [HCW-NetworkEyes_App#395](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/395)), which is kept the same as the website's `scripts/workflow-runtime-setup.test.mjs` (merged as `9e2e0dd`, [HCW-HybridCloudWorks#1719](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1719); issue [HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). Only this repository's own lists differ, and the wrapping of the docstring and comment lines that ran past this repository's 120 columns (the one long pattern, `ASSIGNMENT`, is written as two adjacent strings, which Python joins into the same value). Run from `main` at `0947e8a`. Toolchain: Linux cloud session, CPython 3.15.2, uv 0.13.7 from a throwaway virtual environment outside the repository.
 
 | Check | Executed here | Result |
 | --- | --- | --- |
@@ -423,6 +423,42 @@ session, uv-managed CPython 3.15.2.
 | `uv run ruff check . && uv run ruff format --check .` | yes | `All checks passed!`, `83 files already formatted` |
 | `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 1406 passed; coverage 97.59 percent |
 | Docker image build | **no** | the change adds no file the image copies |
+
+## Run 2026-11-14 (Python 3.15.2 is the minimum; owner decision 2026-11-14)
+
+`requires-python` moves from `>=3.15.1,<3.16` to `>=3.15.2,<3.16`, the latest stable 3.15 release, and `make setup` pins
+the 3.15 line with `--no-project`. Linux cloud session, CPython 3.15.2, uv 0.13.8 (the version CI uses). Branch
+`claude/python-3.15.2`, from `main` at `4db5588`.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| `uv lock` (uv 0.13.8) | yes | `Resolved 52 packages`; only the lock's `requires-python` line changed; no package version moved |
+| `make setup` | yes | exit 0 with `uv python pin --no-project 3.15`; before that change `uv python pin 3.15` stopped with "The requested Python version `3.15` is incompatible with the project `requires-python` value of `>=3.15.2, <3.16`" |
+| `uv sync --all-packages`, `ruff check .`, `ruff format --check .`, `scripts/check_release_version.py`, `uv lock --check` | yes | `Checked 51 packages`; `All checks passed!`; 83 files already formatted; `release version consistent: 0.3.1`; exit 0 |
+| `pytest -q --cov=src --cov-fail-under=85` | yes | 1406 passed on the branch as first pushed; 1757 passed after `main` (round three of the workflow runtime check, #79) was merged in; coverage 97.59% both times, including `test_wheel_accepts_every_python_the_project_allows` against the pinned `v0.1.1` wheel |
+| The App's next wheel against this range | yes, from the App's branch `claude/python-3.15.2` | a wheel built there says `Requires-Python: <3.16,>=3.15.2`, which covers every Python this range allows |
+| Docker image build, `make e2e`, the linters | **no** | no Docker daemon or Playwright browser here; no Dockerfile, workflow, pane or API file changed |
+
+## Run 2026-11-14 (round three of the workflow runtime check; HCW-HybridCloudWorks#1707)
+
+`tests/security/test_workflow_runtime_setup.py` is replaced by round three of the check, from the canonical Python copy in HCW-NetworkEyes_App (merged as `9b96396`, [HCW-NetworkEyes_App#399](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/399)), which is kept the same as the website's `scripts/workflow-runtime-setup.test.mjs` (merged as `4be949f`, [HCW-HybridCloudWorks#1722](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1722); issue [HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). Only this repository's own lists differ, and the wrapping of the docstring and comment lines that ran past this repository's 120 columns; the 17 one-line YAML texts the new tests feed the reader, which ran past 120 columns too, are written as adjacent strings, which Python joins into the same value. Run from `main` at `c3cb7cb`. Toolchain: Linux cloud session, CPython 3.15.2, the session's uv 0.11.32.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The port's code against HCW-NetworkEyes_App's copy at `9b96396` | yes | the two files' syntax trees are identical once the docstrings and the four lists (`RUNNER_DEFAULT_ALLOWED`, `INDIRECT_RUNTIME`, `PIPX_ALLOWED`, `BELOW_FLOOR_ALLOWED`) are set aside; the four lists are the same as on `main`; the docstrings have the same words, except the module docstring's paragraph saying this file is a copy |
+| `uv sync --all-packages`, `ruff check .`, `ruff format --check .` | yes | `Checked 51 packages`; `All checks passed!`; 83 files already formatted |
+| `pytest -q --cov=src --cov-fail-under=85` | yes | 1608 passed; coverage 97.59%. `tests/security/test_workflow_runtime_setup.py` alone: 901 passed (699 before), at this pull request's first push; after the fixes below, 1756 passed and 1049 in that file |
+| The check over this repository's workflows, old copy (`main`) against new | yes | the same findings as the copy on `main`, file by file (8 workflows, no composite action): no step reported, no `pipx` problem, no set-up step below 3.15 or 26. Its lists stay empty |
+| The same answers as the canonical copy | yes | the 12,975 cases of the round-three harness, the 348 inputs of the round-three review, the 66,583 cases of round two and the 199 cases of the round-three case files (command reading with its two shell texts and the `sudo` reading, the `pipx` check, the condition rules, and made-up workflows read for unset steps, `pipx` problems and floor problems): 0 disagreements with HCW-NetworkEyes_App's copy at `9b96396`, and none between the three add-ons' copies |
+| The name `UNSET`, which round three gives to a marker for an unset variable and which the end of the file reuses for the list of reported steps | yes | the same as the canonical copy, kept as it is there. Every use of the marker compares by identity, and on the 49,652 `pipx` and workflow cases above the canonical copy gives the same answers with the marker as a fresh object, as an empty list and as the list it ends up as |
+| The website's JavaScript copy driven over the same cases | **no** | the canonical copy's own run reports the two agree on these case sets |
+| After Copilot's review of the round-3 pull requests, a review of those fixes and Copilot's second round: the fixes from HCW-NetworkEyes_App `ef14b90` (a `sudo` inside a script `sudo` runs), `82b9258` (five more), `2de76af` (`env -u PATH`, `command -p`, free-threaded names), `55e94dd` and `85fe01c` (the second round), against the canonical copy at `85fe01c` | yes | identical syntax trees once the docstrings and the four lists are set aside, as before; the new made-up workflows and refused texts are written as adjacent strings |
+| After the reviews: `ruff check .`, `ruff format --check .`, `pytest` as above | yes | `All checks passed!`; 83 files already formatted; 1756 passed; coverage 97.59%. The file alone: 1049 passed (901 before these fixes). The new tests and changed cases, each added to the file as it was before them: 49 of 86 fail for the first six fixes, 25 of 41 for the review's (its longer timing test among them), 19 of 1049 for Copilot's second round |
+| After the reviews: the same answers as the canonical copy | yes | the 49,200 generated cases of these changes, the 4,844 nested-sudo cases and the 348 inputs of the round-three review: 0 disagreements with HCW-NetworkEyes_App's copy at `85fe01c`, and none between the three add-ons' copies; of the 348, one answer moved with the pre-PR review's fix and moved back with Copilot's second round (`pipx run --python python3.15t x` is reported again) |
+| After the review: the check over the workflows of all nine HCW repositories | yes | the same findings before and after the change, and the same as the canonical copy's, repository by repository |
+| gitleaks (the secret scan `security.yml` runs) | **no** | not installed here; `tests/security/test_no_secrets.py` ran in the suite above |
+| actionlint, zizmor, and CI on GitHub | **no** | no workflow changed; CI runs when a pull request is opened |
+| `make e2e` | **no** | this change touches neither the pane nor the API |
 
 ## Limitations recorded
 

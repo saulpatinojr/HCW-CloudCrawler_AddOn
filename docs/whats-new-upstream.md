@@ -26,10 +26,44 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 | Engine version in the App | `cloud-crawler-core` 0.1.1; the App edition is also 0.1.1 | Read from the `v0.1.1` release on 2026-11-05 |
 | What this repository pins | **`cloud-crawler-core` 0.1.1**, by release-asset URL on one line of `pyproject.toml`, with the wheel's sha256 `45a5def595b2de85f0d07693bc4e8fcdd4c6afd65a052d4a5fa3288a66012edc` recorded in `uv.lock`. On 2026-11-05 a fresh download of the release asset had that sha256 and its build provenance verified with `gh attestation verify` (signer: the App's `publish-core.yml` at `refs/tags/v0.1.1`). Before pull request 51 the pin was 0.1.0 (sha256 `25a7abfc…`, verified the same way on 2026-10-26). | `gh release download`, `sha256sum`, `gh attestation verify ... --repo saulpatinojr/HCW-CloudCrawler_App` on 2026-11-05 |
 | Does the engine's log-word list match the lab's? | **No, and it is not copied any more.** The old copy of the engine's redaction module had drifted: ten words that only the lab logs (`session_opened`, `session_closed`, the five `turnstile_*` outcomes, `unsupported_media_type`, `arg-json`, `arg-csv`) are not in the engine's list. `security/redaction.py` is now a thin module: the engine's `scrub`, `VisitorDataError` and guard, plus those ten words. | `tests/security/test_engine_adoption.py` |
-| Compatible with this repository's pins? | **Yes, with the 0.1.1 wheel pinned here.** The engine 0.1.1 declares `Requires-Python: <3.16,>=3.14.6`; this repository requires `>=3.15.1,<3.16` since it followed the website to the Python 3.15 line (the entry of 2026-11-03 below). The earlier 0.1.0 wheel (`<3.15`) refused Python 3.15, which is why the move waited for the release. Everything else still holds: the engine requires only `pydantic>=2.14,<3`; this repository pins `pydantic==2.14.2`; the engine imports no cloud SDK and nothing that opens a connection (checked here by walking its installed source). | `pip install` of the release wheel on `python:3.15.2-slim-trixie`, the Docker build and the full suite on 2026-11-03 |
+| Compatible with this repository's pins? | **Yes, with the 0.1.1 wheel pinned here.** The engine 0.1.1 declares `Requires-Python: <3.16,>=3.14.6`; this repository requires `>=3.15.2,<3.16` since 2026-11-14 (the latest stable 3.15 release, by owner decision; the entry of that date below), and `>=3.15.1,<3.16` from when it followed the website to the Python 3.15 line (the entry of 2026-11-03 below). The earlier 0.1.0 wheel (`<3.15`) refused Python 3.15, which is why the move waited for the release. Everything else still holds: the engine requires only `pydantic>=2.14,<3`; this repository pins `pydantic==2.14.3`; the engine imports no cloud SDK and nothing that opens a connection (checked here by walking its installed source). | `pip install` of the release wheel on `python:3.15.2-slim-trixie`, the Docker build and the full suite on 2026-11-03 |
 | Azure MCP Server | Pinned to 3.0.0 in the App (ADR 0001). **This repository never calls it.** | App ADR 0001 and 0003 |
 
 ## What changed
+
+### 2026-11-14: the App and this repository both require Python 3.15.2 (owner decision)
+
+- The owner decided on 2026-11-14 that every Hybrid Cloud Works Python repository requires the latest stable release
+  of Python 3.15, which is 3.15.2 (released 2026-10-25). The App, on its branch `claude/python-3.15.2` (its pull
+  request was not open when this was written), moves `requires-python` from `>=3.15.1,<3.16` to `>=3.15.2,<3.16` in
+  both of its `pyproject.toml` files, including the engine `cloud-crawler-core`, and re-locks `uv.lock` with uv 0.13.8
+  (no package version moved; its `requirements.lock.txt` is unchanged). A wheel built from that branch says
+  `Requires-Python: <3.16,>=3.15.2`. This repository makes the same move in its own pull request.
+- **What reaches this repository:** the engine's `Requires-Python`, at the App's next release. That wheel will not
+  install on Python 3.15.0 or 3.15.1. This repository then requires the same range and runs 3.15.2
+  (`infrastructure/docker/versions.env`), so `core-update.yml` adopts it as usual and
+  `test_wheel_accepts_every_python_the_project_allows` stays green. The `v0.1.1` pin (`<3.16,>=3.14.6`) is unaffected.
+- Not checked: the App's next release, which is not tagged yet.
+
+### 2026-11-14: the workflow runtime check moves to round three here and in the App (website [#1722](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1722), NetworkEyes_App [#399](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/399))
+
+- The check that every workflow step running Python or Node.js sets its version up first has a third round of rules
+  (the list on [HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707), plus the fixes
+  from its review). Its canonical copy is the Python one in HCW-NetworkEyes_App
+  ([HCW-NetworkEyes_App#399](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/399), merged); the website's
+  JavaScript twin merged in [HCW-HybridCloudWorks#1722](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1722).
+  This repository's `tests/security/test_workflow_runtime_setup.py` is refreshed from the canonical copy in the same
+  pull request as this entry; only its own lists stay its own.
+- **Reaches this edition? Only as this test.** No engine, catalog, rule, wheel or release change comes with it, so
+  `core-update.yml` has nothing to adopt. The App (HCW-CloudCrawler_App) gets the same change in its own pull request,
+  so its copy (`tests/unit/test_workflow_runtime_setup.py`) and this one stay alike.
+- Copilot's review of these pull requests found six more ways past the check, a review of those fixes one more, and
+  Copilot's second round six more (a `sudo` inside a script `sudo` runs, a PATH replaced, removed or cleared for one
+  command, the runner's interpreter named directly, one-line `case` clauses, `${{ matrix.* }}` in the workflow-level
+  `env:`, pipx under a step's `shell:`, free-threaded Python names such as `python3.14t`, a listed step under a sudo
+  `shell:`, and a `defaults:` written as a one-line mapping); they were fixed in the canonical copies first and are in
+  this repository's copy in the same pull request, still with nothing to adopt.
+- What the test now reads is in this repository's `CHANGELOG.md` entry of the same date.
 
 ### 2026-11-13: the App's release workflows move to uv 0.13.8 (no change in what the release holds)
 

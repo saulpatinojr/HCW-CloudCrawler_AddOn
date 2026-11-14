@@ -93,7 +93,7 @@ section 22 of the website proposal
 
 ## Getting started
 
-Prerequisites: Python 3.15 (managed by `uv`), `uv` 0.11.
+Prerequisites: Python 3.15.2 or a later 3.15 release (managed by `uv`), `uv` 0.13.6 or newer (CI uses 0.13.8).
 
 ```bash
 uv sync --all-packages
