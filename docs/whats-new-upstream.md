@@ -43,10 +43,11 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 - **Reaches this edition? Only as this test.** No engine, catalog, rule, wheel or release change comes with it, so
   `core-update.yml` has nothing to adopt. The App (HCW-CloudCrawler_App) gets the same change in its own pull request,
   so its copy (`tests/unit/test_workflow_runtime_setup.py`) and this one stay alike.
-- Copilot's review of these pull requests found six more ways past the check, and a review of those fixes one more
-  (a `sudo` inside a script `sudo` runs, a PATH replaced or removed for one command, the runner's interpreter named
-  directly, one-line `case` clauses, `${{ matrix.* }}` in the workflow-level `env:`, pipx under a step's `shell:`,
-  and free-threaded Python names such as `python3.14t`); they were fixed in the canonical copies first and are in
+- Copilot's review of these pull requests found six more ways past the check, a review of those fixes one more, and
+  Copilot's second round six more (a `sudo` inside a script `sudo` runs, a PATH replaced, removed or cleared for one
+  command, the runner's interpreter named directly, one-line `case` clauses, `${{ matrix.* }}` in the workflow-level
+  `env:`, pipx under a step's `shell:`, free-threaded Python names such as `python3.14t`, a listed step under a sudo
+  `shell:`, and a `defaults:` written as a one-line mapping); they were fixed in the canonical copies first and are in
   this repository's copy in the same pull request, still with nothing to adopt.
 - What the test now reads is in this repository's `CHANGELOG.md` entry of the same date.
 
