@@ -1,0 +1,29 @@
+Hybrid Cloud Works Cloud Crawler (lab edition)
+Copyright (c) 2026 Hybrid Cloud Works. Licensed under MIT (see LICENSE).
+
+Engine: cloud-crawler-core. It is written in saulpatinojr/HCW-CloudCrawler_App and adopted here unchanged
+(docs/adr/0001-lab-edition-never-calls-azure.md). This edition installs that repository's release wheel as a
+dependency, pinned by URL in pyproject.toml (the `# CORE_REF` line) and by sha256 in uv.lock; core-update.yml opens the
+pull request that moves the pin. The engine's package metadata declares MIT, the same licence as this repository; no
+engine source is kept here.
+  Source: https://github.com/saulpatinojr/HCW-CloudCrawler_App (packages/cloud-crawler-core).
+
+Lab image: the image built from infrastructure/docker/Dockerfile and published by publish-images.yml as
+docker.io/hybridcloudworks/img-cc-lab-addon installs that wheel from uv.lock, and its label
+org.opencontainers.image.licenses says "MIT". The base image, Python and the other installed packages keep their own
+licences.
+
+Azure MCP Server: this edition neither includes nor runs Microsoft's Azure MCP Server. It never fetches evidence.
+Today it reads only what is uploaded. Once the trusted-caller session API exists (not built yet), it will also read what
+the website hands in, which may be results the website obtained from that server.
+
+The pane's theme tokens (web/theme.css) are copied from the hybridcloudworks.com website repository
+(HCW-HybridCloudWorks, frontend/src/index.css) on 2026-10-10. The pane loads no fonts from the site.
+
+Samples and test data are fictional: subscription 00000000-0000-0000-0000-000000000001 and hcw-sample-* names (the
+storage accounts, whose names Azure forbids a hyphen in, are hcwsamplest*). Nothing in samples/ is or ever was a real
+estate.
+
+Microsoft, Azure and Entra are trademarks of Microsoft Corporation. This project is not affiliated with or endorsed by
+Microsoft. The lab edition is not production and has no cloud connectivity by design; every bundle carries
+NOT-AN-AUDIT.md, because its answers are not an audit.

@@ -167,4 +167,5 @@ request as the change.
 
 ## Contributing, security, license
 
-See `CONTRIBUTING.md`, `.github/SECURITY.md` and [LICENSE](LICENSE) (MIT).
+See `CONTRIBUTING.md`, `.github/SECURITY.md`, [LICENSE](LICENSE) (MIT) and [NOTICE](NOTICE) (the licence, where the
+engine comes from, what the image installs, the copied theme tokens and the trademark statement).

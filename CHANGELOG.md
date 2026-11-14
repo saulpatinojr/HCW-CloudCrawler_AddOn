@@ -11,6 +11,19 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+### Added
+
+- **A `NOTICE` file at the root of the repository** (the owner's request of 2026-11-14). A NOTICE is the short
+  plain-text file that sits beside `LICENSE` and says what the licence covers and where outside material comes from; the
+  sibling lab editions already have one. It says: the repository is MIT (see `LICENSE`); the engine,
+  `cloud-crawler-core`, is written in HCW-CloudCrawler_App and installed here as that repository's release wheel,
+  pinned by URL on the `# CORE_REF` line of `pyproject.toml` and by sha256 in `uv.lock`, MIT like this repository, with
+  no engine source kept here; the published lab image installs that wheel and carries the `MIT` licence label; this
+  edition neither includes nor runs Azure MCP Server; the pane's theme tokens in `web/theme.css` are copied from the
+  website repository; the samples are fictional; Microsoft, Azure and Entra are Microsoft's trademarks and the project
+  is not affiliated with Microsoft; and the lab is not production, has no cloud connectivity by design and every bundle
+  carries `NOT-AN-AUDIT.md`. The README's licence line now links it.
+
 ### Changed
 
 - **Python 3.15.2 is now the minimum** (owner decision 2026-11-14). The owner decided that every Hybrid Cloud Works Python repository requires the latest stable release of Python 3.15, which is 3.15.2 (released 2026-10-25). `requires-python` in `pyproject.toml` moves from `>=3.15.1,<3.16` to `>=3.15.2,<3.16`, and `uv.lock` is re-locked with uv 0.13.8, the version CI uses: only the lock's own Python range changed, and no package version moved. The image already runs `python:3.15.2-slim-trixie` (`infrastructure/docker/versions.env`), so it does not change. The engine wheel pinned today (`v0.1.1`, `Requires-Python: <3.16,>=3.14.6`) still accepts every Python the project allows, and so will the App's next wheel (`>=3.15.2,<3.16`); `docs/whats-new-upstream.md` records the App's matching change. `make setup` now runs `uv python pin --no-project 3.15`: `.python-version` still names the line only, `3.15` (the workflows read it), but uv refuses to pin that line against the new range because the line also covers 3.15.0 and 3.15.1, so `make setup` stopped with "The requested Python version `3.15` is incompatible". `--no-project` skips only that check; `uv sync` still picks an interpreter inside the range.

@@ -408,6 +408,22 @@ uv moves from 0.13.7 to 0.13.8 in `ci.yml`, `security.yml`, `core-update.yml` an
 | Docker image build, and CI itself on uv 0.13.8 | **no** | no Docker daemon here. The pull request run is the real test of the image build and of `ci.yml`'s uv check with `docker buildx` |
 | `make e2e` | **no** | no Playwright browser is installed here, and this change touches neither the pane nor the API |
 
+## Run 2026-11-14 (a `NOTICE` file; the owner's request of 2026-11-14)
+
+A documentation-only change: a new root `NOTICE`, a link to it from the README's licence line and a `CHANGELOG.md`
+entry. No code, workflow, image or dependency changes. Every statement in `NOTICE` was checked against this repository
+(`LICENSE`, `pyproject.toml`, `uv.lock`, `infrastructure/docker/Dockerfile`, `.github/workflows/publish-images.yml`,
+`web/theme.css`, `samples/README.md`, `docs/adr/0001-lab-edition-never-calls-azure.md`) and, for the engine's licence, the
+`license = "MIT"` line of `packages/cloud-crawler-core/pyproject.toml` at the App's `v0.1.1` tag. Toolchain: Linux cloud
+session, uv-managed CPython 3.15.2.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| `uv sync --all-packages` | yes | installed |
+| `uv run ruff check . && uv run ruff format --check .` | yes | `All checks passed!`, `83 files already formatted` |
+| `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 1406 passed on the branch as first written; 1757 passed after `main` (round three of the workflow runtime check, #79, and Python 3.15.2, #80) was merged in; coverage 97.59 percent both times |
+| Docker image build | **no** | the change adds no file the image copies |
+
 ## Run 2026-11-14 (Python 3.15.2 is the minimum; owner decision 2026-11-14)
 
 `requires-python` moves from `>=3.15.1,<3.16` to `>=3.15.2,<3.16`, the latest stable 3.15 release, and `make setup` pins
