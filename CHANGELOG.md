@@ -11,6 +11,19 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+### Added
+
+- **A `NOTICE` file at the root of the repository** (the owner's request of 2026-11-14). A NOTICE is the short
+  plain-text file that sits beside `LICENSE` and says what the licence covers and where outside material comes from; the
+  sibling lab editions already have one. It says: the repository is MIT (see `LICENSE`); the engine,
+  `cloud-crawler-core`, is written in HCW-CloudCrawler_App and installed here as that repository's release wheel,
+  pinned by URL on the `# CORE_REF` line of `pyproject.toml` and by sha256 in `uv.lock`, MIT like this repository, with
+  no engine source kept here; the published lab image installs that wheel and carries the `MIT` licence label; this
+  edition neither includes nor runs Azure MCP Server; the pane's theme tokens in `web/theme.css` are copied from the
+  website repository; the samples are fictional; Microsoft, Azure and Entra are Microsoft's trademarks and the project
+  is not affiliated with Microsoft; and the lab is not production, has no cloud connectivity by design and every bundle
+  carries `NOT-AN-AUDIT.md`. The README's licence line now links it.
+
 ### Changed
 
 - **CI, the security workflow, the engine-update workflow and the image build use uv 0.13.8** ([HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)). uv is the tool that installs this project's Python packages and keeps `uv.lock` (the file that records the exact versions installed). 0.13.8 is a small bug-fix release after 0.13.7 ([its release notes](https://github.com/astral-sh/uv/blob/0.13.8/CHANGELOG.md)) and does not change how the lock file is written. As last time, `UV_VERSION` in `ci.yml`, the `uv==` lines in `security.yml` and `core-update.yml` and the uv image in `infrastructure/docker/Dockerfile` (now `ghcr.io/astral-sh/uv:0.13.8@sha256:5cc1805e…ac85`, the digest the registry gives for that tag) move together, as the check in `ci.yml` requires, and the hash-checked install in the pull-request job of `core-update.yml` moves to the sha256 of uv 0.13.8's Linux x86_64 wheel on PyPI (`e18a57b8…8984`). `uv.lock` did not change, the image's package list exported by 0.13.8 is byte-identical to 0.13.7's, and the engine's `[[tool.uv.dependency-metadata]]` entry still keeps uv from contacting the engine's address. The runbook's uv commands name 0.13.8, and its table of uv versions gains a 0.13.8 row.
