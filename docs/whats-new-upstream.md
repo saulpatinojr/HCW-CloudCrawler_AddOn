@@ -37,26 +37,31 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
   reads `coproc`, reads a step's `shell:` as the runner passes it on (no shell fills in `$PATH` there), treats a
   `shell:` holding a GitHub expression it cannot read as able to run either runtime, and holds Python to 3.15.2, the
   newest 3.15 release. Its canonical copy is the Python one in HCW-NetworkEyes_App
-  ([HCW-NetworkEyes_App#403](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/403), open when this was written); the website's JavaScript twin merged
+  ([HCW-NetworkEyes_App#403](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/403), merged on 2026-11-14); the website's JavaScript twin merged
   in [HCW-HybridCloudWorks#1725](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1725). This repository's `tests/security/test_workflow_runtime_setup.py` is refreshed from the
   canonical copy in the same pull request as this entry; only its own lists stay its own.
 - **Reaches this edition? Only as this test.** No engine, catalog, rule, wheel or release change comes with it, so
-  `core-update.yml` has nothing to adopt. The App (HCW-CloudCrawler_App) keeps its own copy (`tests/unit/test_workflow_runtime_setup.py`); it is not yet at round four and needs the same change in its own pull request, which was not open when this was written.
+  `core-update.yml` has nothing to adopt. The App (HCW-CloudCrawler_App) keeps its own copy (`tests/unit/test_workflow_runtime_setup.py`); it moved to round four in
+  [HCW-CloudCrawler_App#91](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/91), merged on 2026-11-14
+  together with the Python 3.15.2 change in the entry below.
 - What the test now reads is in this repository's `CHANGELOG.md` entry of the same date.
 
 ### 2026-11-14: the App and this repository both require Python 3.15.2 (owner decision)
 
 - The owner decided on 2026-11-14 that every Hybrid Cloud Works Python repository requires the latest stable release
-  of Python 3.15, which is 3.15.2 (released 2026-10-25). The App, on its branch `claude/python-3.15.2` (its pull
-  request was not open when this was written), moves `requires-python` from `>=3.15.1,<3.16` to `>=3.15.2,<3.16` in
-  both of its `pyproject.toml` files, including the engine `cloud-crawler-core`, and re-locks `uv.lock` with uv 0.13.8
-  (no package version moved; its `requirements.lock.txt` is unchanged). A wheel built from that branch says
+  of Python 3.15, which is 3.15.2 (released 2026-10-25). The App, in
+  [HCW-CloudCrawler_App#91](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/91) (merged on 2026-11-14, merge
+  commit `9b32b20`, together with round four of the runtime check in the entry above), moved `requires-python` from
+  `>=3.15.1,<3.16` to `>=3.15.2,<3.16` in both of its `pyproject.toml` files, including the engine
+  `cloud-crawler-core`, and re-locked `uv.lock` with uv 0.13.8
+  (no package version moved; its `requirements.lock.txt` is unchanged). A wheel built from that change says
   `Requires-Python: <3.16,>=3.15.2`. This repository makes the same move in its own pull request.
 - **What reaches this repository:** the engine's `Requires-Python`, at the App's next release. That wheel will not
   install on Python 3.15.0 or 3.15.1. This repository then requires the same range and runs 3.15.2
   (`infrastructure/docker/versions.env`), so `core-update.yml` adopts it as usual and
   `test_wheel_accepts_every_python_the_project_allows` stays green. The `v0.1.1` pin (`<3.16,>=3.14.6`) is unaffected.
-- Not checked: the App's next release, which is not tagged yet.
+- Not checked: the App's next release, which is not tagged yet (the newest App release was still `v0.1.1` when this was
+  re-read on 2026-11-14, after the merge).
 
 ### 2026-11-14: the workflow runtime check moves to round three here and in the App (website [#1722](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1722), NetworkEyes_App [#399](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/399))
 

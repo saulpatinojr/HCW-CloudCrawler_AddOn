@@ -475,6 +475,23 @@ the 3.15 line with `--no-project`. Linux cloud session, CPython 3.15.2, uv 0.13.
 | actionlint, zizmor, and CI on GitHub | **no** | no workflow changed; CI runs when the pull request is opened |
 | `make e2e` | **no** | this change touches neither the pane nor the API |
 
+## Run 2026-11-14 (`docs/whats-new-upstream.md` records the App's merge; HCW-HybridCloudWorks#1707)
+
+A documentation-only change: the two 2026-11-14 entries of `docs/whats-new-upstream.md` said the App's Python 3.15.2
+pull request was not open and the App's runtime-check copy was not at round four. Both landed in
+[HCW-CloudCrawler_App#91](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/91), merged on 2026-11-14 (merge
+commit `9b32b20`), which the entries now say, and
+[HCW-NetworkEyes_App#403](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/403), described as open, is marked
+merged. Read through the API on 2026-11-14: both pull requests `merged: true`, and the App's newest release is still
+`v0.1.1`. Run from `main` at `7e0d97a`. Toolchain: Linux cloud session, CPython 3.15.2, uv 0.13.8.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| `uv sync --all-packages`, `uv run ruff check .`, `uv run ruff format --check .` | yes | installed; `All checks passed!`; 83 files already formatted |
+| `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 1837 passed; coverage 97.59% |
+| Docker image build, `make e2e`, hadolint, actionlint, zizmor | **no** | no code, image, workflow, pane or API file changed |
+| CI on GitHub | **no** | runs when the pull request is opened |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
