@@ -487,9 +487,10 @@ merged. Read through the API on 2026-11-14: both pull requests `merged: true`, a
 
 | Check | Executed here | Result |
 | --- | --- | --- |
-| `uv sync --all-packages`, `ruff check .`, `ruff format --check .` | yes | installed; `All checks passed!`; 83 files already formatted |
-| `pytest -q --cov=src --cov-fail-under=85` | yes | 1837 passed; coverage 97.59% |
-| Docker image build, `make e2e`, the linters | **no** | no code, image, workflow, pane or API file changed |
+| `uv sync --all-packages`, `uv run ruff check .`, `uv run ruff format --check .` | yes | installed; `All checks passed!`; 83 files already formatted |
+| `uv run pytest -q --cov=src --cov-fail-under=85` | yes | 1837 passed; coverage 97.59% |
+| Docker image build, `make e2e`, hadolint, actionlint, zizmor | **no** | no code, image, workflow, pane or API file changed |
+| CI on GitHub | **no** | runs when the pull request is opened |
 
 ## Limitations recorded
 
