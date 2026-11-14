@@ -389,6 +389,25 @@ uv (the tool that installs the Python packages and keeps `uv.lock`) moves from 0
 | actionlint, zizmor, and CI on GitHub | **no** | no workflow changed, and nothing was pushed; the pull request's CI runs the test on GitHub |
 | `make e2e` | **no** | this change touches neither the pane nor the API |
 
+## Run 2026-11-13, fifth part (uv 0.13.8; HCW-HybridCloudWorks#1707)
+
+uv moves from 0.13.7 to 0.13.8 in `ci.yml`, `security.yml`, `core-update.yml` and the Dockerfile's uv image ([HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)); 0.13.8 is a bug-fix release with no change to the lock format ([release notes](https://github.com/astral-sh/uv/blob/0.13.8/CHANGELOG.md)). Run from `main` at `d94022a`. Toolchain: Linux cloud session, CPython 3.15.2 (`UV_PYTHON_DOWNLOADS=never`), uv 0.13.8 installed with `pip` into a throwaway virtual environment outside the repository, and uv 0.13.7 from another for the comparisons.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The uv image digest: an anonymous `HEAD` of `https://ghcr.io/v2/astral-sh/uv/manifests/0.13.8` asking for an image index | yes | `Docker-Content-Digest: sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85`, content type `application/vnd.oci.image.index.v1+json`. The old pin `96f40d39…b490` is still what the registry gives for 0.13.7 |
+| `ci.yml`'s uv check replayed (the `grep -Fq` lines, with the digest above in place of `docker buildx`, and `UV_VERSION` read from `ci.yml`) | yes | the Dockerfile line and the `"uv==0.13.8"` lines in `security.yml` and `core-update.yml` all match |
+| The uv wheel hash in `core-update.yml`'s pull-request job | yes | `pip download --no-deps --only-binary=:all: --platform manylinux_2_17_x86_64 uv==0.13.8` gives `uv-0.13.8-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl` with sha256 `e18a57b8b352eb7c8feb317b9f6f533c8f0ad9673fd6cf34bbe3cf1a9f6a8984` |
+| `uv lock --check` with uv 0.13.8 | yes | `Resolved 52 packages`, exit 0, `uv.lock` unchanged. With `-v`, no request to the engine's address |
+| The dependency-metadata entry, on scratch copies locked from an empty cache with `uv lock -v`, under uv 0.13.7 and 0.13.8 | yes | With the entry: both exit 0, no request to the engine's address, `uv.lock` unchanged. Without it: both send a `HEAD` to the engine's address, GitHub redirects it to `objects.githubusercontent.com`, which answers `401 Unauthorized`, and the lock fails (exit 2). 0.13.8 behaves exactly like 0.13.7; the runbook's table has the new row |
+| The image's `uv export` (the Dockerfile's flags) and `security.yml`'s export, under uv 0.13.7 and 0.13.8 | yes | byte-identical in both cases (sha256 `d4752c6c…c6d2` and `cfb7a982…a453`) |
+| `uv sync --all-packages` (uv 0.13.8), `ruff check .`, `ruff format --check .`, `scripts/check_release_version.py` | yes | `Checked 51 packages`; `All checks passed!`; 83 files already formatted; `release version consistent: 0.3.1` |
+| `pytest -q --cov=src --cov-fail-under=85` (uv 0.13.8) | yes | 1406 passed; coverage 97.59% |
+| actionlint 1.7.12 on the three changed workflows (ignoring only its unknown-label message for `ubuntu-26.04`) and zizmor 1.31.1 `--offline .github/workflows` | yes, actionlint without shellcheck | actionlint: no findings (shellcheck is not installed here; the shell lines changed only in a version number and a hash). zizmor: no findings |
+| hadolint on the Dockerfile | **no** | hadolint is not installed in this session; the only Dockerfile change is the uv image's tag and digest |
+| Docker image build, and CI itself on uv 0.13.8 | **no** | no Docker daemon here. The pull request run is the real test of the image build and of `ci.yml`'s uv check with `docker buildx` |
+| `make e2e` | **no** | no Playwright browser is installed here, and this change touches neither the pane nor the API |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
