@@ -246,7 +246,7 @@ def test_entry_comparison_names_every_field_that_differs(
 def test_wheel_accepts_every_python_the_project_allows():
     """The entry leaves requires-python out on purpose (Dependabot copies the first requires-python in uv.lock over
     every other one), so this is the only automatic check of the engine's Requires-Python. A release that narrows it,
-    say to >=3.14.8 while the project still allows 3.14.6, fails the bump pull request's compatibility check. What to
+    say to >=3.15.3 while the project still allows 3.15.2, fails the bump pull request's compatibility check. What to
     do then is a decision for a person: raise the project's requires-python, or do not adopt that release (runbook)."""
     project = _pyproject()["project"]["requires-python"]
     missing = _python_versions_missing(metadata.metadata(ENGINE).get("Requires-Python"), project)
@@ -256,25 +256,25 @@ def test_wheel_accepts_every_python_the_project_allows():
 @pytest.mark.parametrize(
     ("engine_range", "first_missing"),
     [
-        (">=3.14.8", "3.14.6"),
-        ("<3.14.9", "3.14.9"),
-        ("!=3.14.7", "3.14.7"),
-        (">=3.14.6,<3.14.12", "3.14.12"),
-        (">=3.15", "3.14.6"),
+        (">=3.15.3", "3.15.2"),
+        ("<3.15.9", "3.15.9"),
+        ("!=3.15.3", "3.15.3"),
+        (">=3.15.1,<3.15.12", "3.15.12"),
+        (">=3.16", "3.15.2"),
     ],
 )
 def test_python_range_check_notices_a_narrower_engine(engine_range, first_missing):
-    assert _python_versions_missing(engine_range, ">=3.14.6,<3.15")[0] == first_missing
+    assert _python_versions_missing(engine_range, ">=3.15.2,<3.16")[0] == first_missing
 
 
-@pytest.mark.parametrize("engine_range", ["<3.15,>=3.14.6", ">=3.14", ">=3.14.6,<3.16", "", None])
+@pytest.mark.parametrize("engine_range", ["<3.16,>=3.14.6", "<3.16,>=3.15.2", ">=3.14", ">=3.15.1,<3.17", "", None])
 def test_python_range_check_accepts_the_same_or_a_wider_engine(engine_range):
-    assert _python_versions_missing(engine_range, ">=3.14.6,<3.15") == []
+    assert _python_versions_missing(engine_range, ">=3.15.2,<3.16") == []
 
 
 def test_python_range_check_refuses_a_project_range_it_cannot_cover():
     with pytest.raises(AssertionError):
-        _python_versions_missing(">=3.14", ">=3.14.6")
+        _python_versions_missing(">=3.14", ">=3.15.2")
 
 
 @pytest.mark.parametrize(
