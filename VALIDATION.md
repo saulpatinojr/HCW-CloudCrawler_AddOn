@@ -408,6 +408,21 @@ uv moves from 0.13.7 to 0.13.8 in `ci.yml`, `security.yml`, `core-update.yml` an
 | Docker image build, and CI itself on uv 0.13.8 | **no** | no Docker daemon here. The pull request run is the real test of the image build and of `ci.yml`'s uv check with `docker buildx` |
 | `make e2e` | **no** | no Playwright browser is installed here, and this change touches neither the pane nor the API |
 
+## Run 2026-11-14 (Python 3.15.2 is the minimum; owner decision 2026-11-14)
+
+`requires-python` moves from `>=3.15.1,<3.16` to `>=3.15.2,<3.16`, the latest stable 3.15 release, and `make setup` pins
+the 3.15 line with `--no-project`. Linux cloud session, CPython 3.15.2, uv 0.13.8 (the version CI uses). Branch
+`claude/python-3.15.2`, from `main` at `4db5588`.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| `uv lock` (uv 0.13.8) | yes | `Resolved 52 packages`; only the lock's `requires-python` line changed; no package version moved |
+| `make setup` | yes | exit 0 with `uv python pin --no-project 3.15`; before that change `uv python pin 3.15` stopped with "The requested Python version `3.15` is incompatible with the project `requires-python` value of `>=3.15.2, <3.16`" |
+| `uv sync --all-packages`, `ruff check .`, `ruff format --check .`, `scripts/check_release_version.py`, `uv lock --check` | yes | `Checked 51 packages`; `All checks passed!`; 83 files already formatted; `release version consistent: 0.3.1`; exit 0 |
+| `pytest -q --cov=src --cov-fail-under=85` | yes | 1406 passed; coverage 97.59%, including `test_wheel_accepts_every_python_the_project_allows` against the pinned `v0.1.1` wheel |
+| The App's next wheel against this range | yes, from the App's branch `claude/python-3.15.2` | a wheel built there says `Requires-Python: <3.16,>=3.15.2`, which covers every Python this range allows |
+| Docker image build, `make e2e`, the linters | **no** | no Docker daemon or Playwright browser here; no Dockerfile, workflow, pane or API file changed |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
