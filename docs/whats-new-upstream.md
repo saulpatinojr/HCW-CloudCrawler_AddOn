@@ -31,6 +31,26 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 
 ## What changed
 
+### 2026-11-14: the workflow runtime check moves to round three here and in the App (website [#1722](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1722), NetworkEyes_App [#399](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/399))
+
+- The check that every workflow step running Python or Node.js sets its version up first has a third round of rules
+  (the list on [HCW-HybridCloudWorks#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707), plus the fixes
+  from its review). Its canonical copy is the Python one in HCW-NetworkEyes_App
+  ([HCW-NetworkEyes_App#399](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/399), merged); the website's
+  JavaScript twin merged in [HCW-HybridCloudWorks#1722](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1722).
+  This repository's `tests/security/test_workflow_runtime_setup.py` is refreshed from the canonical copy in the same
+  pull request as this entry; only its own lists stay its own.
+- **Reaches this edition? Only as this test.** No engine, catalog, rule, wheel or release change comes with it, so
+  `core-update.yml` has nothing to adopt. The App (HCW-CloudCrawler_App) gets the same change in its own pull request,
+  so its copy (`tests/unit/test_workflow_runtime_setup.py`) and this one stay alike.
+- Copilot's review of these pull requests found six more ways past the check, a review of those fixes one more, and
+  Copilot's second round six more (a `sudo` inside a script `sudo` runs, a PATH replaced, removed or cleared for one
+  command, the runner's interpreter named directly, one-line `case` clauses, `${{ matrix.* }}` in the workflow-level
+  `env:`, pipx under a step's `shell:`, free-threaded Python names such as `python3.14t`, a listed step under a sudo
+  `shell:`, and a `defaults:` written as a one-line mapping); they were fixed in the canonical copies first and are in
+  this repository's copy in the same pull request, still with nothing to adopt.
+- What the test now reads is in this repository's `CHANGELOG.md` entry of the same date.
+
 ### 2026-11-13: the App's release workflows move to uv 0.13.8 (no change in what the release holds)
 
 - The App's [pull request 88](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/88) (website [#1707](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1707)) moves every App workflow from uv 0.13.7 to
