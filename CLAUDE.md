@@ -30,6 +30,11 @@ tool changes go upstream first; this repository owns the lab application, its bo
 - No vendor names in anything a visitor can read (not the host, edge, verification provider or workspace platform):
   say "human verification" and "expires after two hours".
 - Owner-pasteable commands: no placeholders; bash and PowerShell both acceptable; say which shell.
+- A new credential (a token, key, password or certificate), or a workflow that reads one, is registered in the website repository
+  in the same piece of work: a row in its credential register, which gives it a renewal reminder, and its rows in the two standards
+  pages. The rule and the files are in that repository's `.claude/CLAUDE.md`, under "A new credential arrives with its register
+  row, its test and its reminder". `CLAUDE_CODE_OAUTH_TOKEN`, which `.github/workflows/claude.yml` signs in with, is registered
+  there as `gh-claude-code-oauth-token`; it expires a year after the owner makes it.
 - `/api/health` is flat (`id`, `version` at the top level); the pane posts `{type:'hcw-addon', id, state}` with states
   `loading | ready | working | unavailable` to each origin in `siteOrigins` only. Every `/api/*` error uses the
   `{error:{code,message,details?}}` envelope.
