@@ -151,7 +151,8 @@ digest = "sha256:" + hashlib.sha256(new_tag.encode()).hexdigest()
 lock = re.sub(r'(cloud_crawler_core-[^"]+\.whl", hash = ")sha256:[0-9a-f]{{64}}', lambda m: m.group(1) + digest, lock)
 mode = os.environ.get("FAKE_UV_MODE", "")
 if mode == "moves-another-package":
-    lock = lock.replace('name = "fastapi"\nversion = "0.162.0"', 'name = "fastapi"\nversion = "0.162.1"')
+    # Moves fastapi, whatever version the lock holds, so a Dependabot bump of it cannot defuse this case.
+    lock = re.sub(r'(name = "fastapi"\nversion = ")[^"]+"', r'\g<1>0.0.0+moved"', lock, count=1)
 elif mode == "no-hash":
     lock = lock.replace(digest, "md5:00")
 elif mode == "new-dependency":
@@ -165,7 +166,7 @@ def test_the_stand_in_still_finds_what_it_edits():
     """Guards the stand-in itself: if the lock's layout moves, this fails before the apply tests can mislead.
     test_check_lock_accepts_a_lock_where_only_the_engine_moved proves its normal edit is what the lock check accepts."""
     old = (ROOT / "uv.lock").read_text(encoding="utf-8")
-    assert 'name = "fastapi"\nversion = "0.162.0"' in old, "update FAKE_UV_MODE=moves-another-package"
+    assert re.search(r'name = "fastapi"\nversion = "[^"]+"', old), "update FAKE_UV_MODE=moves-another-package"
     assert re.search(r'\[\[package\]\]\nname = "cloud-crawler-core"\n(?:.*\n)*?dependencies = \[\n', old)
     assert re.search(r'cloud_crawler_core-[^"]+\.whl", hash = "sha256:[0-9a-f]{64}', old)
 
@@ -274,7 +275,7 @@ def _generated_doc(art):
 TAMPERING = {
     "pyproject-extra-line": lambda art: _append(art / "pyproject.toml", 'evil = "yes"\n'),
     "pyproject-other-dependency": lambda art: (art / "pyproject.toml").write_text(
-        (art / "pyproject.toml").read_text().replace('"fastapi==0.162.0"', '"fastapi==0.162.1"')
+        re.sub(r'"fastapi==[^"]+"', '"fastapi==0.0.1"', (art / "pyproject.toml").read_text(), count=1)
     ),
     "uv-lock-changed": lambda art: _append(art / "uv.lock", "# changed\n"),
     "uv-lock-other-hash": lambda art: (art / "uv.lock").write_text(
