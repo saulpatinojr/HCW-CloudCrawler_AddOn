@@ -11,6 +11,29 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-23
+
+This release exists so that the lab image is built again and picks up Debian's fixed `glibc` (the GNU C Library, the
+basic system library every program in the image uses). The published `img-cc-lab-addon:v0.3.1` carries two
+high-severity `glibc` vulnerabilities, [CVE-2026-19499](https://security-tracker.debian.org/tracker/CVE-2026-19499)
+(a write past the end of a buffer in `strfmon`) and
+[CVE-2026-5435](https://security-tracker.debian.org/tracker/CVE-2026-5435) (a write past the end of a buffer in three
+old DNS debugging functions), in the packages `libc6` and `libc-bin` at `2.41-12+deb13u4`. The website's image scan
+found them on 2026-11-23 and marks them as fixable
+([run 45092780931](https://github.com/saulpatinojr/HCW-HybridCloudWorks/actions/runs/45092780931), tracked in [HCW-HybridCloudWorks#1779](https://github.com/saulpatinojr/HCW-HybridCloudWorks/issues/1779)). Debian fixed both
+in `glibc 2.41-12+deb13u5`, which arrived with Debian 13.8 on 2026-11-21. The base image this repository follows, the
+website's pin of `python:3.15.2-slim-trixie` (`sha256:65a65fc7b30b…`), was built on 2026-11-05 and Docker Hub still
+serves that same digest for the tag, so there is no newer base to move to yet. The image's final stage runs Debian's
+upgrade (`apt-get upgrade`) every time it is built, so a fresh build carries the fix; only a `v*` tag publishes a
+build, so the fix reaches the lab host through a new version. The engine is unchanged (`cloud-crawler-core` 0.1.1),
+and nothing in the lab application changed since `v0.3.1` but the version string (`pyproject.toml`, `__version__` and
+the `cloud-crawler-lab` entry of `uv.lock` say `0.3.2`): `src/`, the pane (`web/`) and the samples are identical.
+Publishing the image is the tag `v0.3.2`, which is the owner's call and is not part of this change. The entries below
+landed on `main` after 0.3.1 and before this release; they change documentation, tests and CI. Not listed separately:
+the base image moved to the website's current digest (from `sha256:e97b88e416c3…` to `sha256:65a65fc7b30b…`), and
+Dependabot's dependency updates, of which two reach the image (fastapi 0.162.0 to 0.165.0 and pydantic 2.14.2 to
+2.14.3, with the packages they pull in).
+
 ### Added
 
 - **An `@claude` mention now starts Claude Code** (owner request 2026-11-14). A new workflow, `.github/workflows/claude.yml`, runs the Claude Code action when the owner, a member or a collaborator writes `@claude` in an issue, a pull request comment or a review; before this, such a comment did nothing. It signs in with the `CLAUDE_CODE_OAUTH_TOKEN` repository secret (the owner's Claude subscription, not an API key) and needs the [Claude GitHub App](https://github.com/apps/claude) installed on the repository. It follows the [official example](https://github.com/anthropics/claude-code-action/blob/main/examples/claude.yml), with both actions pinned to a commit, the `ubuntu-26.04` runner, a 60-minute limit, a read-only job token (the action writes with the app's own token) and a check on who wrote the comment, because the repository is public. It works only once the file is on `main`, the secret is saved and the app is installed.

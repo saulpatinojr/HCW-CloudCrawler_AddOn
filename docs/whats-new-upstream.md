@@ -31,6 +31,15 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 
 ## What changed
 
+### 2026-11-23: release 0.3.2 of this edition is prepared (nothing new upstream)
+
+- Nothing changed upstream: the App's latest release is still `v0.1.1` (read on 2026-11-23), and the pin here stays
+  `cloud-crawler-core` 0.1.1. This repository's release pull request moves its own version to `0.3.2`
+  (`pyproject.toml`, `__version__`, `uv.lock`) and folds the changelog. The release exists only to rebuild the lab
+  image, so that its Debian upgrade step picks up the fixed `glibc` (`libc6` and `libc-bin` `2.41-12+deb13u5`) for
+  CVE-2026-19499 and CVE-2026-5435, which the website's image scan found in `v0.3.1`
+  ([run 45092780931](https://github.com/saulpatinojr/HCW-HybridCloudWorks/actions/runs/45092780931)).
+
 ### 2026-11-14: the workflow runtime check moves to round five, the last planned round (website [#1726](https://github.com/saulpatinojr/HCW-HybridCloudWorks/pull/1726), NetworkEyes_App [#405](https://github.com/saulpatinojr/HCW-NetworkEyes_App/pull/405))
 
 - The check that every workflow step running Python or Node.js sets its version up first has a fifth round: a step whose

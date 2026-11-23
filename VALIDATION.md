@@ -507,6 +507,30 @@ merged. Read through the API on 2026-11-14: both pull requests `merged: true`, a
 | actionlint, zizmor, and CI on GitHub | **no** | no workflow changed; CI runs when the pull request is opened |
 | `make e2e` | **no** | this change touches neither the pane nor the API |
 
+## Run 2026-11-23 (release 0.3.2 prepared: the image rebuilt for Debian's `glibc` fix)
+
+This run prepares the version bump only and publishes nothing. The release exists so that the lab image is built again
+and its Debian upgrade step picks up the fixed `glibc` (`libc6` and `libc-bin` `2.41-12+deb13u5`) for CVE-2026-19499
+and CVE-2026-5435, the two high findings the website's image scan reported on `img-cc-lab-addon:v0.3.1`
+([run 45092780931](https://github.com/saulpatinojr/HCW-HybridCloudWorks/actions/runs/45092780931), job "Scout
+cloud-crawler"). Toolchain: Linux cloud session, a scratch environment on uv-managed CPython **3.15.0b4** (which
+`requires-python`, 3.15.2 or later, refuses for `uv sync`; uv had no 3.15.2 to download), filled from
+`uv export --frozen --no-hashes --all-groups --all-extras --no-emit-project` (uv 0.11.32, the session's; CI uses
+0.13.8), engine wheel included; tests run with `PYTHONPATH=src`.
+
+| Check | Executed here | Result |
+| --- | --- | --- |
+| The version in every place that says it: `pyproject.toml`, `uv.lock` (the `cloud-crawler-lab` entry), `__version__` | yes | all `0.3.2`. `uv lock` could not run here (no 3.15.2 interpreter), so the lock's one project-version line was changed by hand; `ci.yml`'s `uv lock --check` verifies it |
+| `python scripts/check_release_version.py`, `--rehearse` and `--tag v0.3.2` | yes | `release version consistent: 0.3.2`, then twice `release version consistent: 0.3.2, tag v0.3.2`, all exit 0 (the changelog has a dated `[0.3.2]` section and nothing under `[Unreleased]`) |
+| `ruff check .`, `ruff format --check .` | yes | `All checks passed!`, `83 files already formatted` |
+| `pytest -q --cov=src --cov-fail-under=85` | yes | 1842 passed; coverage 97.59 percent |
+| Nothing in the application changed since `v0.3.1` | yes | `git diff v0.3.1 origin/main` is empty for `src/`, `web/`, `samples/` and `docs/api/` |
+| Debian's fix is in the archive | yes, read-only | the [Debian security tracker](https://security-tracker.debian.org/tracker/CVE-2026-19499) lists both CVEs as fixed for trixie in `glibc 2.41-12+deb13u5`; the main `trixie` `Packages` index on deb.debian.org for amd64 and arm64 carries `libc6` and `libc-bin` at that version, and its `Release` file says Debian 13.8, dated 2026-11-21 |
+| The base image has no newer build | yes, read-only | Docker Hub's tag record and mirror.gcr.io both give `sha256:65a65fc7b30b…` for `python:3.15.2-slim-trixie`, the digest pinned here and in the website's `lab-image/versions.env`; its linux/amd64 image was pushed on 2026-11-05, before Debian 13.8. Docker Hub's registry itself answered the anonymous manifest request with HTTP 429 (too many requests), so its `Docker-Content-Digest` header was not read |
+| The image's final stage applies Debian's updates at build time | yes, static | `infrastructure/docker/Dockerfile` lines 49 and 50 (`apt-get update` then `apt-get upgrade -y`) in the `lab` stage; `publish-images.yml` builds with no `cache-from`, so the layer is rebuilt on every run rather than reused |
+| Docker build, Trivy scan, the publish dry run on the merged commit | **no**, after the merge | no Docker daemon here; CI's `image` job builds the image on the pull request, and the manual run of `publish-images.yml` on the merge commit builds, checks the boundary and scans (its header says a manual run never pushes); its Trivy step is the first check that `glibc` is fixed |
+| Push, provenance, SBOM, attestation, digest | **no**, CI on a `v*` tag only | the `v0.3.2` tag is the owner's call |
+
 ## Limitations recorded
 
 - The upload route exists (run 2026-10-26, issue 16). There is no MCP server and no trusted-caller session API yet; they
