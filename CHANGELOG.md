@@ -11,6 +11,13 @@ once, merge one before rebasing the next.
 
 ## [Unreleased]
 
+### Changed
+
+- **`docs/whats-new-upstream.md` notes that App releases gain a provenance file**
+  ([HCW-CloudCrawler_App#104](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/104)). The App's releases will
+  carry `cloud_crawler_core-<version>.intoto.jsonl`, the wheel's build provenance. Nothing here changes: this edition
+  fetches the wheel by exact address and `uv.lock` pins its sha256.
+
 ## [0.3.2] - 2026-11-23
 
 This release exists so that the lab image is built again and picks up Debian's fixed `glibc` (the GNU C Library, the

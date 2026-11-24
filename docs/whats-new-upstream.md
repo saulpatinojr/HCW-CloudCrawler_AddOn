@@ -31,6 +31,21 @@ host); nothing under `packages/` had changed since commit `4ba5add`.
 
 ## What changed
 
+### 2026-11-24: App releases gain a provenance file (no change needed here)
+
+- From the first App release after `v0.1.1`, the release page carries a fourth file,
+  `cloud_crawler_core-<version>.intoto.jsonl`, next to the wheel, the sdist and `cloud-crawler-core.cdx.json`. It is
+  the wheel's build provenance (a signed record of which workflow, tag and commit built it), the same proof GitHub
+  already kept in its attestation store, now also attached as a file
+  ([HCW-CloudCrawler_App#104](https://github.com/saulpatinojr/HCW-CloudCrawler_App/pull/104), merged 2026-11-24).
+- Reaches this repository? No. `core-update.yml` reads only the newest release's tag and fetches the wheel by its
+  exact address; `uv.lock` pins the wheel's sha256. The wheel's name, address and contents are unchanged, and
+  `v0.1.0` and `v0.1.1` are untouched.
+- What to run: nothing. Optional check of an adopted wheel, with the two files downloaded into one folder (the
+  version is the release adopted): `gh attestation verify cloud_crawler_core-0.1.2-py3-none-any.whl --repo
+  saulpatinojr/HCW-CloudCrawler_App --bundle cloud_crawler_core-0.1.2.intoto.jsonl`. Exit code 0 means the wheel is
+  the one that workflow built. Not run yet: no release carries the file until the next App release.
+
 ### 2026-11-23: release 0.3.2 of this edition is prepared (nothing new upstream)
 
 - Nothing changed upstream: the App's latest release is still `v0.1.1` (read on 2026-11-23), and the pin here stays
